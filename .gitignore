@@ -1,0 +1,67 @@
+# Local secrets; only sanitized configuration examples belong in Git.
+.env
+.env.*
+!.env.example
+!.env.*.example
+*.pem
+*.key
+
+# Dependencies, runtimes and caches (enable only the selected toolchain later).
+node_modules/
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.cache/
+.gradle/
+
+# Build, test and runtime output.
+dist/
+build/
+target/
+*.class
+*.jar
+!**/.mvn/wrapper/maven-wrapper.jar
+coverage/
+.coverage
+htmlcov/
+playwright-report/
+test-results/
+*.log
+*.tsbuildinfo
+
+# Local user data, raw evaluation output, downloads and worktrees.
+/local-data/
+/tmp/
+/.worktrees/
+/evals/.local/
+/apps/intelligence/artifacts/
+
+# Private document worktree and metadata; excluded from the code repository.
+/docs/
+/contracts/
+/.git-docs/
+/.editorconfig
+/.github/
+/AGENTS.md
+/CONTRIBUTING.md
+/WORKSPACE.md
+/scripts/
+/infra/
+/evals/
+/tests/
+/apps/**/*.md
+
+# Editor and operating system state.
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.swp
+*.swo
+
+# Keep dependency lockfiles, public entry docs and synthetic fixtures tracked.
