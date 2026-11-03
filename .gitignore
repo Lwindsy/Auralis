@@ -49,6 +49,11 @@ test-results/
 /AGENTS.md
 /CONTRIBUTING.md
 /WORKSPACE.md
+/PROJECT_MAP.md
+/PROJECT_STATUS.md
+/ARCHITECTURE.md
+/TESTS.md
+/.docs-governance.json
 /scripts/
 /infra/
 /evals/
