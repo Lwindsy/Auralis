@@ -1,0 +1,24 @@
+{
+  "format_version": 1,
+  "encoding": "UTF-8",
+  "row_format": "PostgreSQL COPY text, tab separated, LF terminated, \\N null",
+  "tables": [
+    {"key":"genre","schema":"catalog","columns":["id","mbid","name","comment"]},
+    {"key":"genre_alias","schema":"catalog","columns":["source_id","genre_id","name","sort_name","locale","source_type","primary_for_locale"]},
+    {"key":"genre_relation","schema":"catalog","columns":["source_id","source_genre","target_genre","relation_type","source_updated"]},
+    {"key":"artist","schema":"catalog","columns":["id","mbid","name","sort_name","comment","source_type","source_updated"]},
+    {"key":"album","schema":"catalog","columns":["id","mbid","title","comment","source_credit_id","primary_type","first_year","first_month","first_day","source_updated"]},
+    {"key":"album_secondary_type","schema":"catalog","columns":["album_id","name"]},
+    {"key":"album_credit","schema":"catalog","columns":["album_id","position","artist_id","credited_name","join_phrase"]},
+    {"key":"album_genre","schema":"catalog","columns":["album_id","genre_id","source_tag_id","support_count","source_updated"]},
+    {"key":"release_map","schema":"catalog","columns":["id","mbid","album_id"]},
+    {"key":"album_redirect","schema":"catalog","columns":["old_mbid","album_id"]},
+    {"key":"artist_redirect","schema":"catalog","columns":["old_mbid","artist_id"]},
+    {"key":"release_redirect","schema":"catalog","columns":["old_mbid","release_id"]},
+    {"key":"album_alias","schema":"catalog","columns":["source_id","album_id","name","sort_name","locale","source_type","primary_for_locale"]},
+    {"key":"artist_alias","schema":"catalog","columns":["source_id","artist_id","name","sort_name","locale","source_type","primary_for_locale"]},
+    {"key":"observation","schema":"statistics","columns":["id","entity_kind","window_year","listener_id","source_count","list_length","from_ts","to_ts","last_updated","source_member","source_line","row_sha256"]},
+    {"key":"album_listen","schema":"statistics","columns":["observation_id","album_id","listen_count","source_items"]},
+    {"key":"artist_listen","schema":"statistics","columns":["observation_id","artist_id","listen_count","source_items"]}
+  ]
+}
