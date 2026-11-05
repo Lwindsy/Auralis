@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "auralis-intelligence"
+version = "0.1.0"
+description = "Auralis album recall baseline"
+requires-python = ">=3.10"
+dependencies = ["numpy==2.2.6", "scipy==1.15.3"]
+
+[project.scripts]
+auralis-recall = "auralis_intelligence.recall.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"auralis_intelligence.recall" = ["*.schema.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
