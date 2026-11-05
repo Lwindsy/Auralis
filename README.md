@@ -31,6 +31,13 @@ snapshot binding for integration. The online execution service is still pending.
 
 请使用 Python 3.10+ 和应用清单中的依赖。调用方显式指定已获准的本地快照，入口返回候选作品 ID 与快照标识。在线执行服务仍待接入。
 
+This branch also supports the C-V0 comparison. Use `load_c_v0` from the same
+Python port, or add `--c-v0-model <model.npz>` to the local command with the
+matching snapshot. The trained artifact is supplied locally. A-V2 remains the default.
+
+本分支另提供 C-V0 对照。可调用同一端口的 `load_c_v0`，或在本地命令增加
+`--c-v0-model <model.npz>` 并传入匹配快照。训练权重由调用方本地提供，默认仍使用 A-V2。
+
 ## Planned experience / 计划中的体验
 
 - Provide genre preferences, favorite albums, or natural-language requests without logging in or saving a persistent personal taste profile.

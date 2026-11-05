@@ -3,12 +3,13 @@
 from dataclasses import replace
 from pathlib import Path
 
+from .c_v0 import load_comparison
 from .common import recall as _rank
 from .io import load_dataset
 from .neighborhood import NeighborhoodConfig, NeighborhoodModel
 from .types import Candidate, Preference, RecallModel, RecallRequest, RecallResult, WeightConfig
 
-__all__ = ["Candidate", "Preference", "RecallEngine", "RecallRequest", "RecallResult", "WeightConfig", "load_a_v2"]
+__all__ = ["Candidate", "Preference", "RecallEngine", "RecallRequest", "RecallResult", "WeightConfig", "load_a_v2", "load_c_v0"]
 
 
 class RecallEngine:
@@ -27,3 +28,8 @@ def load_a_v2(snapshot: Path, *, weights: WeightConfig) -> RecallEngine:
     data = load_dataset(Path(snapshot))
     model = NeighborhoodModel(NeighborhoodConfig(tag_fraction=0.0), weights).fit(data)
     return RecallEngine(model, "A-V2")
+
+
+def load_c_v0(snapshot: Path, artifact: Path, *, weights: WeightConfig) -> RecallEngine:
+    """Load the comparison baseline using a caller-authorized local artifact."""
+    return RecallEngine(load_comparison(Path(snapshot), Path(artifact), weights), "C-V0")
