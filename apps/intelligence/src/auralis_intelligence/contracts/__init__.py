@@ -53,7 +53,7 @@ def validate_message(message: Mapping[str, Any]) -> None:
 
 def envelope(name: str, payload: Any, request_id: str, trace_id: str = "local", span_id: str = "local") -> dict[str, Any]:
     result = {
-        "schema_version": "intel.v1", "contract_revision": "0.14",
+        "schema_version": "intel.v1", "contract_revision": "0.15",
         "request_id": request_id, "trace_context": {"trace_id": trace_id, "span_id": span_id},
         "message_type": name, "payload": deepcopy(payload),
     }
