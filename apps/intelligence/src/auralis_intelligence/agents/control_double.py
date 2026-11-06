@@ -42,6 +42,7 @@ class JavaControlDouble:
                  price_per_token: int = 1, now: Callable[[], datetime] | None = None) -> None:
         self.boot_id = coordinator_boot_id
         self.catalog = deepcopy(catalog or {})
+        self.known_review_refs: dict[str, list[dict[str, str]]] = {}
         self.price_per_token = price_per_token
         self.now = now or (lambda: datetime.now(timezone.utc))
         self.sessions: dict[str, BudgetAccount] = {}
@@ -196,7 +197,7 @@ class JavaControlDouble:
                 if identifier not in self.catalog or identifier in exclusions:
                     rejected.append({"release_group_id": identifier, "reason": "EXCLUDED" if identifier in exclusions else "UNKNOWN_IDENTITY"})
                 else:
-                    accepted.append({**candidate, "identity": deepcopy(self.catalog[identifier]), "known_review_refs": []})
+                    accepted.append({**candidate, "identity": deepcopy(self.catalog[identifier]), "known_review_refs": deepcopy(self.known_review_refs.get(identifier, []))})
             bundle_digest = digest(accepted)
             binding = {"candidate_bundle_digest": bundle_digest, "effective_preference_digest": effective["effective_preference_digest"], "exclusion_digest": payload["exclusion_digest"], "selection_config_revision": start["selection_config"]["revision"], "agent_policy_revision": start["agent_policy"]["revision"], "recall_binding": start["recall_binding"]}
             result = {"candidate_bundle_id": "bundle:" + execution_id, "digest": bundle_digest, "binding": binding, "accepted": accepted, "rejected": rejected, "counts": {"proposed": len(payload["candidates"]), "accepted": len(accepted), "rejected": len(rejected)}}
