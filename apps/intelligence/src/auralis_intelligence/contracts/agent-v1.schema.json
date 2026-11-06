@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:auralis:intelligence:0.15",
+  "$id": "urn:auralis:intelligence:0.16",
   "title": "Auralis internal agent messages",
   "$ref": "#/$defs/Envelope",
   "$defs": {
@@ -1353,7 +1353,7 @@
         "invocation_id": {
           "type": "string",
           "minLength": 1,
-          "maxLength": 160
+          "maxLength": 256
         },
         "attempt": {
           "type": "integer",
@@ -1464,7 +1464,7 @@
         "invocation_id": {
           "type": "string",
           "minLength": 1,
-          "maxLength": 160
+          "maxLength": 256
         },
         "decision": {
           "type": "string",
@@ -1544,12 +1544,12 @@
         "invocation_id": {
           "type": "string",
           "minLength": 1,
-          "maxLength": 160
+          "maxLength": 256
         },
         "receipt_id": {
           "type": "string",
           "minLength": 1,
-          "maxLength": 160
+          "maxLength": 256
         },
         "outcome": {
           "type": "string",
@@ -2319,7 +2319,7 @@
                 {
                   "type": "string",
                   "minLength": 1,
-                  "maxLength": 160
+                  "maxLength": 256
                 },
                 {
                   "type": "null"
@@ -2821,7 +2821,7 @@
         "invocation_id": {
           "type": "string",
           "minLength": 1,
-          "maxLength": 160
+          "maxLength": 256
         },
         "prompt_version": {
           "type": "string",
@@ -2960,7 +2960,7 @@
             {
               "type": "string",
               "minLength": 1,
-              "maxLength": 160
+              "maxLength": 256
             },
             {
               "type": "null"
@@ -3391,7 +3391,7 @@
           "items": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 160
+            "maxLength": 256
           },
           "maxItems": 1000,
           "minItems": 0,
@@ -3638,7 +3638,7 @@
             "delivery_id": {
               "type": "string",
               "minLength": 1,
-              "maxLength": 160
+              "maxLength": 256
             },
             "kind": {
               "const": "CARD_BATCH"
@@ -3719,7 +3719,7 @@
             "delivery_id": {
               "type": "string",
               "minLength": 1,
-              "maxLength": 160
+              "maxLength": 256
             },
             "kind": {
               "const": "SCREENINGS"
@@ -3805,7 +3805,7 @@
             "delivery_id": {
               "type": "string",
               "minLength": 1,
-              "maxLength": 160
+              "maxLength": 256
             },
             "kind": {
               "const": "ORDER_UPDATE"
@@ -3886,7 +3886,7 @@
             "delivery_id": {
               "type": "string",
               "minLength": 1,
-              "maxLength": 160
+              "maxLength": 256
             },
             "kind": {
               "const": "LONG_REVIEW"
@@ -3967,7 +3967,7 @@
             "delivery_id": {
               "type": "string",
               "minLength": 1,
-              "maxLength": 160
+              "maxLength": 256
             },
             "kind": {
               "const": "SUPPLY_STATUS"
@@ -4048,7 +4048,7 @@
             "delivery_id": {
               "type": "string",
               "minLength": 1,
-              "maxLength": 160
+              "maxLength": 256
             },
             "kind": {
               "const": "ROUND_REPORT"
@@ -4670,7 +4670,7 @@
           "items": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 160
+            "maxLength": 256
           },
           "maxItems": 1000,
           "minItems": 0,
@@ -4934,7 +4934,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.15"
+              "const": "0.16"
             },
             "request_id": {
               "type": "string",
@@ -4985,7 +4985,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.15"
+              "const": "0.16"
             },
             "request_id": {
               "type": "string",
@@ -5036,7 +5036,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.15"
+              "const": "0.16"
             },
             "request_id": {
               "type": "string",
@@ -5087,7 +5087,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.15"
+              "const": "0.16"
             },
             "request_id": {
               "type": "string",
@@ -5138,7 +5138,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.15"
+              "const": "0.16"
             },
             "request_id": {
               "type": "string",
@@ -5189,7 +5189,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.15"
+              "const": "0.16"
             },
             "request_id": {
               "type": "string",
@@ -5240,7 +5240,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.15"
+              "const": "0.16"
             },
             "request_id": {
               "type": "string",
@@ -5291,7 +5291,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.15"
+              "const": "0.16"
             },
             "request_id": {
               "type": "string",
@@ -5342,7 +5342,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.15"
+              "const": "0.16"
             },
             "request_id": {
               "type": "string",
@@ -5393,7 +5393,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.15"
+              "const": "0.16"
             },
             "request_id": {
               "type": "string",
@@ -5444,7 +5444,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.15"
+              "const": "0.16"
             },
             "request_id": {
               "type": "string",
@@ -5495,7 +5495,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.15"
+              "const": "0.16"
             },
             "request_id": {
               "type": "string",
@@ -5546,7 +5546,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.15"
+              "const": "0.16"
             },
             "request_id": {
               "type": "string",
@@ -5597,7 +5597,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.15"
+              "const": "0.16"
             },
             "request_id": {
               "type": "string",
@@ -5648,7 +5648,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.15"
+              "const": "0.16"
             },
             "request_id": {
               "type": "string",
@@ -5699,7 +5699,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.15"
+              "const": "0.16"
             },
             "request_id": {
               "type": "string",
@@ -5750,7 +5750,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.15"
+              "const": "0.16"
             },
             "request_id": {
               "type": "string",
@@ -5801,7 +5801,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.15"
+              "const": "0.16"
             },
             "request_id": {
               "type": "string",
@@ -5852,7 +5852,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.15"
+              "const": "0.16"
             },
             "request_id": {
               "type": "string",
@@ -5903,7 +5903,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.15"
+              "const": "0.16"
             },
             "request_id": {
               "type": "string",
@@ -5954,7 +5954,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.15"
+              "const": "0.16"
             },
             "request_id": {
               "type": "string",
@@ -6005,7 +6005,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.15"
+              "const": "0.16"
             },
             "request_id": {
               "type": "string",
@@ -6056,7 +6056,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.15"
+              "const": "0.16"
             },
             "request_id": {
               "type": "string",
@@ -6555,7 +6555,7 @@
         "invocation_id": {
           "type": "string",
           "minLength": 1,
-          "maxLength": 160
+          "maxLength": 256
         },
         "status": {
           "enum": [
