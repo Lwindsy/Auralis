@@ -1,0 +1,1986 @@
+[
+  {
+    "name": "first-round-natural-language",
+    "message": {
+      "schema_version": "intel.v1",
+      "contract_revision": "0.14",
+      "request_id": "request-start",
+      "trace_context": {
+        "trace_id": "local",
+        "span_id": "local"
+      },
+      "message_type": "RoundStart",
+      "payload": {
+        "execution_id": "execution-1",
+        "operation": "DISCOVERY_ROUND",
+        "start_mode": "FRESH",
+        "session_id": "session-1",
+        "round_id": "round-1",
+        "round_seq": 1,
+        "parent_round_id": null,
+        "run_id": "run-1",
+        "run_kind": "INITIAL",
+        "foreground": true,
+        "erasure_handle": "fixture",
+        "boot": {
+          "python_boot_id": "fixture",
+          "coordinator_boot_id": "fixture"
+        },
+        "selection_config": {
+          "revision": "fixture",
+          "recall_target_count": 20,
+          "shortlist_target_count": 8,
+          "recommendation_target_count": 3
+        },
+        "agent_policy": {
+          "revision": "fixture",
+          "digest": "sha256:289a61f18e888aaea86eb2a636496529c4ceadd6ff3131193be22ecbdaabe9b3",
+          "timing": {
+            "shortlist_freeze_ms": 120000,
+            "short_review_tech_timeout_ms": 120000,
+            "select_tech_timeout_ms": 120000,
+            "long_review_timeout_ms": 120000,
+            "research_timeout_fg_ms": 120000,
+            "research_timeout_bg_ms": 120000,
+            "interpret_timeout_ms": 120000,
+            "recall_timeout_ms": 120000
+          },
+          "screening": {
+            "score_scale": "ANCHORED_1_5",
+            "shortlist_min_score": 3,
+            "supplement_min_score": 3,
+            "min_qualified_reads": 2,
+            "reads_per_album_initial": 3,
+            "max_reads_per_album": 6,
+            "max_searches_per_album": 2,
+            "min_review_chars": 200,
+            "excerpt_token_cap": 4000
+          },
+          "supply": {
+            "wave_overprovision": 0,
+            "replenish_watermark": 1,
+            "supply_batch_size": 1,
+            "rerun_exclusion_scope": "ALL_PRIOR_EXCEPT_READ_FAILED",
+            "next_round_start": "ON_DEMAND",
+            "max_rounds_per_session": 5
+          },
+          "writing": {
+            "short_min_han": 80,
+            "short_max_han": 180,
+            "long_min_han": 1000,
+            "long_section_min_han": 150,
+            "long_extra_max_searches": 1,
+            "long_extra_max_reads": 2,
+            "long_tool_turns": 1
+          },
+          "concurrency": {
+            "model_max_in_flight": 20,
+            "background_model_max_in_flight": 8,
+            "search_max_in_flight": 4,
+            "read_max_in_flight": 8,
+            "read_max_per_host": 2
+          },
+          "recall": {
+            "weights": {
+              "special": 1,
+              "focus": 1
+            }
+          }
+        },
+        "budget": {
+          "session_budget_scope_id": "fixture",
+          "round_budget_scope_id": "fixture",
+          "limits": {
+            "session_cap_microusd": 300000,
+            "round_cap_microusd": 60000,
+            "lane_caps": {
+              "FOREGROUND": 25000,
+              "BACKGROUND": 35000
+            },
+            "model_calls": 200,
+            "search_calls": 100,
+            "read_calls": 200
+          },
+          "remaining_at_issue": {
+            "session": 300000,
+            "round": 60000,
+            "FOREGROUND": 25000,
+            "BACKGROUND": 35000
+          },
+          "structure_repair": {
+            "foreground_per_run": 1,
+            "background_per_round": 1
+          }
+        },
+        "deadlines": {
+          "round_deadline_at": "2099-01-01T00:00:00Z",
+          "idle_close_ms": 1
+        },
+        "model_bindings": {
+          "interpret": {
+            "ref": "fixture",
+            "revision": "fixture",
+            "model": "fixture",
+            "price_revision": "fixture",
+            "max_input_tokens": 1,
+            "max_output_tokens": 1
+          },
+          "screen": {
+            "ref": "fixture",
+            "revision": "fixture",
+            "model": "fixture",
+            "price_revision": "fixture",
+            "max_input_tokens": 1,
+            "max_output_tokens": 1
+          },
+          "select": {
+            "ref": "fixture",
+            "revision": "fixture",
+            "model": "fixture",
+            "price_revision": "fixture",
+            "max_input_tokens": 1,
+            "max_output_tokens": 1
+          },
+          "write": {
+            "ref": "fixture",
+            "revision": "fixture",
+            "model": "fixture",
+            "price_revision": "fixture",
+            "max_input_tokens": 1,
+            "max_output_tokens": 1
+          }
+        },
+        "recall_binding": {
+          "strategy_revision": "fixture",
+          "data_snapshot_id": "fixture",
+          "weights_digest": "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+        },
+        "source_policy": {
+          "policy_epoch": 0,
+          "valid_until": "2099-01-01T00:00:00Z",
+          "rules": [],
+          "default_decision": "DENY",
+          "guards": {
+            "https_only": true,
+            "deny_ip_literals": true,
+            "deny_private_networks": true,
+            "max_redirects": 0,
+            "max_bytes": 1,
+            "read_timeout_ms": 1
+          }
+        },
+        "input": {
+          "raw": {
+            "liked_genres": [
+              {
+                "genre_id": "jazz",
+                "strength": "special",
+                "focused": true
+              }
+            ],
+            "disliked_genre_ids": [],
+            "liked_albums": [],
+            "mode": "familiar",
+            "request_text": "想听爵士，适合深夜独处；不要太吵。",
+            "language": "fixture",
+            "input_digest": "sha256:856a73d9980ee045ad3fdbd43a7f49ad5b058dde02531aa3f4a34585b10775c4"
+          },
+          "accepted_preferences": null,
+          "exclusions": [],
+          "exclusion_digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "capabilities": [],
+        "continuation": null,
+        "curated_candidates": null,
+        "payload_digest": "sha256:9327c3706f186b6c021bbb4ad677a1fb9c2a650cd8b6180e9516734b6f56f540"
+      }
+    },
+    "structural_valid": true,
+    "semantic_valid": true
+  },
+  {
+    "name": "missing-boot",
+    "message": {
+      "schema_version": "intel.v1",
+      "contract_revision": "0.14",
+      "request_id": "request-start",
+      "trace_context": {
+        "trace_id": "local",
+        "span_id": "local"
+      },
+      "message_type": "RoundStart",
+      "payload": {
+        "execution_id": "execution-1",
+        "operation": "DISCOVERY_ROUND",
+        "start_mode": "FRESH",
+        "session_id": "session-1",
+        "round_id": "round-1",
+        "round_seq": 1,
+        "parent_round_id": null,
+        "run_id": "run-1",
+        "run_kind": "INITIAL",
+        "foreground": true,
+        "erasure_handle": "fixture",
+        "selection_config": {
+          "revision": "fixture",
+          "recall_target_count": 20,
+          "shortlist_target_count": 8,
+          "recommendation_target_count": 3
+        },
+        "agent_policy": {
+          "revision": "fixture",
+          "digest": "sha256:289a61f18e888aaea86eb2a636496529c4ceadd6ff3131193be22ecbdaabe9b3",
+          "timing": {
+            "shortlist_freeze_ms": 120000,
+            "short_review_tech_timeout_ms": 120000,
+            "select_tech_timeout_ms": 120000,
+            "long_review_timeout_ms": 120000,
+            "research_timeout_fg_ms": 120000,
+            "research_timeout_bg_ms": 120000,
+            "interpret_timeout_ms": 120000,
+            "recall_timeout_ms": 120000
+          },
+          "screening": {
+            "score_scale": "ANCHORED_1_5",
+            "shortlist_min_score": 3,
+            "supplement_min_score": 3,
+            "min_qualified_reads": 2,
+            "reads_per_album_initial": 3,
+            "max_reads_per_album": 6,
+            "max_searches_per_album": 2,
+            "min_review_chars": 200,
+            "excerpt_token_cap": 4000
+          },
+          "supply": {
+            "wave_overprovision": 0,
+            "replenish_watermark": 1,
+            "supply_batch_size": 1,
+            "rerun_exclusion_scope": "ALL_PRIOR_EXCEPT_READ_FAILED",
+            "next_round_start": "ON_DEMAND",
+            "max_rounds_per_session": 5
+          },
+          "writing": {
+            "short_min_han": 80,
+            "short_max_han": 180,
+            "long_min_han": 1000,
+            "long_section_min_han": 150,
+            "long_extra_max_searches": 1,
+            "long_extra_max_reads": 2,
+            "long_tool_turns": 1
+          },
+          "concurrency": {
+            "model_max_in_flight": 20,
+            "background_model_max_in_flight": 8,
+            "search_max_in_flight": 4,
+            "read_max_in_flight": 8,
+            "read_max_per_host": 2
+          },
+          "recall": {
+            "weights": {
+              "special": 1,
+              "focus": 1
+            }
+          }
+        },
+        "budget": {
+          "session_budget_scope_id": "fixture",
+          "round_budget_scope_id": "fixture",
+          "limits": {
+            "session_cap_microusd": 300000,
+            "round_cap_microusd": 60000,
+            "lane_caps": {
+              "FOREGROUND": 25000,
+              "BACKGROUND": 35000
+            },
+            "model_calls": 200,
+            "search_calls": 100,
+            "read_calls": 200
+          },
+          "remaining_at_issue": {
+            "session": 300000,
+            "round": 60000,
+            "FOREGROUND": 25000,
+            "BACKGROUND": 35000
+          },
+          "structure_repair": {
+            "foreground_per_run": 1,
+            "background_per_round": 1
+          }
+        },
+        "deadlines": {
+          "round_deadline_at": "2099-01-01T00:00:00Z",
+          "idle_close_ms": 1
+        },
+        "model_bindings": {
+          "interpret": {
+            "ref": "fixture",
+            "revision": "fixture",
+            "model": "fixture",
+            "price_revision": "fixture",
+            "max_input_tokens": 1,
+            "max_output_tokens": 1
+          },
+          "screen": {
+            "ref": "fixture",
+            "revision": "fixture",
+            "model": "fixture",
+            "price_revision": "fixture",
+            "max_input_tokens": 1,
+            "max_output_tokens": 1
+          },
+          "select": {
+            "ref": "fixture",
+            "revision": "fixture",
+            "model": "fixture",
+            "price_revision": "fixture",
+            "max_input_tokens": 1,
+            "max_output_tokens": 1
+          },
+          "write": {
+            "ref": "fixture",
+            "revision": "fixture",
+            "model": "fixture",
+            "price_revision": "fixture",
+            "max_input_tokens": 1,
+            "max_output_tokens": 1
+          }
+        },
+        "recall_binding": {
+          "strategy_revision": "fixture",
+          "data_snapshot_id": "fixture",
+          "weights_digest": "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+        },
+        "source_policy": {
+          "policy_epoch": 0,
+          "valid_until": "2099-01-01T00:00:00Z",
+          "rules": [],
+          "default_decision": "DENY",
+          "guards": {
+            "https_only": true,
+            "deny_ip_literals": true,
+            "deny_private_networks": true,
+            "max_redirects": 0,
+            "max_bytes": 1,
+            "read_timeout_ms": 1
+          }
+        },
+        "input": {
+          "raw": {
+            "liked_genres": [
+              {
+                "genre_id": "jazz",
+                "strength": "special",
+                "focused": true
+              }
+            ],
+            "disliked_genre_ids": [],
+            "liked_albums": [],
+            "mode": "familiar",
+            "request_text": "想听爵士，适合深夜独处；不要太吵。",
+            "language": "fixture",
+            "input_digest": "sha256:856a73d9980ee045ad3fdbd43a7f49ad5b058dde02531aa3f4a34585b10775c4"
+          },
+          "accepted_preferences": null,
+          "exclusions": [],
+          "exclusion_digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "capabilities": [],
+        "continuation": null,
+        "curated_candidates": null,
+        "payload_digest": "sha256:9327c3706f186b6c021bbb4ad677a1fb9c2a650cd8b6180e9516734b6f56f540"
+      }
+    },
+    "structural_valid": false,
+    "semantic_valid": false
+  },
+  {
+    "name": "unknown-operation",
+    "message": {
+      "schema_version": "intel.v1",
+      "contract_revision": "0.14",
+      "request_id": "request-start",
+      "trace_context": {
+        "trace_id": "local",
+        "span_id": "local"
+      },
+      "message_type": "RoundStart",
+      "payload": {
+        "execution_id": "execution-1",
+        "operation": "EXECUTE_SHELL",
+        "start_mode": "FRESH",
+        "session_id": "session-1",
+        "round_id": "round-1",
+        "round_seq": 1,
+        "parent_round_id": null,
+        "run_id": "run-1",
+        "run_kind": "INITIAL",
+        "foreground": true,
+        "erasure_handle": "fixture",
+        "boot": {
+          "python_boot_id": "fixture",
+          "coordinator_boot_id": "fixture"
+        },
+        "selection_config": {
+          "revision": "fixture",
+          "recall_target_count": 20,
+          "shortlist_target_count": 8,
+          "recommendation_target_count": 3
+        },
+        "agent_policy": {
+          "revision": "fixture",
+          "digest": "sha256:289a61f18e888aaea86eb2a636496529c4ceadd6ff3131193be22ecbdaabe9b3",
+          "timing": {
+            "shortlist_freeze_ms": 120000,
+            "short_review_tech_timeout_ms": 120000,
+            "select_tech_timeout_ms": 120000,
+            "long_review_timeout_ms": 120000,
+            "research_timeout_fg_ms": 120000,
+            "research_timeout_bg_ms": 120000,
+            "interpret_timeout_ms": 120000,
+            "recall_timeout_ms": 120000
+          },
+          "screening": {
+            "score_scale": "ANCHORED_1_5",
+            "shortlist_min_score": 3,
+            "supplement_min_score": 3,
+            "min_qualified_reads": 2,
+            "reads_per_album_initial": 3,
+            "max_reads_per_album": 6,
+            "max_searches_per_album": 2,
+            "min_review_chars": 200,
+            "excerpt_token_cap": 4000
+          },
+          "supply": {
+            "wave_overprovision": 0,
+            "replenish_watermark": 1,
+            "supply_batch_size": 1,
+            "rerun_exclusion_scope": "ALL_PRIOR_EXCEPT_READ_FAILED",
+            "next_round_start": "ON_DEMAND",
+            "max_rounds_per_session": 5
+          },
+          "writing": {
+            "short_min_han": 80,
+            "short_max_han": 180,
+            "long_min_han": 1000,
+            "long_section_min_han": 150,
+            "long_extra_max_searches": 1,
+            "long_extra_max_reads": 2,
+            "long_tool_turns": 1
+          },
+          "concurrency": {
+            "model_max_in_flight": 20,
+            "background_model_max_in_flight": 8,
+            "search_max_in_flight": 4,
+            "read_max_in_flight": 8,
+            "read_max_per_host": 2
+          },
+          "recall": {
+            "weights": {
+              "special": 1,
+              "focus": 1
+            }
+          }
+        },
+        "budget": {
+          "session_budget_scope_id": "fixture",
+          "round_budget_scope_id": "fixture",
+          "limits": {
+            "session_cap_microusd": 300000,
+            "round_cap_microusd": 60000,
+            "lane_caps": {
+              "FOREGROUND": 25000,
+              "BACKGROUND": 35000
+            },
+            "model_calls": 200,
+            "search_calls": 100,
+            "read_calls": 200
+          },
+          "remaining_at_issue": {
+            "session": 300000,
+            "round": 60000,
+            "FOREGROUND": 25000,
+            "BACKGROUND": 35000
+          },
+          "structure_repair": {
+            "foreground_per_run": 1,
+            "background_per_round": 1
+          }
+        },
+        "deadlines": {
+          "round_deadline_at": "2099-01-01T00:00:00Z",
+          "idle_close_ms": 1
+        },
+        "model_bindings": {
+          "interpret": {
+            "ref": "fixture",
+            "revision": "fixture",
+            "model": "fixture",
+            "price_revision": "fixture",
+            "max_input_tokens": 1,
+            "max_output_tokens": 1
+          },
+          "screen": {
+            "ref": "fixture",
+            "revision": "fixture",
+            "model": "fixture",
+            "price_revision": "fixture",
+            "max_input_tokens": 1,
+            "max_output_tokens": 1
+          },
+          "select": {
+            "ref": "fixture",
+            "revision": "fixture",
+            "model": "fixture",
+            "price_revision": "fixture",
+            "max_input_tokens": 1,
+            "max_output_tokens": 1
+          },
+          "write": {
+            "ref": "fixture",
+            "revision": "fixture",
+            "model": "fixture",
+            "price_revision": "fixture",
+            "max_input_tokens": 1,
+            "max_output_tokens": 1
+          }
+        },
+        "recall_binding": {
+          "strategy_revision": "fixture",
+          "data_snapshot_id": "fixture",
+          "weights_digest": "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+        },
+        "source_policy": {
+          "policy_epoch": 0,
+          "valid_until": "2099-01-01T00:00:00Z",
+          "rules": [],
+          "default_decision": "DENY",
+          "guards": {
+            "https_only": true,
+            "deny_ip_literals": true,
+            "deny_private_networks": true,
+            "max_redirects": 0,
+            "max_bytes": 1,
+            "read_timeout_ms": 1
+          }
+        },
+        "input": {
+          "raw": {
+            "liked_genres": [
+              {
+                "genre_id": "jazz",
+                "strength": "special",
+                "focused": true
+              }
+            ],
+            "disliked_genre_ids": [],
+            "liked_albums": [],
+            "mode": "familiar",
+            "request_text": "想听爵士，适合深夜独处；不要太吵。",
+            "language": "fixture",
+            "input_digest": "sha256:856a73d9980ee045ad3fdbd43a7f49ad5b058dde02531aa3f4a34585b10775c4"
+          },
+          "accepted_preferences": null,
+          "exclusions": [],
+          "exclusion_digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "capabilities": [],
+        "continuation": null,
+        "curated_candidates": null,
+        "payload_digest": "sha256:9327c3706f186b6c021bbb4ad677a1fb9c2a650cd8b6180e9516734b6f56f540"
+      }
+    },
+    "structural_valid": false,
+    "semantic_valid": false
+  },
+  {
+    "name": "unknown-capability",
+    "message": {
+      "schema_version": "intel.v1",
+      "contract_revision": "0.14",
+      "request_id": "request-start",
+      "trace_context": {
+        "trace_id": "local",
+        "span_id": "local"
+      },
+      "message_type": "RoundStart",
+      "payload": {
+        "execution_id": "execution-1",
+        "operation": "DISCOVERY_ROUND",
+        "start_mode": "FRESH",
+        "session_id": "session-1",
+        "round_id": "round-1",
+        "round_seq": 1,
+        "parent_round_id": null,
+        "run_id": "run-1",
+        "run_kind": "INITIAL",
+        "foreground": true,
+        "erasure_handle": "fixture",
+        "boot": {
+          "python_boot_id": "fixture",
+          "coordinator_boot_id": "fixture"
+        },
+        "selection_config": {
+          "revision": "fixture",
+          "recall_target_count": 20,
+          "shortlist_target_count": 8,
+          "recommendation_target_count": 3
+        },
+        "agent_policy": {
+          "revision": "fixture",
+          "digest": "sha256:289a61f18e888aaea86eb2a636496529c4ceadd6ff3131193be22ecbdaabe9b3",
+          "timing": {
+            "shortlist_freeze_ms": 120000,
+            "short_review_tech_timeout_ms": 120000,
+            "select_tech_timeout_ms": 120000,
+            "long_review_timeout_ms": 120000,
+            "research_timeout_fg_ms": 120000,
+            "research_timeout_bg_ms": 120000,
+            "interpret_timeout_ms": 120000,
+            "recall_timeout_ms": 120000
+          },
+          "screening": {
+            "score_scale": "ANCHORED_1_5",
+            "shortlist_min_score": 3,
+            "supplement_min_score": 3,
+            "min_qualified_reads": 2,
+            "reads_per_album_initial": 3,
+            "max_reads_per_album": 6,
+            "max_searches_per_album": 2,
+            "min_review_chars": 200,
+            "excerpt_token_cap": 4000
+          },
+          "supply": {
+            "wave_overprovision": 0,
+            "replenish_watermark": 1,
+            "supply_batch_size": 1,
+            "rerun_exclusion_scope": "ALL_PRIOR_EXCEPT_READ_FAILED",
+            "next_round_start": "ON_DEMAND",
+            "max_rounds_per_session": 5
+          },
+          "writing": {
+            "short_min_han": 80,
+            "short_max_han": 180,
+            "long_min_han": 1000,
+            "long_section_min_han": 150,
+            "long_extra_max_searches": 1,
+            "long_extra_max_reads": 2,
+            "long_tool_turns": 1
+          },
+          "concurrency": {
+            "model_max_in_flight": 20,
+            "background_model_max_in_flight": 8,
+            "search_max_in_flight": 4,
+            "read_max_in_flight": 8,
+            "read_max_per_host": 2
+          },
+          "recall": {
+            "weights": {
+              "special": 1,
+              "focus": 1
+            }
+          }
+        },
+        "budget": {
+          "session_budget_scope_id": "fixture",
+          "round_budget_scope_id": "fixture",
+          "limits": {
+            "session_cap_microusd": 300000,
+            "round_cap_microusd": 60000,
+            "lane_caps": {
+              "FOREGROUND": 25000,
+              "BACKGROUND": 35000
+            },
+            "model_calls": 200,
+            "search_calls": 100,
+            "read_calls": 200
+          },
+          "remaining_at_issue": {
+            "session": 300000,
+            "round": 60000,
+            "FOREGROUND": 25000,
+            "BACKGROUND": 35000
+          },
+          "structure_repair": {
+            "foreground_per_run": 1,
+            "background_per_round": 1
+          }
+        },
+        "deadlines": {
+          "round_deadline_at": "2099-01-01T00:00:00Z",
+          "idle_close_ms": 1
+        },
+        "model_bindings": {
+          "interpret": {
+            "ref": "fixture",
+            "revision": "fixture",
+            "model": "fixture",
+            "price_revision": "fixture",
+            "max_input_tokens": 1,
+            "max_output_tokens": 1
+          },
+          "screen": {
+            "ref": "fixture",
+            "revision": "fixture",
+            "model": "fixture",
+            "price_revision": "fixture",
+            "max_input_tokens": 1,
+            "max_output_tokens": 1
+          },
+          "select": {
+            "ref": "fixture",
+            "revision": "fixture",
+            "model": "fixture",
+            "price_revision": "fixture",
+            "max_input_tokens": 1,
+            "max_output_tokens": 1
+          },
+          "write": {
+            "ref": "fixture",
+            "revision": "fixture",
+            "model": "fixture",
+            "price_revision": "fixture",
+            "max_input_tokens": 1,
+            "max_output_tokens": 1
+          }
+        },
+        "recall_binding": {
+          "strategy_revision": "fixture",
+          "data_snapshot_id": "fixture",
+          "weights_digest": "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+        },
+        "source_policy": {
+          "policy_epoch": 0,
+          "valid_until": "2099-01-01T00:00:00Z",
+          "rules": [],
+          "default_decision": "DENY",
+          "guards": {
+            "https_only": true,
+            "deny_ip_literals": true,
+            "deny_private_networks": true,
+            "max_redirects": 0,
+            "max_bytes": 1,
+            "read_timeout_ms": 1
+          }
+        },
+        "input": {
+          "raw": {
+            "liked_genres": [
+              {
+                "genre_id": "jazz",
+                "strength": "special",
+                "focused": true
+              }
+            ],
+            "disliked_genre_ids": [],
+            "liked_albums": [],
+            "mode": "familiar",
+            "request_text": "想听爵士，适合深夜独处；不要太吵。",
+            "language": "fixture",
+            "input_digest": "sha256:856a73d9980ee045ad3fdbd43a7f49ad5b058dde02531aa3f4a34585b10775c4"
+          },
+          "accepted_preferences": null,
+          "exclusions": [],
+          "exclusion_digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "capabilities": [
+          "shell.v1"
+        ],
+        "continuation": null,
+        "curated_candidates": null,
+        "payload_digest": "sha256:9327c3706f186b6c021bbb4ad677a1fb9c2a650cd8b6180e9516734b6f56f540"
+      }
+    },
+    "structural_valid": false,
+    "semantic_valid": false
+  },
+  {
+    "name": "forged-digest",
+    "message": {
+      "schema_version": "intel.v1",
+      "contract_revision": "0.14",
+      "request_id": "request-start",
+      "trace_context": {
+        "trace_id": "local",
+        "span_id": "local"
+      },
+      "message_type": "RoundStart",
+      "payload": {
+        "execution_id": "execution-1",
+        "operation": "DISCOVERY_ROUND",
+        "start_mode": "FRESH",
+        "session_id": "session-1",
+        "round_id": "round-1",
+        "round_seq": 1,
+        "parent_round_id": null,
+        "run_id": "run-1",
+        "run_kind": "INITIAL",
+        "foreground": true,
+        "erasure_handle": "fixture",
+        "boot": {
+          "python_boot_id": "fixture",
+          "coordinator_boot_id": "fixture"
+        },
+        "selection_config": {
+          "revision": "fixture",
+          "recall_target_count": 20,
+          "shortlist_target_count": 8,
+          "recommendation_target_count": 3
+        },
+        "agent_policy": {
+          "revision": "fixture",
+          "digest": "sha256:289a61f18e888aaea86eb2a636496529c4ceadd6ff3131193be22ecbdaabe9b3",
+          "timing": {
+            "shortlist_freeze_ms": 120000,
+            "short_review_tech_timeout_ms": 120000,
+            "select_tech_timeout_ms": 120000,
+            "long_review_timeout_ms": 120000,
+            "research_timeout_fg_ms": 120000,
+            "research_timeout_bg_ms": 120000,
+            "interpret_timeout_ms": 120000,
+            "recall_timeout_ms": 120000
+          },
+          "screening": {
+            "score_scale": "ANCHORED_1_5",
+            "shortlist_min_score": 3,
+            "supplement_min_score": 3,
+            "min_qualified_reads": 2,
+            "reads_per_album_initial": 3,
+            "max_reads_per_album": 6,
+            "max_searches_per_album": 2,
+            "min_review_chars": 200,
+            "excerpt_token_cap": 4000
+          },
+          "supply": {
+            "wave_overprovision": 0,
+            "replenish_watermark": 1,
+            "supply_batch_size": 1,
+            "rerun_exclusion_scope": "ALL_PRIOR_EXCEPT_READ_FAILED",
+            "next_round_start": "ON_DEMAND",
+            "max_rounds_per_session": 5
+          },
+          "writing": {
+            "short_min_han": 80,
+            "short_max_han": 180,
+            "long_min_han": 1000,
+            "long_section_min_han": 150,
+            "long_extra_max_searches": 1,
+            "long_extra_max_reads": 2,
+            "long_tool_turns": 1
+          },
+          "concurrency": {
+            "model_max_in_flight": 20,
+            "background_model_max_in_flight": 8,
+            "search_max_in_flight": 4,
+            "read_max_in_flight": 8,
+            "read_max_per_host": 2
+          },
+          "recall": {
+            "weights": {
+              "special": 1,
+              "focus": 1
+            }
+          }
+        },
+        "budget": {
+          "session_budget_scope_id": "fixture",
+          "round_budget_scope_id": "fixture",
+          "limits": {
+            "session_cap_microusd": 300000,
+            "round_cap_microusd": 60000,
+            "lane_caps": {
+              "FOREGROUND": 25000,
+              "BACKGROUND": 35000
+            },
+            "model_calls": 200,
+            "search_calls": 100,
+            "read_calls": 200
+          },
+          "remaining_at_issue": {
+            "session": 300000,
+            "round": 60000,
+            "FOREGROUND": 25000,
+            "BACKGROUND": 35000
+          },
+          "structure_repair": {
+            "foreground_per_run": 1,
+            "background_per_round": 1
+          }
+        },
+        "deadlines": {
+          "round_deadline_at": "2099-01-01T00:00:00Z",
+          "idle_close_ms": 1
+        },
+        "model_bindings": {
+          "interpret": {
+            "ref": "fixture",
+            "revision": "fixture",
+            "model": "fixture",
+            "price_revision": "fixture",
+            "max_input_tokens": 1,
+            "max_output_tokens": 1
+          },
+          "screen": {
+            "ref": "fixture",
+            "revision": "fixture",
+            "model": "fixture",
+            "price_revision": "fixture",
+            "max_input_tokens": 1,
+            "max_output_tokens": 1
+          },
+          "select": {
+            "ref": "fixture",
+            "revision": "fixture",
+            "model": "fixture",
+            "price_revision": "fixture",
+            "max_input_tokens": 1,
+            "max_output_tokens": 1
+          },
+          "write": {
+            "ref": "fixture",
+            "revision": "fixture",
+            "model": "fixture",
+            "price_revision": "fixture",
+            "max_input_tokens": 1,
+            "max_output_tokens": 1
+          }
+        },
+        "recall_binding": {
+          "strategy_revision": "fixture",
+          "data_snapshot_id": "fixture",
+          "weights_digest": "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+        },
+        "source_policy": {
+          "policy_epoch": 0,
+          "valid_until": "2099-01-01T00:00:00Z",
+          "rules": [],
+          "default_decision": "DENY",
+          "guards": {
+            "https_only": true,
+            "deny_ip_literals": true,
+            "deny_private_networks": true,
+            "max_redirects": 0,
+            "max_bytes": 1,
+            "read_timeout_ms": 1
+          }
+        },
+        "input": {
+          "raw": {
+            "liked_genres": [
+              {
+                "genre_id": "jazz",
+                "strength": "special",
+                "focused": true
+              }
+            ],
+            "disliked_genre_ids": [],
+            "liked_albums": [],
+            "mode": "familiar",
+            "request_text": "想听爵士，适合深夜独处；不要太吵。",
+            "language": "fixture",
+            "input_digest": "sha256:856a73d9980ee045ad3fdbd43a7f49ad5b058dde02531aa3f4a34585b10775c4"
+          },
+          "accepted_preferences": null,
+          "exclusions": [],
+          "exclusion_digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "capabilities": [],
+        "continuation": null,
+        "curated_candidates": null,
+        "payload_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+      }
+    },
+    "structural_valid": true,
+    "semantic_valid": false
+  },
+  {
+    "name": "forged-count-binding",
+    "message": {
+      "schema_version": "intel.v1",
+      "contract_revision": "0.14",
+      "request_id": "request-start",
+      "trace_context": {
+        "trace_id": "local",
+        "span_id": "local"
+      },
+      "message_type": "RoundStart",
+      "payload": {
+        "execution_id": "execution-1",
+        "operation": "DISCOVERY_ROUND",
+        "start_mode": "FRESH",
+        "session_id": "session-1",
+        "round_id": "round-1",
+        "round_seq": 1,
+        "parent_round_id": null,
+        "run_id": "run-1",
+        "run_kind": "INITIAL",
+        "foreground": true,
+        "erasure_handle": "fixture",
+        "boot": {
+          "python_boot_id": "fixture",
+          "coordinator_boot_id": "fixture"
+        },
+        "selection_config": {
+          "revision": "fixture",
+          "recall_target_count": 20,
+          "shortlist_target_count": 8,
+          "recommendation_target_count": 30
+        },
+        "agent_policy": {
+          "revision": "fixture",
+          "digest": "sha256:289a61f18e888aaea86eb2a636496529c4ceadd6ff3131193be22ecbdaabe9b3",
+          "timing": {
+            "shortlist_freeze_ms": 120000,
+            "short_review_tech_timeout_ms": 120000,
+            "select_tech_timeout_ms": 120000,
+            "long_review_timeout_ms": 120000,
+            "research_timeout_fg_ms": 120000,
+            "research_timeout_bg_ms": 120000,
+            "interpret_timeout_ms": 120000,
+            "recall_timeout_ms": 120000
+          },
+          "screening": {
+            "score_scale": "ANCHORED_1_5",
+            "shortlist_min_score": 3,
+            "supplement_min_score": 3,
+            "min_qualified_reads": 2,
+            "reads_per_album_initial": 3,
+            "max_reads_per_album": 6,
+            "max_searches_per_album": 2,
+            "min_review_chars": 200,
+            "excerpt_token_cap": 4000
+          },
+          "supply": {
+            "wave_overprovision": 0,
+            "replenish_watermark": 1,
+            "supply_batch_size": 1,
+            "rerun_exclusion_scope": "ALL_PRIOR_EXCEPT_READ_FAILED",
+            "next_round_start": "ON_DEMAND",
+            "max_rounds_per_session": 5
+          },
+          "writing": {
+            "short_min_han": 80,
+            "short_max_han": 180,
+            "long_min_han": 1000,
+            "long_section_min_han": 150,
+            "long_extra_max_searches": 1,
+            "long_extra_max_reads": 2,
+            "long_tool_turns": 1
+          },
+          "concurrency": {
+            "model_max_in_flight": 20,
+            "background_model_max_in_flight": 8,
+            "search_max_in_flight": 4,
+            "read_max_in_flight": 8,
+            "read_max_per_host": 2
+          },
+          "recall": {
+            "weights": {
+              "special": 1,
+              "focus": 1
+            }
+          }
+        },
+        "budget": {
+          "session_budget_scope_id": "fixture",
+          "round_budget_scope_id": "fixture",
+          "limits": {
+            "session_cap_microusd": 300000,
+            "round_cap_microusd": 60000,
+            "lane_caps": {
+              "FOREGROUND": 25000,
+              "BACKGROUND": 35000
+            },
+            "model_calls": 200,
+            "search_calls": 100,
+            "read_calls": 200
+          },
+          "remaining_at_issue": {
+            "session": 300000,
+            "round": 60000,
+            "FOREGROUND": 25000,
+            "BACKGROUND": 35000
+          },
+          "structure_repair": {
+            "foreground_per_run": 1,
+            "background_per_round": 1
+          }
+        },
+        "deadlines": {
+          "round_deadline_at": "2099-01-01T00:00:00Z",
+          "idle_close_ms": 1
+        },
+        "model_bindings": {
+          "interpret": {
+            "ref": "fixture",
+            "revision": "fixture",
+            "model": "fixture",
+            "price_revision": "fixture",
+            "max_input_tokens": 1,
+            "max_output_tokens": 1
+          },
+          "screen": {
+            "ref": "fixture",
+            "revision": "fixture",
+            "model": "fixture",
+            "price_revision": "fixture",
+            "max_input_tokens": 1,
+            "max_output_tokens": 1
+          },
+          "select": {
+            "ref": "fixture",
+            "revision": "fixture",
+            "model": "fixture",
+            "price_revision": "fixture",
+            "max_input_tokens": 1,
+            "max_output_tokens": 1
+          },
+          "write": {
+            "ref": "fixture",
+            "revision": "fixture",
+            "model": "fixture",
+            "price_revision": "fixture",
+            "max_input_tokens": 1,
+            "max_output_tokens": 1
+          }
+        },
+        "recall_binding": {
+          "strategy_revision": "fixture",
+          "data_snapshot_id": "fixture",
+          "weights_digest": "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+        },
+        "source_policy": {
+          "policy_epoch": 0,
+          "valid_until": "2099-01-01T00:00:00Z",
+          "rules": [],
+          "default_decision": "DENY",
+          "guards": {
+            "https_only": true,
+            "deny_ip_literals": true,
+            "deny_private_networks": true,
+            "max_redirects": 0,
+            "max_bytes": 1,
+            "read_timeout_ms": 1
+          }
+        },
+        "input": {
+          "raw": {
+            "liked_genres": [
+              {
+                "genre_id": "jazz",
+                "strength": "special",
+                "focused": true
+              }
+            ],
+            "disliked_genre_ids": [],
+            "liked_albums": [],
+            "mode": "familiar",
+            "request_text": "想听爵士，适合深夜独处；不要太吵。",
+            "language": "fixture",
+            "input_digest": "sha256:856a73d9980ee045ad3fdbd43a7f49ad5b058dde02531aa3f4a34585b10775c4"
+          },
+          "accepted_preferences": null,
+          "exclusions": [],
+          "exclusion_digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "capabilities": [],
+        "continuation": null,
+        "curated_candidates": null,
+        "payload_digest": "sha256:9327c3706f186b6c021bbb4ad677a1fb9c2a650cd8b6180e9516734b6f56f540"
+      }
+    },
+    "structural_valid": true,
+    "semantic_valid": false
+  },
+  {
+    "name": "raw-text-in-continuation",
+    "message": {
+      "schema_version": "intel.v1",
+      "contract_revision": "0.14",
+      "request_id": "request-start",
+      "trace_context": {
+        "trace_id": "local",
+        "span_id": "local"
+      },
+      "message_type": "RoundStart",
+      "payload": {
+        "execution_id": "execution-1",
+        "operation": "DISCOVERY_ROUND",
+        "start_mode": "CONTINUE",
+        "session_id": "session-1",
+        "round_id": "round-1",
+        "round_seq": 1,
+        "parent_round_id": null,
+        "run_id": "run-1",
+        "run_kind": "INITIAL",
+        "foreground": true,
+        "erasure_handle": "fixture",
+        "boot": {
+          "python_boot_id": "fixture",
+          "coordinator_boot_id": "fixture"
+        },
+        "selection_config": {
+          "revision": "fixture",
+          "recall_target_count": 20,
+          "shortlist_target_count": 8,
+          "recommendation_target_count": 3
+        },
+        "agent_policy": {
+          "revision": "fixture",
+          "digest": "sha256:289a61f18e888aaea86eb2a636496529c4ceadd6ff3131193be22ecbdaabe9b3",
+          "timing": {
+            "shortlist_freeze_ms": 120000,
+            "short_review_tech_timeout_ms": 120000,
+            "select_tech_timeout_ms": 120000,
+            "long_review_timeout_ms": 120000,
+            "research_timeout_fg_ms": 120000,
+            "research_timeout_bg_ms": 120000,
+            "interpret_timeout_ms": 120000,
+            "recall_timeout_ms": 120000
+          },
+          "screening": {
+            "score_scale": "ANCHORED_1_5",
+            "shortlist_min_score": 3,
+            "supplement_min_score": 3,
+            "min_qualified_reads": 2,
+            "reads_per_album_initial": 3,
+            "max_reads_per_album": 6,
+            "max_searches_per_album": 2,
+            "min_review_chars": 200,
+            "excerpt_token_cap": 4000
+          },
+          "supply": {
+            "wave_overprovision": 0,
+            "replenish_watermark": 1,
+            "supply_batch_size": 1,
+            "rerun_exclusion_scope": "ALL_PRIOR_EXCEPT_READ_FAILED",
+            "next_round_start": "ON_DEMAND",
+            "max_rounds_per_session": 5
+          },
+          "writing": {
+            "short_min_han": 80,
+            "short_max_han": 180,
+            "long_min_han": 1000,
+            "long_section_min_han": 150,
+            "long_extra_max_searches": 1,
+            "long_extra_max_reads": 2,
+            "long_tool_turns": 1
+          },
+          "concurrency": {
+            "model_max_in_flight": 20,
+            "background_model_max_in_flight": 8,
+            "search_max_in_flight": 4,
+            "read_max_in_flight": 8,
+            "read_max_per_host": 2
+          },
+          "recall": {
+            "weights": {
+              "special": 1,
+              "focus": 1
+            }
+          }
+        },
+        "budget": {
+          "session_budget_scope_id": "fixture",
+          "round_budget_scope_id": "fixture",
+          "limits": {
+            "session_cap_microusd": 300000,
+            "round_cap_microusd": 60000,
+            "lane_caps": {
+              "FOREGROUND": 25000,
+              "BACKGROUND": 35000
+            },
+            "model_calls": 200,
+            "search_calls": 100,
+            "read_calls": 200
+          },
+          "remaining_at_issue": {
+            "session": 300000,
+            "round": 60000,
+            "FOREGROUND": 25000,
+            "BACKGROUND": 35000
+          },
+          "structure_repair": {
+            "foreground_per_run": 1,
+            "background_per_round": 1
+          }
+        },
+        "deadlines": {
+          "round_deadline_at": "2099-01-01T00:00:00Z",
+          "idle_close_ms": 1
+        },
+        "model_bindings": {
+          "interpret": {
+            "ref": "fixture",
+            "revision": "fixture",
+            "model": "fixture",
+            "price_revision": "fixture",
+            "max_input_tokens": 1,
+            "max_output_tokens": 1
+          },
+          "screen": {
+            "ref": "fixture",
+            "revision": "fixture",
+            "model": "fixture",
+            "price_revision": "fixture",
+            "max_input_tokens": 1,
+            "max_output_tokens": 1
+          },
+          "select": {
+            "ref": "fixture",
+            "revision": "fixture",
+            "model": "fixture",
+            "price_revision": "fixture",
+            "max_input_tokens": 1,
+            "max_output_tokens": 1
+          },
+          "write": {
+            "ref": "fixture",
+            "revision": "fixture",
+            "model": "fixture",
+            "price_revision": "fixture",
+            "max_input_tokens": 1,
+            "max_output_tokens": 1
+          }
+        },
+        "recall_binding": {
+          "strategy_revision": "fixture",
+          "data_snapshot_id": "fixture",
+          "weights_digest": "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+        },
+        "source_policy": {
+          "policy_epoch": 0,
+          "valid_until": "2099-01-01T00:00:00Z",
+          "rules": [],
+          "default_decision": "DENY",
+          "guards": {
+            "https_only": true,
+            "deny_ip_literals": true,
+            "deny_private_networks": true,
+            "max_redirects": 0,
+            "max_bytes": 1,
+            "read_timeout_ms": 1
+          }
+        },
+        "input": {
+          "raw": {
+            "liked_genres": [
+              {
+                "genre_id": "jazz",
+                "strength": "special",
+                "focused": true
+              }
+            ],
+            "disliked_genre_ids": [],
+            "liked_albums": [],
+            "mode": "familiar",
+            "request_text": "想听爵士，适合深夜独处；不要太吵。",
+            "language": "fixture",
+            "input_digest": "sha256:856a73d9980ee045ad3fdbd43a7f49ad5b058dde02531aa3f4a34585b10775c4"
+          },
+          "accepted_preferences": null,
+          "exclusions": [],
+          "exclusion_digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "capabilities": [],
+        "continuation": null,
+        "curated_candidates": null,
+        "payload_digest": "sha256:9327c3706f186b6c021bbb4ad677a1fb9c2a650cd8b6180e9516734b6f56f540"
+      }
+    },
+    "structural_valid": true,
+    "semantic_valid": false
+  },
+  {
+    "name": "unknown-contract-revision",
+    "message": {
+      "schema_version": "intel.v1",
+      "contract_revision": "999",
+      "request_id": "request-start",
+      "trace_context": {
+        "trace_id": "local",
+        "span_id": "local"
+      },
+      "message_type": "RoundStart",
+      "payload": {
+        "execution_id": "execution-1",
+        "operation": "DISCOVERY_ROUND",
+        "start_mode": "FRESH",
+        "session_id": "session-1",
+        "round_id": "round-1",
+        "round_seq": 1,
+        "parent_round_id": null,
+        "run_id": "run-1",
+        "run_kind": "INITIAL",
+        "foreground": true,
+        "erasure_handle": "fixture",
+        "boot": {
+          "python_boot_id": "fixture",
+          "coordinator_boot_id": "fixture"
+        },
+        "selection_config": {
+          "revision": "fixture",
+          "recall_target_count": 20,
+          "shortlist_target_count": 8,
+          "recommendation_target_count": 3
+        },
+        "agent_policy": {
+          "revision": "fixture",
+          "digest": "sha256:289a61f18e888aaea86eb2a636496529c4ceadd6ff3131193be22ecbdaabe9b3",
+          "timing": {
+            "shortlist_freeze_ms": 120000,
+            "short_review_tech_timeout_ms": 120000,
+            "select_tech_timeout_ms": 120000,
+            "long_review_timeout_ms": 120000,
+            "research_timeout_fg_ms": 120000,
+            "research_timeout_bg_ms": 120000,
+            "interpret_timeout_ms": 120000,
+            "recall_timeout_ms": 120000
+          },
+          "screening": {
+            "score_scale": "ANCHORED_1_5",
+            "shortlist_min_score": 3,
+            "supplement_min_score": 3,
+            "min_qualified_reads": 2,
+            "reads_per_album_initial": 3,
+            "max_reads_per_album": 6,
+            "max_searches_per_album": 2,
+            "min_review_chars": 200,
+            "excerpt_token_cap": 4000
+          },
+          "supply": {
+            "wave_overprovision": 0,
+            "replenish_watermark": 1,
+            "supply_batch_size": 1,
+            "rerun_exclusion_scope": "ALL_PRIOR_EXCEPT_READ_FAILED",
+            "next_round_start": "ON_DEMAND",
+            "max_rounds_per_session": 5
+          },
+          "writing": {
+            "short_min_han": 80,
+            "short_max_han": 180,
+            "long_min_han": 1000,
+            "long_section_min_han": 150,
+            "long_extra_max_searches": 1,
+            "long_extra_max_reads": 2,
+            "long_tool_turns": 1
+          },
+          "concurrency": {
+            "model_max_in_flight": 20,
+            "background_model_max_in_flight": 8,
+            "search_max_in_flight": 4,
+            "read_max_in_flight": 8,
+            "read_max_per_host": 2
+          },
+          "recall": {
+            "weights": {
+              "special": 1,
+              "focus": 1
+            }
+          }
+        },
+        "budget": {
+          "session_budget_scope_id": "fixture",
+          "round_budget_scope_id": "fixture",
+          "limits": {
+            "session_cap_microusd": 300000,
+            "round_cap_microusd": 60000,
+            "lane_caps": {
+              "FOREGROUND": 25000,
+              "BACKGROUND": 35000
+            },
+            "model_calls": 200,
+            "search_calls": 100,
+            "read_calls": 200
+          },
+          "remaining_at_issue": {
+            "session": 300000,
+            "round": 60000,
+            "FOREGROUND": 25000,
+            "BACKGROUND": 35000
+          },
+          "structure_repair": {
+            "foreground_per_run": 1,
+            "background_per_round": 1
+          }
+        },
+        "deadlines": {
+          "round_deadline_at": "2099-01-01T00:00:00Z",
+          "idle_close_ms": 1
+        },
+        "model_bindings": {
+          "interpret": {
+            "ref": "fixture",
+            "revision": "fixture",
+            "model": "fixture",
+            "price_revision": "fixture",
+            "max_input_tokens": 1,
+            "max_output_tokens": 1
+          },
+          "screen": {
+            "ref": "fixture",
+            "revision": "fixture",
+            "model": "fixture",
+            "price_revision": "fixture",
+            "max_input_tokens": 1,
+            "max_output_tokens": 1
+          },
+          "select": {
+            "ref": "fixture",
+            "revision": "fixture",
+            "model": "fixture",
+            "price_revision": "fixture",
+            "max_input_tokens": 1,
+            "max_output_tokens": 1
+          },
+          "write": {
+            "ref": "fixture",
+            "revision": "fixture",
+            "model": "fixture",
+            "price_revision": "fixture",
+            "max_input_tokens": 1,
+            "max_output_tokens": 1
+          }
+        },
+        "recall_binding": {
+          "strategy_revision": "fixture",
+          "data_snapshot_id": "fixture",
+          "weights_digest": "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+        },
+        "source_policy": {
+          "policy_epoch": 0,
+          "valid_until": "2099-01-01T00:00:00Z",
+          "rules": [],
+          "default_decision": "DENY",
+          "guards": {
+            "https_only": true,
+            "deny_ip_literals": true,
+            "deny_private_networks": true,
+            "max_redirects": 0,
+            "max_bytes": 1,
+            "read_timeout_ms": 1
+          }
+        },
+        "input": {
+          "raw": {
+            "liked_genres": [
+              {
+                "genre_id": "jazz",
+                "strength": "special",
+                "focused": true
+              }
+            ],
+            "disliked_genre_ids": [],
+            "liked_albums": [],
+            "mode": "familiar",
+            "request_text": "想听爵士，适合深夜独处；不要太吵。",
+            "language": "fixture",
+            "input_digest": "sha256:856a73d9980ee045ad3fdbd43a7f49ad5b058dde02531aa3f4a34585b10775c4"
+          },
+          "accepted_preferences": null,
+          "exclusions": [],
+          "exclusion_digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "capabilities": [],
+        "continuation": null,
+        "curated_candidates": null,
+        "payload_digest": "sha256:9327c3706f186b6c021bbb4ad677a1fb9c2a650cd8b6180e9516734b6f56f540"
+      }
+    },
+    "structural_valid": false,
+    "semantic_valid": false
+  },
+  {
+    "name": "extra-sensitive-property",
+    "message": {
+      "schema_version": "intel.v1",
+      "contract_revision": "0.14",
+      "request_id": "request-start",
+      "trace_context": {
+        "trace_id": "local",
+        "span_id": "local"
+      },
+      "message_type": "RoundStart",
+      "payload": {
+        "execution_id": "execution-1",
+        "operation": "DISCOVERY_ROUND",
+        "start_mode": "FRESH",
+        "session_id": "session-1",
+        "round_id": "round-1",
+        "round_seq": 1,
+        "parent_round_id": null,
+        "run_id": "run-1",
+        "run_kind": "INITIAL",
+        "foreground": true,
+        "erasure_handle": "fixture",
+        "boot": {
+          "python_boot_id": "fixture",
+          "coordinator_boot_id": "fixture"
+        },
+        "selection_config": {
+          "revision": "fixture",
+          "recall_target_count": 20,
+          "shortlist_target_count": 8,
+          "recommendation_target_count": 3
+        },
+        "agent_policy": {
+          "revision": "fixture",
+          "digest": "sha256:289a61f18e888aaea86eb2a636496529c4ceadd6ff3131193be22ecbdaabe9b3",
+          "timing": {
+            "shortlist_freeze_ms": 120000,
+            "short_review_tech_timeout_ms": 120000,
+            "select_tech_timeout_ms": 120000,
+            "long_review_timeout_ms": 120000,
+            "research_timeout_fg_ms": 120000,
+            "research_timeout_bg_ms": 120000,
+            "interpret_timeout_ms": 120000,
+            "recall_timeout_ms": 120000
+          },
+          "screening": {
+            "score_scale": "ANCHORED_1_5",
+            "shortlist_min_score": 3,
+            "supplement_min_score": 3,
+            "min_qualified_reads": 2,
+            "reads_per_album_initial": 3,
+            "max_reads_per_album": 6,
+            "max_searches_per_album": 2,
+            "min_review_chars": 200,
+            "excerpt_token_cap": 4000
+          },
+          "supply": {
+            "wave_overprovision": 0,
+            "replenish_watermark": 1,
+            "supply_batch_size": 1,
+            "rerun_exclusion_scope": "ALL_PRIOR_EXCEPT_READ_FAILED",
+            "next_round_start": "ON_DEMAND",
+            "max_rounds_per_session": 5
+          },
+          "writing": {
+            "short_min_han": 80,
+            "short_max_han": 180,
+            "long_min_han": 1000,
+            "long_section_min_han": 150,
+            "long_extra_max_searches": 1,
+            "long_extra_max_reads": 2,
+            "long_tool_turns": 1
+          },
+          "concurrency": {
+            "model_max_in_flight": 20,
+            "background_model_max_in_flight": 8,
+            "search_max_in_flight": 4,
+            "read_max_in_flight": 8,
+            "read_max_per_host": 2
+          },
+          "recall": {
+            "weights": {
+              "special": 1,
+              "focus": 1
+            }
+          }
+        },
+        "budget": {
+          "session_budget_scope_id": "fixture",
+          "round_budget_scope_id": "fixture",
+          "limits": {
+            "session_cap_microusd": 300000,
+            "round_cap_microusd": 60000,
+            "lane_caps": {
+              "FOREGROUND": 25000,
+              "BACKGROUND": 35000
+            },
+            "model_calls": 200,
+            "search_calls": 100,
+            "read_calls": 200
+          },
+          "remaining_at_issue": {
+            "session": 300000,
+            "round": 60000,
+            "FOREGROUND": 25000,
+            "BACKGROUND": 35000
+          },
+          "structure_repair": {
+            "foreground_per_run": 1,
+            "background_per_round": 1
+          }
+        },
+        "deadlines": {
+          "round_deadline_at": "2099-01-01T00:00:00Z",
+          "idle_close_ms": 1
+        },
+        "model_bindings": {
+          "interpret": {
+            "ref": "fixture",
+            "revision": "fixture",
+            "model": "fixture",
+            "price_revision": "fixture",
+            "max_input_tokens": 1,
+            "max_output_tokens": 1
+          },
+          "screen": {
+            "ref": "fixture",
+            "revision": "fixture",
+            "model": "fixture",
+            "price_revision": "fixture",
+            "max_input_tokens": 1,
+            "max_output_tokens": 1
+          },
+          "select": {
+            "ref": "fixture",
+            "revision": "fixture",
+            "model": "fixture",
+            "price_revision": "fixture",
+            "max_input_tokens": 1,
+            "max_output_tokens": 1
+          },
+          "write": {
+            "ref": "fixture",
+            "revision": "fixture",
+            "model": "fixture",
+            "price_revision": "fixture",
+            "max_input_tokens": 1,
+            "max_output_tokens": 1
+          }
+        },
+        "recall_binding": {
+          "strategy_revision": "fixture",
+          "data_snapshot_id": "fixture",
+          "weights_digest": "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+        },
+        "source_policy": {
+          "policy_epoch": 0,
+          "valid_until": "2099-01-01T00:00:00Z",
+          "rules": [],
+          "default_decision": "DENY",
+          "guards": {
+            "https_only": true,
+            "deny_ip_literals": true,
+            "deny_private_networks": true,
+            "max_redirects": 0,
+            "max_bytes": 1,
+            "read_timeout_ms": 1
+          }
+        },
+        "input": {
+          "raw": {
+            "liked_genres": [
+              {
+                "genre_id": "jazz",
+                "strength": "special",
+                "focused": true
+              }
+            ],
+            "disliked_genre_ids": [],
+            "liked_albums": [],
+            "mode": "familiar",
+            "request_text": "想听爵士，适合深夜独处；不要太吵。",
+            "language": "fixture",
+            "input_digest": "sha256:856a73d9980ee045ad3fdbd43a7f49ad5b058dde02531aa3f4a34585b10775c4"
+          },
+          "accepted_preferences": null,
+          "exclusions": [],
+          "exclusion_digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "capabilities": [],
+        "continuation": null,
+        "curated_candidates": null,
+        "payload_digest": "sha256:9327c3706f186b6c021bbb4ad677a1fb9c2a650cd8b6180e9516734b6f56f540",
+        "api_key": "synthetic-not-a-key"
+      }
+    },
+    "structural_valid": false,
+    "semantic_valid": false
+  },
+  {
+    "name": "RuntimeView",
+    "message": {
+      "schema_version": "intel.v1",
+      "contract_revision": "0.14",
+      "request_id": "request-RuntimeView",
+      "trace_context": {
+        "trace_id": "local",
+        "span_id": "local"
+      },
+      "message_type": "RuntimeView",
+      "payload": {
+        "boot_id": "fixture",
+        "status": "READY",
+        "execution_id": null,
+        "foreground": false
+      }
+    },
+    "structural_valid": true,
+    "semantic_valid": true
+  },
+  {
+    "name": "Error",
+    "message": {
+      "schema_version": "intel.v1",
+      "contract_revision": "0.14",
+      "request_id": "request-Error",
+      "trace_context": {
+        "trace_id": "local",
+        "span_id": "local"
+      },
+      "message_type": "Error",
+      "payload": {
+        "code": "EXECUTOR_BUSY",
+        "retry_disposition": "WAIT_FOR_SLOT",
+        "reason": "fixture"
+      }
+    },
+    "structural_valid": true,
+    "semantic_valid": true
+  },
+  {
+    "name": "UsageReceipt",
+    "message": {
+      "schema_version": "intel.v1",
+      "contract_revision": "0.14",
+      "request_id": "request-UsageReceipt",
+      "trace_context": {
+        "trace_id": "local",
+        "span_id": "local"
+      },
+      "message_type": "UsageReceipt",
+      "payload": {
+        "invocation_id": "fixture",
+        "receipt_id": "fixture",
+        "outcome": "COMPLETED",
+        "finish": "COMPLETE",
+        "input_tokens": null,
+        "cached_input_tokens": null,
+        "output_tokens": null,
+        "provider_request_ref": null
+      }
+    },
+    "structural_valid": true,
+    "semantic_valid": true
+  },
+  {
+    "name": "ReadAuthorization",
+    "message": {
+      "schema_version": "intel.v1",
+      "contract_revision": "0.14",
+      "request_id": "request-ReadAuthorization",
+      "trace_context": {
+        "trace_id": "local",
+        "span_id": "local"
+      },
+      "message_type": "ReadAuthorization",
+      "payload": {
+        "read_id": "fixture",
+        "candidate_id": "fixture",
+        "url": "https://reviews.example/album",
+        "purpose": "SCREEN_RESEARCH",
+        "policy_epoch": 0
+      }
+    },
+    "structural_valid": true,
+    "semantic_valid": true
+  },
+  {
+    "name": "ReadAuthorizationResult",
+    "message": {
+      "schema_version": "intel.v1",
+      "contract_revision": "0.14",
+      "request_id": "request-ReadAuthorizationResult",
+      "trace_context": {
+        "trace_id": "local",
+        "span_id": "local"
+      },
+      "message_type": "ReadAuthorizationResult",
+      "payload": {
+        "read_id": "fixture",
+        "decision": "GRANTED",
+        "policy_epoch": 0,
+        "reason": null
+      }
+    },
+    "structural_valid": true,
+    "semantic_valid": true
+  },
+  {
+    "name": "SourcePolicy",
+    "message": {
+      "schema_version": "intel.v1",
+      "contract_revision": "0.14",
+      "request_id": "request-SourcePolicy",
+      "trace_context": {
+        "trace_id": "local",
+        "span_id": "local"
+      },
+      "message_type": "SourcePolicy",
+      "payload": {
+        "policy_epoch": 0,
+        "valid_until": "2099-01-01T00:00:00Z",
+        "rules": [],
+        "default_decision": "DENY",
+        "guards": {
+          "https_only": true,
+          "deny_ip_literals": true,
+          "deny_private_networks": true,
+          "max_redirects": 0,
+          "max_bytes": 1,
+          "read_timeout_ms": 1
+        }
+      }
+    },
+    "structural_valid": true,
+    "semantic_valid": true
+  },
+  {
+    "name": "Acknowledgement",
+    "message": {
+      "schema_version": "intel.v1",
+      "contract_revision": "0.14",
+      "request_id": "request-Acknowledgement",
+      "trace_context": {
+        "trace_id": "local",
+        "span_id": "local"
+      },
+      "message_type": "Acknowledgement",
+      "payload": {
+        "accepted": false
+      }
+    },
+    "structural_valid": true,
+    "semantic_valid": true
+  },
+  {
+    "name": "registered-reading",
+    "message": {
+      "schema_version": "intel.v1",
+      "contract_revision": "0.14",
+      "request_id": "request-read",
+      "trace_context": {
+        "trace_id": "local",
+        "span_id": "local"
+      },
+      "message_type": "ReadReceipts",
+      "payload": {
+        "items": [
+          {
+            "read_id": "read-1",
+            "candidate_id": "candidate-1",
+            "purpose": "SCREEN_RESEARCH",
+            "requested_url": "https://reviews.example/album",
+            "final_url": "https://reviews.example/album",
+            "publisher_key": "reviews.example",
+            "status": "READ_OK",
+            "failure_reason": null,
+            "read_at": "2099-01-01T00:00:00Z",
+            "content_digest": "sha256:0263eaf7e3e290c4687802d313a8740cbee55d0abc5e6f2e7ed90fad7b4b3244",
+            "text_chars": 200,
+            "near_duplicate_of": null,
+            "checks": {
+              "mentions_title": false,
+              "mentions_artist": false
+            },
+            "source_policy_epoch": 0
+          }
+        ]
+      }
+    },
+    "structural_valid": true,
+    "semantic_valid": true
+  }
+]
