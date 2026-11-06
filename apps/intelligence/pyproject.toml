@@ -21,6 +21,7 @@ where = ["src"]
 [tool.setuptools.package-data]
 "auralis_intelligence.recall" = ["*.schema.json"]
 "auralis_intelligence.contracts" = ["*.json"]
+"auralis_intelligence.album_reviews" = ["*.txt", "*.schema.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
