@@ -7,7 +7,7 @@ name = "auralis-intelligence"
 version = "0.1.0"
 description = "Auralis album recall baseline"
 requires-python = ">=3.10"
-dependencies = ["numpy==2.2.6", "scipy==1.15.3", "jsonschema==4.23.0", "rfc8785==0.1.4"]
+dependencies = ["numpy==2.2.6", "scipy==1.15.3", "jsonschema==4.23.0", "rfc8785==0.1.4", "httpx==0.28.1", "aiohttp==3.12.15", "beautifulsoup4==4.13.5", "tldextract==5.3.0"]
 
 [project.optional-dependencies]
 test = ["pytest>=8,<9", "openapi-spec-validator==0.7.2"]

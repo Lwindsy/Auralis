@@ -3,6 +3,7 @@
 import asyncio
 from copy import deepcopy
 from datetime import datetime, timezone
+from dataclasses import replace
 import json
 import time
 from typing import Any, Awaitable, Callable
@@ -119,7 +120,7 @@ class Execution:
             except asyncio.CancelledError:
                 cancelled = True
                 reply = CallResult(outcome="CANCELLED_AFTER_SEND", finish="ERROR")
-            except (TimeoutError, OSError, ControlUnavailable):
+            except (asyncio.TimeoutError, TimeoutError, OSError, ControlUnavailable):
                 reply = CallResult(outcome="UNCERTAIN", finish="ERROR")
             finally:
                 receipt = {"invocation_id": plan["invocation_id"], "receipt_id": plan["invocation_id"] + ":usage", "outcome": reply.outcome, "finish": reply.finish, "input_tokens": reply.usage.input_tokens, "output_tokens": reply.usage.output_tokens, "cached_input_tokens": reply.usage.cached_input_tokens, "provider_request_ref": reply.provider_request_ref}
@@ -136,7 +137,7 @@ class Execution:
             if cancelled:
                 raise asyncio.CancelledError
             self.ensure_active()
-            return reply
+            return replace(reply, invocation_id=plan["invocation_id"])
         return await self.scheduler.run(resource, perform, priority=priority, background=plan["lane"] == "BACKGROUND")
 
     async def flush_usage(self) -> None:

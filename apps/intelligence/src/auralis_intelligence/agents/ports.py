@@ -26,6 +26,7 @@ class CallResult:
     finish: str = "COMPLETE"
     usage: Usage = Usage()
     provider_request_ref: str | None = None
+    invocation_id: str | None = None
 
 
 class ControlPort(Protocol):
