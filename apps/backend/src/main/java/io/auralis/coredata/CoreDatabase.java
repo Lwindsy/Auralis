@@ -92,6 +92,7 @@ public final class CoreDatabase {
             s.execute("GRANT USAGE ON SCHEMA catalog,statistics TO " + reader);
             s.execute("GRANT SELECT ON catalog.current_album,catalog.current_artist,catalog.current_genre,statistics.current_album_listen,statistics.current_artist_listen TO " + reader);
             s.execute("GRANT SELECT ON statistics.current_album_popularity TO " + reader);
+            s.execute("GRANT SELECT ON catalog.current_genre_hierarchy_annotation TO " + reader);
             for(var spec:layout.path("tables"))if(spec.path("schema").asText().equals("catalog"))s.execute("GRANT SELECT ON catalog.current_"+spec.path("key").asText()+" TO "+reader);
         }
         System.out.println("CORE_MIGRATION_READY");
