@@ -47,6 +47,7 @@ test-results/
 /.editorconfig
 /.github/
 /AGENTS.md
+/CLAUDE.md
 /CONTRIBUTING.md
 /WORKSPACE.md
 /PROJECT_MAP.md
