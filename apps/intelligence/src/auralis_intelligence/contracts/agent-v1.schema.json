@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:auralis:intelligence:0.14",
+  "$id": "urn:auralis:intelligence:0.15",
   "title": "Auralis internal agent messages",
   "$ref": "#/$defs/Envelope",
   "$defs": {
@@ -4934,7 +4934,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.14"
+              "const": "0.15"
             },
             "request_id": {
               "type": "string",
@@ -4985,7 +4985,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.14"
+              "const": "0.15"
             },
             "request_id": {
               "type": "string",
@@ -5036,7 +5036,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.14"
+              "const": "0.15"
             },
             "request_id": {
               "type": "string",
@@ -5087,7 +5087,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.14"
+              "const": "0.15"
             },
             "request_id": {
               "type": "string",
@@ -5138,7 +5138,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.14"
+              "const": "0.15"
             },
             "request_id": {
               "type": "string",
@@ -5189,7 +5189,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.14"
+              "const": "0.15"
             },
             "request_id": {
               "type": "string",
@@ -5240,7 +5240,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.14"
+              "const": "0.15"
             },
             "request_id": {
               "type": "string",
@@ -5291,7 +5291,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.14"
+              "const": "0.15"
             },
             "request_id": {
               "type": "string",
@@ -5342,7 +5342,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.14"
+              "const": "0.15"
             },
             "request_id": {
               "type": "string",
@@ -5393,7 +5393,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.14"
+              "const": "0.15"
             },
             "request_id": {
               "type": "string",
@@ -5444,7 +5444,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.14"
+              "const": "0.15"
             },
             "request_id": {
               "type": "string",
@@ -5495,7 +5495,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.14"
+              "const": "0.15"
             },
             "request_id": {
               "type": "string",
@@ -5546,7 +5546,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.14"
+              "const": "0.15"
             },
             "request_id": {
               "type": "string",
@@ -5597,7 +5597,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.14"
+              "const": "0.15"
             },
             "request_id": {
               "type": "string",
@@ -5648,7 +5648,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.14"
+              "const": "0.15"
             },
             "request_id": {
               "type": "string",
@@ -5699,7 +5699,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.14"
+              "const": "0.15"
             },
             "request_id": {
               "type": "string",
@@ -5750,7 +5750,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.14"
+              "const": "0.15"
             },
             "request_id": {
               "type": "string",
@@ -5801,7 +5801,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.14"
+              "const": "0.15"
             },
             "request_id": {
               "type": "string",
@@ -5852,7 +5852,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.14"
+              "const": "0.15"
             },
             "request_id": {
               "type": "string",
@@ -5903,7 +5903,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.14"
+              "const": "0.15"
             },
             "request_id": {
               "type": "string",
@@ -5954,7 +5954,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.14"
+              "const": "0.15"
             },
             "request_id": {
               "type": "string",
@@ -6005,7 +6005,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.14"
+              "const": "0.15"
             },
             "request_id": {
               "type": "string",
@@ -6037,6 +6037,57 @@
             },
             "payload": {
               "$ref": "#/$defs/DeliveryResult"
+            }
+          },
+          "required": [
+            "schema_version",
+            "contract_revision",
+            "request_id",
+            "trace_context",
+            "message_type",
+            "payload"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "schema_version": {
+              "const": "intel.v1"
+            },
+            "contract_revision": {
+              "const": "0.15"
+            },
+            "request_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160
+            },
+            "trace_context": {
+              "type": "object",
+              "properties": {
+                "trace_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 64
+                },
+                "span_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 32
+                }
+              },
+              "required": [
+                "trace_id",
+                "span_id"
+              ],
+              "additionalProperties": false
+            },
+            "message_type": {
+              "const": "UsageSettlement"
+            },
+            "payload": {
+              "$ref": "#/$defs/UsageSettlement"
             }
           },
           "required": [
@@ -6492,6 +6543,53 @@
         "status",
         "review",
         "message_key"
+      ],
+      "additionalProperties": false
+    },
+    "UsageSettlement": {
+      "type": "object",
+      "properties": {
+        "accepted": {
+          "const": true
+        },
+        "invocation_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "status": {
+          "enum": [
+            "SETTLED",
+            "UNCERTAIN"
+          ]
+        },
+        "lanes": {
+          "type": "object",
+          "properties": {
+            "FOREGROUND": {
+              "$ref": "#/$defs/LaneSummary"
+            },
+            "BACKGROUND": {
+              "$ref": "#/$defs/LaneSummary"
+            }
+          },
+          "required": [
+            "FOREGROUND",
+            "BACKGROUND"
+          ],
+          "additionalProperties": false
+        },
+        "settlement_seq": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "accepted",
+        "invocation_id",
+        "status",
+        "lanes",
+        "settlement_seq"
       ],
       "additionalProperties": false
     }
