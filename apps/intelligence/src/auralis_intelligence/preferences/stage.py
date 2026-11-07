@@ -74,6 +74,8 @@ class PreferencesStage:
                 raise PreferenceError("UNSUPPORTED_CONSTRAINT", "NEEDS_INPUT")
             directions = {}
             for row in proposal["preferences"] + proposal["constraints"]:
+                if row.get("basis", "explicit") != "explicit":
+                    continue
                 positive = row["kind"] in ("prefer", "require")
                 if row["id"] in directions and directions[row["id"]] != positive:
                     raise PreferenceError("PREFERENCE_CONFLICT", "NEEDS_INPUT")

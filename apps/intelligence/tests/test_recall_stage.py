@@ -30,12 +30,12 @@ def preferences(**changes):
     return value
 
 
-def setup(value, *, limit=2, excluded=(), snapshot=SNAPSHOT, dataset="synthetic-code-check-v1", engine=None):
+def setup(value, *, limit=2, excluded=(), snapshot=SNAPSHOT, dataset="synthetic-code-check-v1", window="synthetic", engine=None):
     request = start()
     request["input"].update(raw=None, accepted_preferences=value, exclusions=[{"release_group_id": i, "reason": "HEARD"} for i in excluded])
     request["input"]["exclusion_digest"] = digest(request["input"]["exclusions"])
     request["selection_config"].update(recall_target_count=limit, shortlist_target_count=1, recommendation_target_count=1)
-    request["recall_binding"] = {"strategy_revision": "A-V2", "data_snapshot_id": dataset, "weights_digest": digest(asdict(WEIGHTS))}
+    request["recall_binding"] = {"strategy_revision": "A-V2", "data_snapshot_id": dataset, "window": window, "weights_digest": digest(asdict(WEIGHTS))}
     request["payload_digest"] = content_digest(request)
     execution = Execution(request, JavaControlDouble("java-test"))
     return execution, RecallStage(snapshot, binding=request["recall_binding"], weights=WEIGHTS, engine=engine)
@@ -94,6 +94,9 @@ def test_binding_checks_and_continuation_recall_prohibition():
         execution, stage = setup(value, dataset="wrong-artifact")
         with pytest.raises(ContractError, match="BINDING_MISMATCH"):
             await stage(execution, value)
+        execution, stage = setup(value, window="wrong-window")
+        with pytest.raises(ContractError, match="BINDING_MISMATCH"):
+            await stage(execution, value)
         execution, stage = setup(value)
         execution.start["input"]["accepted_preferences"] = preferences(mode="surprise")
         with pytest.raises(ContractError, match="BINDING_MISMATCH"):
@@ -120,7 +123,7 @@ def test_candidate_proposal_is_accepted_by_java_double():
     asyncio.run(run())
 
 
-@pytest.mark.parametrize("cancel", [True, False])
+@pytest.mark.parametrize("cancel", [True, False, "after_timeout"])
 def test_cancel_and_timeout_wait_until_cpu_work_physically_stops(cancel):
     async def run():
         entered, release, stopped = threading.Event(), threading.Event(), threading.Event()
@@ -133,13 +136,20 @@ def test_cancel_and_timeout_wait_until_cpu_work_physically_stops(cancel):
                 return actual.recall(request)
         value = preferences()
         execution, stage = setup(value, engine=WaitingEngine())
-        execution.start["agent_policy"]["timing"]["recall_timeout_ms"] = 1 if not cancel else 5000
+        execution.start["agent_policy"]["timing"]["recall_timeout_ms"] = 5000 if cancel is True else 1
         task = asyncio.create_task(stage(execution, value))
         await asyncio.to_thread(entered.wait, 5)
-        if cancel:
+        if cancel is True:
             task.cancel()
         await asyncio.sleep(0.02)
         assert not task.done() and not stopped.is_set()
+        if cancel == "after_timeout":
+            task.cancel()
+            await asyncio.sleep(0.02)
+            assert not task.done() and not stopped.is_set()
+            task.cancel()  # Repeated cancellation still cannot release the CPU worker.
+            await asyncio.sleep(0.02)
+            assert not task.done() and not stopped.is_set()
         release.set()
         if cancel:
             with pytest.raises(asyncio.CancelledError):
@@ -165,13 +175,15 @@ def compare_local(snapshot_path: Path, request_path: Path) -> dict:
         **{key: list(getattr(baseline_request, key)) for key in ("disliked_tags", "forbidden_tags", "required_tags")}, mode=baseline_request.mode)
     engine = load_a_v2(snapshot_path, weights=WEIGHTS)
     direct = engine.recall(baseline_request)
-    execution, stage = setup(value, limit=20, excluded=baseline_request.excluded_ids, snapshot=snapshot_path, dataset=header["dataset_id"], engine=engine)
+    execution, stage = setup(value, limit=20, excluded=baseline_request.excluded_ids, snapshot=snapshot_path, dataset=header["dataset_id"], window=header["window"], engine=engine)
     result = asyncio.run(stage(execution, value))
     expected = [candidate.album_id for candidate in direct.candidates]
     actual = [candidate["release_group_id"] for candidate in result["candidates"]]
     assert expected == actual and result["raw_reason"] == direct.reason
     assert result["recall_binding"]["data_snapshot_id"] == direct.dataset_id
+    assert result["recall_binding"]["window"] == direct.window
     return {"dataset_id": header["dataset_id"], "dataset_fingerprint": header["fingerprint"],
+            "window": header["window"],
             "request_digest": digest(raw_request), "ordered_top20_digest": digest(actual), "returned": len(actual),
             "match": True, "execution_status": result["execution_status"], "raw_reason": result["raw_reason"],
             "weights_digest": stage.binding["weights_digest"]}

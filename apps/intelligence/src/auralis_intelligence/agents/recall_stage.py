@@ -10,6 +10,22 @@ from auralis_intelligence.recall import Preference, RecallEngine, RecallRequest,
 from .runtime import Execution
 
 
+async def _drain_worker(worker: asyncio.Task, *, cancelled: bool = False):
+    """Keep ownership through cancellation, including while draining a timeout."""
+    while not worker.done():
+        try:
+            await asyncio.shield(worker)
+        except asyncio.CancelledError:
+            cancelled = True
+        except Exception:
+            break  # Retrieve and propagate the worker error below.
+    if cancelled:
+        if not worker.cancelled():
+            worker.exception()  # Observe any error before propagating cancellation.
+        raise asyncio.CancelledError
+    return worker.result()
+
+
 def recall_request(snapshot: dict, exclusions: list[dict], limit: int) -> RecallRequest:
     validate_definition("EffectivePreferenceSnapshot", snapshot)
     return RecallRequest(limit=limit, seeds=tuple(Preference(**row) for row in snapshot["seeds"]),
@@ -45,7 +61,8 @@ class RecallStage:
             return "TIMED_OUT", "recall_timed_out", None
         except (OSError, MemoryError):
             return "UNAVAILABLE", "recall_unavailable", None
-        if result.dataset_id != self.binding["data_snapshot_id"] or result.algorithm != "A-V2":
+        if (result.dataset_id != self.binding["data_snapshot_id"]
+                or result.window != self.binding["window"] or result.algorithm != "A-V2"):
             raise ContractError("BINDING_MISMATCH")
         if result.reason == "unsupported_positive_input":
             return "UNSUPPORTED_INPUT", result.reason, None
@@ -77,13 +94,10 @@ class RecallStage:
             try:
                 status, reason, result = await asyncio.wait_for(asyncio.shield(worker), execution.start["agent_policy"]["timing"]["recall_timeout_ms"] / 1000)
             except asyncio.TimeoutError:
-                await asyncio.shield(worker)
+                await _drain_worker(worker)
                 status, reason, result = "TIMED_OUT", "recall_timed_out", None
             except asyncio.CancelledError:
-                try:
-                    await asyncio.shield(worker)
-                finally:
-                    raise
+                await _drain_worker(worker, cancelled=True)
         execution.ensure_active()
         candidates = [] if result is None else [{"release_group_id": row.album_id, "recall_rank": rank} for rank, row in enumerate(result.candidates, 1)]
         proposal = {"recall_binding": deepcopy(self.binding), "input_digest": preferences["input_digest"],

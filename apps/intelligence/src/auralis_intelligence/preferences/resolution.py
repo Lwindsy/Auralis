@@ -55,10 +55,11 @@ def merge_preferences(raw: dict, proposal: dict, *, reference: ReferenceCatalog,
         span = row["text_span"]
         if not 0 <= span["start"] < span["end"] <= len(raw["request_text"]):
             raise PreferenceError("INTERPRETATION_INVALID_SPAN")
-        positive = kind in ("prefer", "require")
-        if identifier in directions and directions[identifier] != positive:
-            raise PreferenceError("PREFERENCE_CONFLICT", "NEEDS_INPUT")
-        directions[identifier] = positive
+        if row.get("basis", "explicit") == "explicit":
+            positive = kind in ("prefer", "require")
+            if identifier in directions and directions[identifier] != positive:
+                raise PreferenceError("PREFERENCE_CONFLICT", "NEEDS_INPUT")
+            directions[identifier] = positive
 
     # Explicit evidence wins over inference regardless of model array order.
     explicit_ids = {row["id"] for row in proposal["preferences"] if row["basis"] == "explicit"} | {row["id"] for row in proposal["constraints"]}

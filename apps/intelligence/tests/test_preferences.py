@@ -196,6 +196,22 @@ def test_inference_preserves_explicit_positive_flags():
     assert not any(item["kind"] == "avoid" for item in snapshot["soft_preferences"])
 
 
+@pytest.mark.parametrize("inferred,explicit", [("prefer", "exclude"), ("avoid", "require")])
+def test_explicit_constraint_wins_over_opposite_inference(inferred, explicit):
+    async def run():
+        first = {"branches": [{"id": "branch:jazz", "quote": "爵士"}]}
+        second = {"preferences": [{"id": "genre:jazz", "kind": inferred, "basis": "inferred", "quote": "爵士"}],
+                  "constraints": [{"id": "genre:jazz", "kind": explicit, "quote": "爵士"}],
+                  "unresolved_constraints": [], "soft_preferences": []}
+        execution, _, _, stage = execution_for(raw("爵士"), [first, second])
+        snapshot = await stage(execution)
+        assert bool(snapshot["tags"]) == (explicit == "require")
+        assert snapshot["forbidden_tags"] == (["genre:jazz"] if explicit == "exclude" else [])
+        assert snapshot["required_tags"] == (["genre:jazz"] if explicit == "require" else [])
+        assert all(item["basis"] == "explicit" for item in snapshot["soft_preferences"])
+    asyncio.run(run())
+
+
 def test_empty_expansion_and_second_pass_invalid_quote_stop_before_control():
     async def run():
         reference_doc = deepcopy(FIXTURE["reference"])
