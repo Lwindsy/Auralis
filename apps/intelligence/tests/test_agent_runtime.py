@@ -353,6 +353,7 @@ def test_immediate_cancel_and_duplicate_cancel_release_once():
             supervisor.cancel(execution.id, request["boot"], "USER_CANCELLED"),
         )
         assert all(view["slot_released"] for view in views)
+        assert all(view["status"] == "CANCELLED" for view in views)
         assert supervisor.active is None
         assert sum(event["kind"] == "CANCEL_REQUESTED" for event in execution.events) == 1
     asyncio.run(run())

@@ -35,6 +35,10 @@ class Execution:
         self.close_reason: str | None = None
         self.error_code: str | None = None
         self.binding: dict[str, Any] | None = None
+        self.candidates: dict[str, dict[str, Any]] = {}
+        if start.get("curated_candidates") is not None:
+            self.binding = deepcopy(start["curated_candidates"]["binding"])
+            self.candidates = {item["release_group_id"]: deepcopy(item) for item in start["curated_candidates"]["accepted"]}
         self.dossiers: dict[str, Any] = {}
         self.buffer: dict[str, dict[str, Any]] = {}
         self.buffer_items, self.buffer_bytes = buffer_items, buffer_bytes
@@ -57,6 +61,8 @@ class Execution:
     def ensure_active(self) -> None:
         if self.cancelled.is_set():
             raise asyncio.CancelledError
+        if self.slot_released or self.status in {"CLOSING", "CLOSED", "FAILED", "CANCELLED"}:
+            raise CallDenied("EXECUTION_CLOSED")
         if self.close_requested:
             raise CallDenied("EXECUTION_CLOSING")
         if datetime.now(timezone.utc) >= self._deadline:
@@ -72,7 +78,12 @@ class Execution:
 
     async def control_request(self, operation: str, payload: dict[str, Any]) -> dict[str, Any]:
         with self.clock.measure("java"):
-            return await self.control.request(self.id, operation, payload)
+            result = await self.control.request(self.id, operation, payload)
+        if operation == "candidate-validation":
+            validate_definition("CandidateBundle", result)
+            self.binding = deepcopy(result["binding"])
+            self.candidates = {item["release_group_id"]: deepcopy(item) for item in result["accepted"]}
+        return result
 
     def invocation_plan(self, purpose: str, role: str, payload: Any, *, candidate_id: str | None = None,
                         read_ids: tuple[str, ...] = (), lane: str = "FOREGROUND", attempt: int = 1,
@@ -200,7 +211,10 @@ class Execution:
         self.start["input"]["accepted_preferences"] = None
         self.start["continuation"] = None
         self.start["curated_candidates"] = None
+        for dossier in self.dossiers.values():
+            dossier.clear()
         self.dossiers.clear()
+        self.candidates.clear()
         self.buffer.clear()
         self.pending_usage.clear()
         self.commands.clear()
@@ -282,10 +296,10 @@ class RoundSupervisor:
             raise ContractError("STALE_BOOT")
         if not task.done():
             first_request = not execution.cancelled.is_set()
-            execution.cancelled.set()
-            execution.close_reason = reason
-            execution.status = "CLOSING"
             if first_request:
+                execution.cancelled.set()
+                execution.close_reason = reason
+                execution.status = "CLOSING"
                 execution.event("CANCEL_REQUESTED")
                 await execution.started.wait()
                 if not task.done():
