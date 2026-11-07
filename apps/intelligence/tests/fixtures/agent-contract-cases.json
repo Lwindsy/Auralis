@@ -3,7 +3,7 @@
     "name": "first-round-natural-language",
     "message": {
       "schema_version": "intel.v1",
-      "contract_revision": "0.16",
+      "contract_revision": "0.17",
       "request_id": "request-start",
       "trace_context": {
         "trace_id": "local",
@@ -153,7 +153,8 @@
         "recall_binding": {
           "strategy_revision": "fixture",
           "data_snapshot_id": "fixture",
-          "weights_digest": "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+          "weights_digest": "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "window": "synthetic-window"
         },
         "source_policy": {
           "policy_epoch": 0,
@@ -192,7 +193,7 @@
         "capabilities": [],
         "continuation": null,
         "curated_candidates": null,
-        "payload_digest": "sha256:9327c3706f186b6c021bbb4ad677a1fb9c2a650cd8b6180e9516734b6f56f540"
+        "payload_digest": "sha256:eca934a1128f9aa2d8100137b05cf262c9e47e9579eccb716a51d91b8e5bde4f"
       }
     },
     "structural_valid": true,
@@ -202,7 +203,7 @@
     "name": "missing-boot",
     "message": {
       "schema_version": "intel.v1",
-      "contract_revision": "0.16",
+      "contract_revision": "0.17",
       "request_id": "request-start",
       "trace_context": {
         "trace_id": "local",
@@ -348,7 +349,8 @@
         "recall_binding": {
           "strategy_revision": "fixture",
           "data_snapshot_id": "fixture",
-          "weights_digest": "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+          "weights_digest": "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "window": "synthetic-window"
         },
         "source_policy": {
           "policy_epoch": 0,
@@ -397,7 +399,7 @@
     "name": "unknown-operation",
     "message": {
       "schema_version": "intel.v1",
-      "contract_revision": "0.16",
+      "contract_revision": "0.17",
       "request_id": "request-start",
       "trace_context": {
         "trace_id": "local",
@@ -547,7 +549,8 @@
         "recall_binding": {
           "strategy_revision": "fixture",
           "data_snapshot_id": "fixture",
-          "weights_digest": "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+          "weights_digest": "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "window": "synthetic-window"
         },
         "source_policy": {
           "policy_epoch": 0,
@@ -596,7 +599,7 @@
     "name": "unknown-capability",
     "message": {
       "schema_version": "intel.v1",
-      "contract_revision": "0.16",
+      "contract_revision": "0.17",
       "request_id": "request-start",
       "trace_context": {
         "trace_id": "local",
@@ -746,7 +749,8 @@
         "recall_binding": {
           "strategy_revision": "fixture",
           "data_snapshot_id": "fixture",
-          "weights_digest": "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+          "weights_digest": "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "window": "synthetic-window"
         },
         "source_policy": {
           "policy_epoch": 0,
@@ -797,7 +801,7 @@
     "name": "forged-digest",
     "message": {
       "schema_version": "intel.v1",
-      "contract_revision": "0.16",
+      "contract_revision": "0.17",
       "request_id": "request-start",
       "trace_context": {
         "trace_id": "local",
@@ -947,7 +951,8 @@
         "recall_binding": {
           "strategy_revision": "fixture",
           "data_snapshot_id": "fixture",
-          "weights_digest": "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+          "weights_digest": "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "window": "synthetic-window"
         },
         "source_policy": {
           "policy_epoch": 0,
@@ -996,7 +1001,7 @@
     "name": "forged-count-binding",
     "message": {
       "schema_version": "intel.v1",
-      "contract_revision": "0.16",
+      "contract_revision": "0.17",
       "request_id": "request-start",
       "trace_context": {
         "trace_id": "local",
@@ -1146,7 +1151,8 @@
         "recall_binding": {
           "strategy_revision": "fixture",
           "data_snapshot_id": "fixture",
-          "weights_digest": "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+          "weights_digest": "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "window": "synthetic-window"
         },
         "source_policy": {
           "policy_epoch": 0,
@@ -1195,7 +1201,7 @@
     "name": "raw-text-in-continuation",
     "message": {
       "schema_version": "intel.v1",
-      "contract_revision": "0.16",
+      "contract_revision": "0.17",
       "request_id": "request-start",
       "trace_context": {
         "trace_id": "local",
@@ -1345,7 +1351,8 @@
         "recall_binding": {
           "strategy_revision": "fixture",
           "data_snapshot_id": "fixture",
-          "weights_digest": "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+          "weights_digest": "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "window": "synthetic-window"
         },
         "source_policy": {
           "policy_epoch": 0,
@@ -1544,7 +1551,8 @@
         "recall_binding": {
           "strategy_revision": "fixture",
           "data_snapshot_id": "fixture",
-          "weights_digest": "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+          "weights_digest": "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "window": "synthetic-window"
         },
         "source_policy": {
           "policy_epoch": 0,
@@ -1593,7 +1601,7 @@
     "name": "extra-sensitive-property",
     "message": {
       "schema_version": "intel.v1",
-      "contract_revision": "0.16",
+      "contract_revision": "0.17",
       "request_id": "request-start",
       "trace_context": {
         "trace_id": "local",
@@ -1743,7 +1751,8 @@
         "recall_binding": {
           "strategy_revision": "fixture",
           "data_snapshot_id": "fixture",
-          "weights_digest": "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+          "weights_digest": "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "window": "synthetic-window"
         },
         "source_policy": {
           "policy_epoch": 0,
@@ -1793,7 +1802,7 @@
     "name": "RuntimeView",
     "message": {
       "schema_version": "intel.v1",
-      "contract_revision": "0.16",
+      "contract_revision": "0.17",
       "request_id": "request-RuntimeView",
       "trace_context": {
         "trace_id": "local",
@@ -1814,7 +1823,7 @@
     "name": "Error",
     "message": {
       "schema_version": "intel.v1",
-      "contract_revision": "0.16",
+      "contract_revision": "0.17",
       "request_id": "request-Error",
       "trace_context": {
         "trace_id": "local",
@@ -1834,7 +1843,7 @@
     "name": "UsageReceipt",
     "message": {
       "schema_version": "intel.v1",
-      "contract_revision": "0.16",
+      "contract_revision": "0.17",
       "request_id": "request-UsageReceipt",
       "trace_context": {
         "trace_id": "local",
@@ -1859,7 +1868,7 @@
     "name": "ReadAuthorization",
     "message": {
       "schema_version": "intel.v1",
-      "contract_revision": "0.16",
+      "contract_revision": "0.17",
       "request_id": "request-ReadAuthorization",
       "trace_context": {
         "trace_id": "local",
@@ -1881,7 +1890,7 @@
     "name": "ReadAuthorizationResult",
     "message": {
       "schema_version": "intel.v1",
-      "contract_revision": "0.16",
+      "contract_revision": "0.17",
       "request_id": "request-ReadAuthorizationResult",
       "trace_context": {
         "trace_id": "local",
@@ -1902,7 +1911,7 @@
     "name": "SourcePolicy",
     "message": {
       "schema_version": "intel.v1",
-      "contract_revision": "0.16",
+      "contract_revision": "0.17",
       "request_id": "request-SourcePolicy",
       "trace_context": {
         "trace_id": "local",
@@ -1931,7 +1940,7 @@
     "name": "Acknowledgement",
     "message": {
       "schema_version": "intel.v1",
-      "contract_revision": "0.16",
+      "contract_revision": "0.17",
       "request_id": "request-Acknowledgement",
       "trace_context": {
         "trace_id": "local",
@@ -1949,7 +1958,7 @@
     "name": "registered-reading",
     "message": {
       "schema_version": "intel.v1",
-      "contract_revision": "0.16",
+      "contract_revision": "0.17",
       "request_id": "request-read",
       "trace_context": {
         "trace_id": "local",
