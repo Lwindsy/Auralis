@@ -41,6 +41,8 @@ def _status(error: Exception) -> str:
         return "TIMED_OUT"
     if isinstance(error, CallDenied) and any(token in str(error) for token in ("BUDGET", "LANE_EXHAUSTED", "CALL_LIMIT")):
         return "BUDGET_EXHAUSTED"
+    if isinstance(error, CallDenied) and str(error) in {"EXECUTION_CLOSING", "EXECUTION_CLOSED"}:
+        return "CANCELLED"
     return "FAILED"
 
 
@@ -58,7 +60,7 @@ class WriteStage:
         # Both tasks exist before either response is available. They share data,
         # never one another's generated output.
         return WritingJobs(execution.spawn(lambda: self.short(execution, dossier, preferences, lane=lane)),
-                           execution.spawn(lambda: self.long(execution, dossier, preferences)))
+                           execution.spawn(lambda: self.long(execution, dossier, preferences, priority=3)))
 
     def _input(self, execution, dossier, preferences, records, form):
         context, _ = preference_context(execution, preferences, genre_names=self.genre_names, album_names=self.album_names)
@@ -97,7 +99,7 @@ class WriteStage:
             lookup = {record.ref: record.result.receipt["read_id"] for record in dossier.qualified}
             return ShortWriteResult("READY", {"text": reply.output["text"], "citations": [{"marker": ref, "read_id": lookup[ref]} for ref in reply.output["refs"]], "invocation_id": reply.invocation_id, "prompt_version": "short_review.v1"})
         except asyncio.CancelledError:
-            return ShortWriteResult("CANCELLED", reason_code="WRITE_CANCELLED")
+            return ShortWriteResult("CANCELLED", reason_code="SOURCE_REVOKED" if dossier.candidate_id in execution.revoked_candidates else "WRITE_CANCELLED")
         except (CallDenied, ContractError, ControlUnavailable, asyncio.TimeoutError, TimeoutError) as error:
             return ShortWriteResult(_status(error), reason_code=str(error) if isinstance(error, (CallDenied, ContractError)) else "WRITE_UNAVAILABLE")
 
@@ -109,7 +111,7 @@ class WriteStage:
         try:
             return await asyncio.wait_for(self._long_work(execution, dossier, preferences, result, priority), execution.start["agent_policy"]["timing"]["long_review_timeout_ms"] / 1000)
         except asyncio.CancelledError:
-            result.update(status="CANCELLED", reason_code="LONG_REVIEW_CANCELLED")
+            result.update(status="CANCELLED", reason_code="SOURCE_REVOKED" if dossier.candidate_id in execution.revoked_candidates else "LONG_REVIEW_CANCELLED")
         except (CallDenied, ContractError, ControlUnavailable, asyncio.TimeoutError, TimeoutError) as error:
             result.update(status=_status(error), reason_code=str(error) if isinstance(error, (CallDenied, ContractError)) else "LONG_REVIEW_UNAVAILABLE")
         return result

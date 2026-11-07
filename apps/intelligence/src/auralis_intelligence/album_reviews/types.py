@@ -35,6 +35,17 @@ class AlbumDossier:
         for record in self.reads:
             record.clear()
 
+    def discard_reads(self, read_ids: set[str]) -> bool:
+        affected = self.screening is not None and bool(set(self.screening["qualified_read_ids"]) & read_ids)
+        for record in self.reads:
+            if record.result.receipt["read_id"] in read_ids:
+                record.clear()
+                affected = True
+        if affected and self.screening is not None:
+            self.screening["qualified_read_ids"] = [identifier for identifier in self.screening["qualified_read_ids"] if identifier not in read_ids]
+            self.screening.update(disposition="INELIGIBLE", reason_code="SOURCE_NOT_PERMITTED", brief=None)
+        return affected
+
 
 @dataclass(frozen=True)
 class ResearchResult:

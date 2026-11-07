@@ -3,7 +3,7 @@
     "name": "first-round-natural-language",
     "message": {
       "schema_version": "intel.v1",
-      "contract_revision": "0.18",
+      "contract_revision": "0.19",
       "request_id": "request-start",
       "trace_context": {
         "trace_id": "local",
@@ -203,7 +203,7 @@
     "name": "missing-boot",
     "message": {
       "schema_version": "intel.v1",
-      "contract_revision": "0.18",
+      "contract_revision": "0.19",
       "request_id": "request-start",
       "trace_context": {
         "trace_id": "local",
@@ -399,7 +399,7 @@
     "name": "unknown-operation",
     "message": {
       "schema_version": "intel.v1",
-      "contract_revision": "0.18",
+      "contract_revision": "0.19",
       "request_id": "request-start",
       "trace_context": {
         "trace_id": "local",
@@ -599,7 +599,7 @@
     "name": "unknown-capability",
     "message": {
       "schema_version": "intel.v1",
-      "contract_revision": "0.18",
+      "contract_revision": "0.19",
       "request_id": "request-start",
       "trace_context": {
         "trace_id": "local",
@@ -801,7 +801,7 @@
     "name": "forged-digest",
     "message": {
       "schema_version": "intel.v1",
-      "contract_revision": "0.18",
+      "contract_revision": "0.19",
       "request_id": "request-start",
       "trace_context": {
         "trace_id": "local",
@@ -1001,7 +1001,7 @@
     "name": "forged-count-binding",
     "message": {
       "schema_version": "intel.v1",
-      "contract_revision": "0.18",
+      "contract_revision": "0.19",
       "request_id": "request-start",
       "trace_context": {
         "trace_id": "local",
@@ -1201,7 +1201,7 @@
     "name": "raw-text-in-continuation",
     "message": {
       "schema_version": "intel.v1",
-      "contract_revision": "0.18",
+      "contract_revision": "0.19",
       "request_id": "request-start",
       "trace_context": {
         "trace_id": "local",
@@ -1601,7 +1601,7 @@
     "name": "extra-sensitive-property",
     "message": {
       "schema_version": "intel.v1",
-      "contract_revision": "0.18",
+      "contract_revision": "0.19",
       "request_id": "request-start",
       "trace_context": {
         "trace_id": "local",
@@ -1802,7 +1802,7 @@
     "name": "RuntimeView",
     "message": {
       "schema_version": "intel.v1",
-      "contract_revision": "0.18",
+      "contract_revision": "0.19",
       "request_id": "request-RuntimeView",
       "trace_context": {
         "trace_id": "local",
@@ -1823,7 +1823,7 @@
     "name": "Error",
     "message": {
       "schema_version": "intel.v1",
-      "contract_revision": "0.18",
+      "contract_revision": "0.19",
       "request_id": "request-Error",
       "trace_context": {
         "trace_id": "local",
@@ -1843,7 +1843,7 @@
     "name": "UsageReceipt",
     "message": {
       "schema_version": "intel.v1",
-      "contract_revision": "0.18",
+      "contract_revision": "0.19",
       "request_id": "request-UsageReceipt",
       "trace_context": {
         "trace_id": "local",
@@ -1868,7 +1868,7 @@
     "name": "ReadAuthorization",
     "message": {
       "schema_version": "intel.v1",
-      "contract_revision": "0.18",
+      "contract_revision": "0.19",
       "request_id": "request-ReadAuthorization",
       "trace_context": {
         "trace_id": "local",
@@ -1890,7 +1890,7 @@
     "name": "ReadAuthorizationResult",
     "message": {
       "schema_version": "intel.v1",
-      "contract_revision": "0.18",
+      "contract_revision": "0.19",
       "request_id": "request-ReadAuthorizationResult",
       "trace_context": {
         "trace_id": "local",
@@ -1911,7 +1911,7 @@
     "name": "SourcePolicy",
     "message": {
       "schema_version": "intel.v1",
-      "contract_revision": "0.18",
+      "contract_revision": "0.19",
       "request_id": "request-SourcePolicy",
       "trace_context": {
         "trace_id": "local",
@@ -1940,7 +1940,7 @@
     "name": "Acknowledgement",
     "message": {
       "schema_version": "intel.v1",
-      "contract_revision": "0.18",
+      "contract_revision": "0.19",
       "request_id": "request-Acknowledgement",
       "trace_context": {
         "trace_id": "local",
@@ -1958,7 +1958,7 @@
     "name": "registered-reading",
     "message": {
       "schema_version": "intel.v1",
-      "contract_revision": "0.18",
+      "contract_revision": "0.19",
       "request_id": "request-read",
       "trace_context": {
         "trace_id": "local",
@@ -1991,5 +1991,1219 @@
     },
     "structural_valid": true,
     "semantic_valid": true
+  },
+  {
+    "name": "continuation-snapshot",
+    "message": {
+      "schema_version": "intel.v1",
+      "contract_revision": "0.19",
+      "request_id": "request-continuation",
+      "trace_context": {
+        "trace_id": "local",
+        "span_id": "local"
+      },
+      "message_type": "RoundStart",
+      "payload": {
+        "execution_id": "contract-continue",
+        "operation": "DISCOVERY_ROUND",
+        "start_mode": "CONTINUE",
+        "session_id": "synthetic-session",
+        "round_id": "synthetic-round",
+        "round_seq": 1,
+        "parent_round_id": null,
+        "run_id": "contract-rescreen",
+        "run_kind": "RESCREEN",
+        "foreground": true,
+        "erasure_handle": "synthetic-erasure",
+        "boot": {
+          "python_boot_id": "contract-python",
+          "coordinator_boot_id": "synthetic-java"
+        },
+        "selection_config": {
+          "revision": "synthetic-3-2-1",
+          "recall_target_count": 3,
+          "shortlist_target_count": 2,
+          "recommendation_target_count": 1
+        },
+        "agent_policy": {
+          "revision": "synthetic-agent-v1",
+          "timing": {
+            "shortlist_freeze_ms": 120000,
+            "short_review_tech_timeout_ms": 120000,
+            "select_tech_timeout_ms": 120000,
+            "long_review_timeout_ms": 120000,
+            "research_timeout_fg_ms": 120000,
+            "research_timeout_bg_ms": 120000,
+            "interpret_timeout_ms": 120000,
+            "recall_timeout_ms": 120000
+          },
+          "screening": {
+            "score_scale": "ANCHORED_1_5",
+            "shortlist_min_score": 3,
+            "supplement_min_score": 3,
+            "min_qualified_reads": 2,
+            "reads_per_album_initial": 3,
+            "max_reads_per_album": 6,
+            "max_searches_per_album": 2,
+            "min_review_chars": 200,
+            "excerpt_token_cap": 2000
+          },
+          "supply": {
+            "wave_overprovision": 2,
+            "replenish_watermark": 3,
+            "supply_batch_size": 3,
+            "rerun_exclusion_scope": "ALL_PRIOR_EXCEPT_READ_FAILED",
+            "next_round_start": "ON_DEMAND",
+            "max_rounds_per_session": 5
+          },
+          "writing": {
+            "short_min_han": 80,
+            "short_max_han": 180,
+            "long_min_han": 1000,
+            "long_section_min_han": 150,
+            "long_extra_max_searches": 1,
+            "long_extra_max_reads": 2,
+            "long_tool_turns": 2
+          },
+          "concurrency": {
+            "model_max_in_flight": 20,
+            "background_model_max_in_flight": 8,
+            "search_max_in_flight": 4,
+            "read_max_in_flight": 8,
+            "read_max_per_host": 2
+          },
+          "recall": {
+            "weights": {
+              "special": 2.0,
+              "focus": 2.0
+            }
+          },
+          "digest": "sha256:9d69486c4beee8ccf046ac1fc01c472134ce0fa9c306a0627910513b3f90936a"
+        },
+        "budget": {
+          "session_budget_scope_id": "synthetic-session-budget",
+          "round_budget_scope_id": "synthetic-round-budget",
+          "limits": {
+            "session_cap_microusd": 300000,
+            "round_cap_microusd": 60000,
+            "lane_caps": {
+              "FOREGROUND": 25000,
+              "BACKGROUND": 35000
+            },
+            "model_calls": 1000,
+            "search_calls": 100,
+            "read_calls": 1000
+          },
+          "remaining_at_issue": {
+            "session": 300000,
+            "round": 60000,
+            "FOREGROUND": 25000,
+            "BACKGROUND": 35000
+          },
+          "structure_repair": {
+            "foreground_per_run": 1,
+            "background_per_round": 1
+          }
+        },
+        "deadlines": {
+          "round_deadline_at": "2099-01-01T00:00:00Z",
+          "idle_close_ms": 1000
+        },
+        "model_bindings": {
+          "interpret": {
+            "ref": "interpret",
+            "revision": "synthetic-v1",
+            "model": "synthetic-model",
+            "price_revision": "synthetic-zero-price",
+            "max_input_tokens": 24000,
+            "max_output_tokens": 4096
+          },
+          "screen": {
+            "ref": "screen",
+            "revision": "synthetic-v1",
+            "model": "synthetic-model",
+            "price_revision": "synthetic-zero-price",
+            "max_input_tokens": 24000,
+            "max_output_tokens": 4096
+          },
+          "select": {
+            "ref": "select",
+            "revision": "synthetic-v1",
+            "model": "synthetic-model",
+            "price_revision": "synthetic-zero-price",
+            "max_input_tokens": 24000,
+            "max_output_tokens": 4096
+          },
+          "write": {
+            "ref": "write",
+            "revision": "synthetic-v1",
+            "model": "synthetic-model",
+            "price_revision": "synthetic-zero-price",
+            "max_input_tokens": 24000,
+            "max_output_tokens": 4096
+          }
+        },
+        "recall_binding": {
+          "strategy_revision": "A-V2",
+          "data_snapshot_id": "synthetic-agent-demo-v1",
+          "window": "synthetic",
+          "weights_digest": "sha256:9f059f5ea84840e08a5f08bbd571ad92c63e13113339b72e343be68c9cfea0e9"
+        },
+        "source_policy": {
+          "policy_epoch": 1,
+          "valid_until": "2099-01-01T00:00:00Z",
+          "rules": [
+            {
+              "match": {
+                "domain_suffix": "one.example"
+              },
+              "decision": "ALLOW",
+              "uses": [
+                "READ",
+                "AI_PROCESS",
+                "STORE_LOCATOR"
+              ],
+              "reason": "synthetic-only"
+            },
+            {
+              "match": {
+                "domain_suffix": "two.example"
+              },
+              "decision": "ALLOW",
+              "uses": [
+                "READ",
+                "AI_PROCESS",
+                "STORE_LOCATOR"
+              ],
+              "reason": "synthetic-only"
+            }
+          ],
+          "default_decision": "DENY",
+          "guards": {
+            "https_only": true,
+            "deny_ip_literals": true,
+            "deny_private_networks": true,
+            "max_redirects": 2,
+            "max_bytes": 20000,
+            "read_timeout_ms": 1000
+          }
+        },
+        "input": {
+          "raw": null,
+          "accepted_preferences": {
+            "resolution_id": "resolution:sha256:cc1f39ea4f3857971370cf6d15f7ae9f2baeadb3d338cc209d1eec0930f75d44",
+            "input_digest": "sha256:694beb396c39a10942f5a9ba9150c1b02095fb96d27b99d26fdcf09b3156b668",
+            "reference_revision": "sha256:2d4206c63fcddc80f90223ea425cb9190cbc62f47cab39b3c17560516f570ef8",
+            "parser_revision": "preferences-v1-pass1-v0.4-pass2-v0.3",
+            "seeds": [
+              {
+                "id": "album-0",
+                "strength": "special",
+                "focused": false
+              }
+            ],
+            "tags": [
+              {
+                "id": "jazz",
+                "strength": "normal",
+                "focused": false
+              }
+            ],
+            "disliked_tags": [],
+            "forbidden_tags": [],
+            "required_tags": [],
+            "soft_preferences": [
+              {
+                "preference_id": "seed:0",
+                "description": "喜欢专辑：Synthetic Artist — Synthetic Album album-0",
+                "kind": "prefer",
+                "basis": "explicit",
+                "strength": "special",
+                "focused": false
+              },
+              {
+                "preference_id": "genre:1",
+                "description": "喜欢风格：爵士",
+                "kind": "prefer",
+                "basis": "explicit",
+                "strength": "normal",
+                "focused": false
+              },
+              {
+                "preference_id": "text:1",
+                "description": "希望安静、适合深夜独处的音乐",
+                "kind": "context",
+                "basis": "explicit",
+                "strength": "normal",
+                "focused": false
+              }
+            ],
+            "overrides": [
+              {
+                "genre_id": "jazz",
+                "action": "PREFER",
+                "text_span": {
+                  "start": 0,
+                  "end": 17
+                }
+              }
+            ],
+            "mode": "explore",
+            "has_positive_signal": true,
+            "effective_preference_digest": "sha256:e97d9c58f4df7ad581bbaae0414de51e9fd2e377bd62c5f2e9be8ad47479fe73"
+          },
+          "exclusions": [
+            {
+              "release_group_id": "album-0",
+              "reason": "SEED"
+            }
+          ],
+          "exclusion_digest": "sha256:dda44a2781a49430a77d357f9e29958d3b281bf9a8fe52c66682039fd0f6ae00"
+        },
+        "capabilities": [
+          "web_search.v1",
+          "web_read.v1"
+        ],
+        "continuation": {
+          "candidate_bundle": {
+            "candidate_bundle_id": "bundle:synthetic-execution",
+            "digest": "sha256:de1aa2cc8b02fea1ee9d7f44f35c46d9f827dde77da250616cfe525f8f39fb06",
+            "binding": {
+              "candidate_bundle_digest": "sha256:de1aa2cc8b02fea1ee9d7f44f35c46d9f827dde77da250616cfe525f8f39fb06",
+              "effective_preference_digest": "sha256:e97d9c58f4df7ad581bbaae0414de51e9fd2e377bd62c5f2e9be8ad47479fe73",
+              "exclusion_digest": "sha256:dda44a2781a49430a77d357f9e29958d3b281bf9a8fe52c66682039fd0f6ae00",
+              "selection_config_revision": "synthetic-3-2-1",
+              "agent_policy_revision": "synthetic-agent-v1",
+              "recall_binding": {
+                "strategy_revision": "A-V2",
+                "data_snapshot_id": "synthetic-agent-demo-v1",
+                "window": "synthetic",
+                "weights_digest": "sha256:9f059f5ea84840e08a5f08bbd571ad92c63e13113339b72e343be68c9cfea0e9"
+              }
+            },
+            "accepted": [
+              {
+                "release_group_id": "album-1",
+                "recall_rank": 1,
+                "identity": {
+                  "title": "Synthetic Album album-1",
+                  "artist_credit": "Synthetic Artist",
+                  "first_release_year": 2000,
+                  "release_type": "Album",
+                  "primary_genres": [
+                    {
+                      "genre_id": "jazz",
+                      "name": "爵士"
+                    }
+                  ]
+                },
+                "known_review_refs": [
+                  {
+                    "read_id": "locator-one-album-1",
+                    "url": "https://one.example/album-1",
+                    "publisher_key": "one.example"
+                  },
+                  {
+                    "read_id": "locator-two-album-1",
+                    "url": "https://two.example/album-1",
+                    "publisher_key": "two.example"
+                  }
+                ]
+              },
+              {
+                "release_group_id": "album-10",
+                "recall_rank": 2,
+                "identity": {
+                  "title": "Synthetic Album album-10",
+                  "artist_credit": "Synthetic Artist",
+                  "first_release_year": 2000,
+                  "release_type": "Album",
+                  "primary_genres": [
+                    {
+                      "genre_id": "jazz",
+                      "name": "爵士"
+                    }
+                  ]
+                },
+                "known_review_refs": [
+                  {
+                    "read_id": "locator-one-album-10",
+                    "url": "https://one.example/album-10",
+                    "publisher_key": "one.example"
+                  },
+                  {
+                    "read_id": "locator-two-album-10",
+                    "url": "https://two.example/album-10",
+                    "publisher_key": "two.example"
+                  }
+                ]
+              },
+              {
+                "release_group_id": "album-11",
+                "recall_rank": 3,
+                "identity": {
+                  "title": "Synthetic Album album-11",
+                  "artist_credit": "Synthetic Artist",
+                  "first_release_year": 2000,
+                  "release_type": "Album",
+                  "primary_genres": [
+                    {
+                      "genre_id": "jazz",
+                      "name": "爵士"
+                    }
+                  ]
+                },
+                "known_review_refs": [
+                  {
+                    "read_id": "locator-one-album-11",
+                    "url": "https://one.example/album-11",
+                    "publisher_key": "one.example"
+                  },
+                  {
+                    "read_id": "locator-two-album-11",
+                    "url": "https://two.example/album-11",
+                    "publisher_key": "two.example"
+                  }
+                ]
+              }
+            ],
+            "rejected": [],
+            "counts": {
+              "proposed": 3,
+              "accepted": 3,
+              "rejected": 0
+            }
+          },
+          "candidates": [
+            {
+              "release_group_id": "album-1",
+              "recall_rank": 1,
+              "state": "SHOWN",
+              "screening": {
+                "candidate_id": "album-1",
+                "recall_rank": 1,
+                "research_status": "QUALIFIED_READS",
+                "read_assessments": [
+                  {
+                    "read_id": "read:3955a2a267a847309ceb44826bae1058",
+                    "deterministic_pass": true,
+                    "about_target": "yes",
+                    "substantive": "yes"
+                  },
+                  {
+                    "read_id": "read:7d154c303cd74442b9c70967ca2594d0",
+                    "deterministic_pass": true,
+                    "about_target": "yes",
+                    "substantive": "yes"
+                  }
+                ],
+                "qualified_read_ids": [
+                  "read:3955a2a267a847309ceb44826bae1058",
+                  "read:7d154c303cd74442b9c70967ca2594d0"
+                ],
+                "screen": {
+                  "status": "OK",
+                  "score": 4,
+                  "invocation_id": "synthetic-execution:inv:3",
+                  "prompt_version": "screen.v1"
+                },
+                "disposition": "SHORTLISTED",
+                "reason_code": null,
+                "brief": {
+                  "summary": "合成资料讨论克制编配、空间感与演奏细节，未提供真实音乐质量证据。",
+                  "matches": [
+                    {
+                      "preference_id": "request_text",
+                      "read_ids": [
+                        "read:3955a2a267a847309ceb44826bae1058",
+                        "read:7d154c303cd74442b9c70967ca2594d0"
+                      ],
+                      "note": "合成资料中的克制编配与当前听感需求相关"
+                    }
+                  ],
+                  "tensions": [],
+                  "unknowns": [
+                    "真实音乐效果未测"
+                  ]
+                }
+              },
+              "read_refs": [
+                {
+                  "read_id": "read:3955a2a267a847309ceb44826bae1058",
+                  "url": "https://one.example/album-1",
+                  "publisher_key": "one.example"
+                },
+                {
+                  "read_id": "read:7d154c303cd74442b9c70967ca2594d0",
+                  "url": "https://two.example/album-1",
+                  "publisher_key": "two.example"
+                }
+              ],
+              "long_review_state": "READY"
+            },
+            {
+              "release_group_id": "album-10",
+              "recall_rank": 2,
+              "state": "READY",
+              "screening": {
+                "candidate_id": "album-10",
+                "recall_rank": 2,
+                "research_status": "QUALIFIED_READS",
+                "read_assessments": [
+                  {
+                    "read_id": "read:fca786d932b24eb3994a3b6c8dc838c4",
+                    "deterministic_pass": true,
+                    "about_target": "yes",
+                    "substantive": "yes"
+                  },
+                  {
+                    "read_id": "read:eb243358efbf4a408c1c0b7d23f22676",
+                    "deterministic_pass": true,
+                    "about_target": "yes",
+                    "substantive": "yes"
+                  }
+                ],
+                "qualified_read_ids": [
+                  "read:fca786d932b24eb3994a3b6c8dc838c4",
+                  "read:eb243358efbf4a408c1c0b7d23f22676"
+                ],
+                "screen": {
+                  "status": "OK",
+                  "score": 4,
+                  "invocation_id": "synthetic-execution:inv:4",
+                  "prompt_version": "screen.v1"
+                },
+                "disposition": "SHORTLISTED",
+                "reason_code": null,
+                "brief": {
+                  "summary": "合成资料讨论克制编配、空间感与演奏细节，未提供真实音乐质量证据。",
+                  "matches": [
+                    {
+                      "preference_id": "request_text",
+                      "read_ids": [
+                        "read:fca786d932b24eb3994a3b6c8dc838c4",
+                        "read:eb243358efbf4a408c1c0b7d23f22676"
+                      ],
+                      "note": "合成资料中的克制编配与当前听感需求相关"
+                    }
+                  ],
+                  "tensions": [],
+                  "unknowns": [
+                    "真实音乐效果未测"
+                  ]
+                }
+              },
+              "read_refs": [
+                {
+                  "read_id": "read:fca786d932b24eb3994a3b6c8dc838c4",
+                  "url": "https://one.example/album-10",
+                  "publisher_key": "one.example"
+                },
+                {
+                  "read_id": "read:eb243358efbf4a408c1c0b7d23f22676",
+                  "url": "https://two.example/album-10",
+                  "publisher_key": "two.example"
+                }
+              ],
+              "long_review_state": "READY"
+            },
+            {
+              "release_group_id": "album-11",
+              "recall_rank": 3,
+              "state": "RESERVE",
+              "screening": {
+                "candidate_id": "album-11",
+                "recall_rank": 3,
+                "research_status": "QUALIFIED_READS",
+                "read_assessments": [
+                  {
+                    "read_id": "read:d085c7b02b1649c69a5781098c7bfc9c",
+                    "deterministic_pass": true,
+                    "about_target": "yes",
+                    "substantive": "yes"
+                  },
+                  {
+                    "read_id": "read:35521f6ec2c044d89fbc73f6590da4c0",
+                    "deterministic_pass": true,
+                    "about_target": "yes",
+                    "substantive": "yes"
+                  }
+                ],
+                "qualified_read_ids": [
+                  "read:d085c7b02b1649c69a5781098c7bfc9c",
+                  "read:35521f6ec2c044d89fbc73f6590da4c0"
+                ],
+                "screen": {
+                  "status": "OK",
+                  "score": 4,
+                  "invocation_id": "synthetic-execution:inv:5",
+                  "prompt_version": "screen.v1"
+                },
+                "disposition": "RESERVE",
+                "reason_code": null,
+                "brief": {
+                  "summary": "合成资料讨论克制编配、空间感与演奏细节，未提供真实音乐质量证据。",
+                  "matches": [
+                    {
+                      "preference_id": "request_text",
+                      "read_ids": [
+                        "read:d085c7b02b1649c69a5781098c7bfc9c",
+                        "read:35521f6ec2c044d89fbc73f6590da4c0"
+                      ],
+                      "note": "合成资料中的克制编配与当前听感需求相关"
+                    }
+                  ],
+                  "tensions": [],
+                  "unknowns": [
+                    "真实音乐效果未测"
+                  ]
+                }
+              },
+              "read_refs": [
+                {
+                  "read_id": "read:d085c7b02b1649c69a5781098c7bfc9c",
+                  "url": "https://one.example/album-11",
+                  "publisher_key": "one.example"
+                },
+                {
+                  "read_id": "read:35521f6ec2c044d89fbc73f6590da4c0",
+                  "url": "https://two.example/album-11",
+                  "publisher_key": "two.example"
+                }
+              ],
+              "long_review_state": "NOT_STARTED"
+            }
+          ],
+          "display_state": {
+            "display_seq": 1,
+            "shown_candidate_ids": [
+              "album-1"
+            ],
+            "heard_candidate_ids": [],
+            "ready_unshown_ids": [
+              "album-10"
+            ],
+            "user_waiting": true,
+            "run_id": "contract-rescreen"
+          },
+          "pending": {
+            "rescreen_run_id": "contract-rescreen",
+            "regenerate_long_review_ids": [],
+            "prioritized_long_review_ids": []
+          }
+        },
+        "curated_candidates": null,
+        "payload_digest": "sha256:c70d2a9d2bea83e5651fcb61e94776e00565cfa1bb454157c28c64674b416371"
+      }
+    },
+    "structural_valid": true,
+    "semantic_valid": true
+  },
+  {
+    "name": "continuation-forged-window",
+    "message": {
+      "schema_version": "intel.v1",
+      "contract_revision": "0.19",
+      "request_id": "request-continuation",
+      "trace_context": {
+        "trace_id": "local",
+        "span_id": "local"
+      },
+      "message_type": "RoundStart",
+      "payload": {
+        "execution_id": "contract-continue",
+        "operation": "DISCOVERY_ROUND",
+        "start_mode": "CONTINUE",
+        "session_id": "synthetic-session",
+        "round_id": "synthetic-round",
+        "round_seq": 1,
+        "parent_round_id": null,
+        "run_id": "contract-rescreen",
+        "run_kind": "RESCREEN",
+        "foreground": true,
+        "erasure_handle": "synthetic-erasure",
+        "boot": {
+          "python_boot_id": "contract-python",
+          "coordinator_boot_id": "synthetic-java"
+        },
+        "selection_config": {
+          "revision": "synthetic-3-2-1",
+          "recall_target_count": 3,
+          "shortlist_target_count": 2,
+          "recommendation_target_count": 1
+        },
+        "agent_policy": {
+          "revision": "synthetic-agent-v1",
+          "timing": {
+            "shortlist_freeze_ms": 120000,
+            "short_review_tech_timeout_ms": 120000,
+            "select_tech_timeout_ms": 120000,
+            "long_review_timeout_ms": 120000,
+            "research_timeout_fg_ms": 120000,
+            "research_timeout_bg_ms": 120000,
+            "interpret_timeout_ms": 120000,
+            "recall_timeout_ms": 120000
+          },
+          "screening": {
+            "score_scale": "ANCHORED_1_5",
+            "shortlist_min_score": 3,
+            "supplement_min_score": 3,
+            "min_qualified_reads": 2,
+            "reads_per_album_initial": 3,
+            "max_reads_per_album": 6,
+            "max_searches_per_album": 2,
+            "min_review_chars": 200,
+            "excerpt_token_cap": 2000
+          },
+          "supply": {
+            "wave_overprovision": 2,
+            "replenish_watermark": 3,
+            "supply_batch_size": 3,
+            "rerun_exclusion_scope": "ALL_PRIOR_EXCEPT_READ_FAILED",
+            "next_round_start": "ON_DEMAND",
+            "max_rounds_per_session": 5
+          },
+          "writing": {
+            "short_min_han": 80,
+            "short_max_han": 180,
+            "long_min_han": 1000,
+            "long_section_min_han": 150,
+            "long_extra_max_searches": 1,
+            "long_extra_max_reads": 2,
+            "long_tool_turns": 2
+          },
+          "concurrency": {
+            "model_max_in_flight": 20,
+            "background_model_max_in_flight": 8,
+            "search_max_in_flight": 4,
+            "read_max_in_flight": 8,
+            "read_max_per_host": 2
+          },
+          "recall": {
+            "weights": {
+              "special": 2.0,
+              "focus": 2.0
+            }
+          },
+          "digest": "sha256:9d69486c4beee8ccf046ac1fc01c472134ce0fa9c306a0627910513b3f90936a"
+        },
+        "budget": {
+          "session_budget_scope_id": "synthetic-session-budget",
+          "round_budget_scope_id": "synthetic-round-budget",
+          "limits": {
+            "session_cap_microusd": 300000,
+            "round_cap_microusd": 60000,
+            "lane_caps": {
+              "FOREGROUND": 25000,
+              "BACKGROUND": 35000
+            },
+            "model_calls": 1000,
+            "search_calls": 100,
+            "read_calls": 1000
+          },
+          "remaining_at_issue": {
+            "session": 300000,
+            "round": 60000,
+            "FOREGROUND": 25000,
+            "BACKGROUND": 35000
+          },
+          "structure_repair": {
+            "foreground_per_run": 1,
+            "background_per_round": 1
+          }
+        },
+        "deadlines": {
+          "round_deadline_at": "2099-01-01T00:00:00Z",
+          "idle_close_ms": 1000
+        },
+        "model_bindings": {
+          "interpret": {
+            "ref": "interpret",
+            "revision": "synthetic-v1",
+            "model": "synthetic-model",
+            "price_revision": "synthetic-zero-price",
+            "max_input_tokens": 24000,
+            "max_output_tokens": 4096
+          },
+          "screen": {
+            "ref": "screen",
+            "revision": "synthetic-v1",
+            "model": "synthetic-model",
+            "price_revision": "synthetic-zero-price",
+            "max_input_tokens": 24000,
+            "max_output_tokens": 4096
+          },
+          "select": {
+            "ref": "select",
+            "revision": "synthetic-v1",
+            "model": "synthetic-model",
+            "price_revision": "synthetic-zero-price",
+            "max_input_tokens": 24000,
+            "max_output_tokens": 4096
+          },
+          "write": {
+            "ref": "write",
+            "revision": "synthetic-v1",
+            "model": "synthetic-model",
+            "price_revision": "synthetic-zero-price",
+            "max_input_tokens": 24000,
+            "max_output_tokens": 4096
+          }
+        },
+        "recall_binding": {
+          "strategy_revision": "A-V2",
+          "data_snapshot_id": "synthetic-agent-demo-v1",
+          "window": "synthetic",
+          "weights_digest": "sha256:9f059f5ea84840e08a5f08bbd571ad92c63e13113339b72e343be68c9cfea0e9"
+        },
+        "source_policy": {
+          "policy_epoch": 1,
+          "valid_until": "2099-01-01T00:00:00Z",
+          "rules": [
+            {
+              "match": {
+                "domain_suffix": "one.example"
+              },
+              "decision": "ALLOW",
+              "uses": [
+                "READ",
+                "AI_PROCESS",
+                "STORE_LOCATOR"
+              ],
+              "reason": "synthetic-only"
+            },
+            {
+              "match": {
+                "domain_suffix": "two.example"
+              },
+              "decision": "ALLOW",
+              "uses": [
+                "READ",
+                "AI_PROCESS",
+                "STORE_LOCATOR"
+              ],
+              "reason": "synthetic-only"
+            }
+          ],
+          "default_decision": "DENY",
+          "guards": {
+            "https_only": true,
+            "deny_ip_literals": true,
+            "deny_private_networks": true,
+            "max_redirects": 2,
+            "max_bytes": 20000,
+            "read_timeout_ms": 1000
+          }
+        },
+        "input": {
+          "raw": null,
+          "accepted_preferences": {
+            "resolution_id": "resolution:sha256:cc1f39ea4f3857971370cf6d15f7ae9f2baeadb3d338cc209d1eec0930f75d44",
+            "input_digest": "sha256:694beb396c39a10942f5a9ba9150c1b02095fb96d27b99d26fdcf09b3156b668",
+            "reference_revision": "sha256:2d4206c63fcddc80f90223ea425cb9190cbc62f47cab39b3c17560516f570ef8",
+            "parser_revision": "preferences-v1-pass1-v0.4-pass2-v0.3",
+            "seeds": [
+              {
+                "id": "album-0",
+                "strength": "special",
+                "focused": false
+              }
+            ],
+            "tags": [
+              {
+                "id": "jazz",
+                "strength": "normal",
+                "focused": false
+              }
+            ],
+            "disliked_tags": [],
+            "forbidden_tags": [],
+            "required_tags": [],
+            "soft_preferences": [
+              {
+                "preference_id": "seed:0",
+                "description": "喜欢专辑：Synthetic Artist — Synthetic Album album-0",
+                "kind": "prefer",
+                "basis": "explicit",
+                "strength": "special",
+                "focused": false
+              },
+              {
+                "preference_id": "genre:1",
+                "description": "喜欢风格：爵士",
+                "kind": "prefer",
+                "basis": "explicit",
+                "strength": "normal",
+                "focused": false
+              },
+              {
+                "preference_id": "text:1",
+                "description": "希望安静、适合深夜独处的音乐",
+                "kind": "context",
+                "basis": "explicit",
+                "strength": "normal",
+                "focused": false
+              }
+            ],
+            "overrides": [
+              {
+                "genre_id": "jazz",
+                "action": "PREFER",
+                "text_span": {
+                  "start": 0,
+                  "end": 17
+                }
+              }
+            ],
+            "mode": "explore",
+            "has_positive_signal": true,
+            "effective_preference_digest": "sha256:e97d9c58f4df7ad581bbaae0414de51e9fd2e377bd62c5f2e9be8ad47479fe73"
+          },
+          "exclusions": [
+            {
+              "release_group_id": "album-0",
+              "reason": "SEED"
+            }
+          ],
+          "exclusion_digest": "sha256:dda44a2781a49430a77d357f9e29958d3b281bf9a8fe52c66682039fd0f6ae00"
+        },
+        "capabilities": [
+          "web_search.v1",
+          "web_read.v1"
+        ],
+        "continuation": {
+          "candidate_bundle": {
+            "candidate_bundle_id": "bundle:synthetic-execution",
+            "digest": "sha256:de1aa2cc8b02fea1ee9d7f44f35c46d9f827dde77da250616cfe525f8f39fb06",
+            "binding": {
+              "candidate_bundle_digest": "sha256:de1aa2cc8b02fea1ee9d7f44f35c46d9f827dde77da250616cfe525f8f39fb06",
+              "effective_preference_digest": "sha256:e97d9c58f4df7ad581bbaae0414de51e9fd2e377bd62c5f2e9be8ad47479fe73",
+              "exclusion_digest": "sha256:dda44a2781a49430a77d357f9e29958d3b281bf9a8fe52c66682039fd0f6ae00",
+              "selection_config_revision": "synthetic-3-2-1",
+              "agent_policy_revision": "synthetic-agent-v1",
+              "recall_binding": {
+                "strategy_revision": "A-V2",
+                "data_snapshot_id": "synthetic-agent-demo-v1",
+                "window": "forged",
+                "weights_digest": "sha256:9f059f5ea84840e08a5f08bbd571ad92c63e13113339b72e343be68c9cfea0e9"
+              }
+            },
+            "accepted": [
+              {
+                "release_group_id": "album-1",
+                "recall_rank": 1,
+                "identity": {
+                  "title": "Synthetic Album album-1",
+                  "artist_credit": "Synthetic Artist",
+                  "first_release_year": 2000,
+                  "release_type": "Album",
+                  "primary_genres": [
+                    {
+                      "genre_id": "jazz",
+                      "name": "爵士"
+                    }
+                  ]
+                },
+                "known_review_refs": [
+                  {
+                    "read_id": "locator-one-album-1",
+                    "url": "https://one.example/album-1",
+                    "publisher_key": "one.example"
+                  },
+                  {
+                    "read_id": "locator-two-album-1",
+                    "url": "https://two.example/album-1",
+                    "publisher_key": "two.example"
+                  }
+                ]
+              },
+              {
+                "release_group_id": "album-10",
+                "recall_rank": 2,
+                "identity": {
+                  "title": "Synthetic Album album-10",
+                  "artist_credit": "Synthetic Artist",
+                  "first_release_year": 2000,
+                  "release_type": "Album",
+                  "primary_genres": [
+                    {
+                      "genre_id": "jazz",
+                      "name": "爵士"
+                    }
+                  ]
+                },
+                "known_review_refs": [
+                  {
+                    "read_id": "locator-one-album-10",
+                    "url": "https://one.example/album-10",
+                    "publisher_key": "one.example"
+                  },
+                  {
+                    "read_id": "locator-two-album-10",
+                    "url": "https://two.example/album-10",
+                    "publisher_key": "two.example"
+                  }
+                ]
+              },
+              {
+                "release_group_id": "album-11",
+                "recall_rank": 3,
+                "identity": {
+                  "title": "Synthetic Album album-11",
+                  "artist_credit": "Synthetic Artist",
+                  "first_release_year": 2000,
+                  "release_type": "Album",
+                  "primary_genres": [
+                    {
+                      "genre_id": "jazz",
+                      "name": "爵士"
+                    }
+                  ]
+                },
+                "known_review_refs": [
+                  {
+                    "read_id": "locator-one-album-11",
+                    "url": "https://one.example/album-11",
+                    "publisher_key": "one.example"
+                  },
+                  {
+                    "read_id": "locator-two-album-11",
+                    "url": "https://two.example/album-11",
+                    "publisher_key": "two.example"
+                  }
+                ]
+              }
+            ],
+            "rejected": [],
+            "counts": {
+              "proposed": 3,
+              "accepted": 3,
+              "rejected": 0
+            }
+          },
+          "candidates": [
+            {
+              "release_group_id": "album-1",
+              "recall_rank": 1,
+              "state": "SHOWN",
+              "screening": {
+                "candidate_id": "album-1",
+                "recall_rank": 1,
+                "research_status": "QUALIFIED_READS",
+                "read_assessments": [
+                  {
+                    "read_id": "read:3955a2a267a847309ceb44826bae1058",
+                    "deterministic_pass": true,
+                    "about_target": "yes",
+                    "substantive": "yes"
+                  },
+                  {
+                    "read_id": "read:7d154c303cd74442b9c70967ca2594d0",
+                    "deterministic_pass": true,
+                    "about_target": "yes",
+                    "substantive": "yes"
+                  }
+                ],
+                "qualified_read_ids": [
+                  "read:3955a2a267a847309ceb44826bae1058",
+                  "read:7d154c303cd74442b9c70967ca2594d0"
+                ],
+                "screen": {
+                  "status": "OK",
+                  "score": 4,
+                  "invocation_id": "synthetic-execution:inv:3",
+                  "prompt_version": "screen.v1"
+                },
+                "disposition": "SHORTLISTED",
+                "reason_code": null,
+                "brief": {
+                  "summary": "合成资料讨论克制编配、空间感与演奏细节，未提供真实音乐质量证据。",
+                  "matches": [
+                    {
+                      "preference_id": "request_text",
+                      "read_ids": [
+                        "read:3955a2a267a847309ceb44826bae1058",
+                        "read:7d154c303cd74442b9c70967ca2594d0"
+                      ],
+                      "note": "合成资料中的克制编配与当前听感需求相关"
+                    }
+                  ],
+                  "tensions": [],
+                  "unknowns": [
+                    "真实音乐效果未测"
+                  ]
+                }
+              },
+              "read_refs": [
+                {
+                  "read_id": "read:3955a2a267a847309ceb44826bae1058",
+                  "url": "https://one.example/album-1",
+                  "publisher_key": "one.example"
+                },
+                {
+                  "read_id": "read:7d154c303cd74442b9c70967ca2594d0",
+                  "url": "https://two.example/album-1",
+                  "publisher_key": "two.example"
+                }
+              ],
+              "long_review_state": "READY"
+            },
+            {
+              "release_group_id": "album-10",
+              "recall_rank": 2,
+              "state": "READY",
+              "screening": {
+                "candidate_id": "album-10",
+                "recall_rank": 2,
+                "research_status": "QUALIFIED_READS",
+                "read_assessments": [
+                  {
+                    "read_id": "read:fca786d932b24eb3994a3b6c8dc838c4",
+                    "deterministic_pass": true,
+                    "about_target": "yes",
+                    "substantive": "yes"
+                  },
+                  {
+                    "read_id": "read:eb243358efbf4a408c1c0b7d23f22676",
+                    "deterministic_pass": true,
+                    "about_target": "yes",
+                    "substantive": "yes"
+                  }
+                ],
+                "qualified_read_ids": [
+                  "read:fca786d932b24eb3994a3b6c8dc838c4",
+                  "read:eb243358efbf4a408c1c0b7d23f22676"
+                ],
+                "screen": {
+                  "status": "OK",
+                  "score": 4,
+                  "invocation_id": "synthetic-execution:inv:4",
+                  "prompt_version": "screen.v1"
+                },
+                "disposition": "SHORTLISTED",
+                "reason_code": null,
+                "brief": {
+                  "summary": "合成资料讨论克制编配、空间感与演奏细节，未提供真实音乐质量证据。",
+                  "matches": [
+                    {
+                      "preference_id": "request_text",
+                      "read_ids": [
+                        "read:fca786d932b24eb3994a3b6c8dc838c4",
+                        "read:eb243358efbf4a408c1c0b7d23f22676"
+                      ],
+                      "note": "合成资料中的克制编配与当前听感需求相关"
+                    }
+                  ],
+                  "tensions": [],
+                  "unknowns": [
+                    "真实音乐效果未测"
+                  ]
+                }
+              },
+              "read_refs": [
+                {
+                  "read_id": "read:fca786d932b24eb3994a3b6c8dc838c4",
+                  "url": "https://one.example/album-10",
+                  "publisher_key": "one.example"
+                },
+                {
+                  "read_id": "read:eb243358efbf4a408c1c0b7d23f22676",
+                  "url": "https://two.example/album-10",
+                  "publisher_key": "two.example"
+                }
+              ],
+              "long_review_state": "READY"
+            },
+            {
+              "release_group_id": "album-11",
+              "recall_rank": 3,
+              "state": "RESERVE",
+              "screening": {
+                "candidate_id": "album-11",
+                "recall_rank": 3,
+                "research_status": "QUALIFIED_READS",
+                "read_assessments": [
+                  {
+                    "read_id": "read:d085c7b02b1649c69a5781098c7bfc9c",
+                    "deterministic_pass": true,
+                    "about_target": "yes",
+                    "substantive": "yes"
+                  },
+                  {
+                    "read_id": "read:35521f6ec2c044d89fbc73f6590da4c0",
+                    "deterministic_pass": true,
+                    "about_target": "yes",
+                    "substantive": "yes"
+                  }
+                ],
+                "qualified_read_ids": [
+                  "read:d085c7b02b1649c69a5781098c7bfc9c",
+                  "read:35521f6ec2c044d89fbc73f6590da4c0"
+                ],
+                "screen": {
+                  "status": "OK",
+                  "score": 4,
+                  "invocation_id": "synthetic-execution:inv:5",
+                  "prompt_version": "screen.v1"
+                },
+                "disposition": "RESERVE",
+                "reason_code": null,
+                "brief": {
+                  "summary": "合成资料讨论克制编配、空间感与演奏细节，未提供真实音乐质量证据。",
+                  "matches": [
+                    {
+                      "preference_id": "request_text",
+                      "read_ids": [
+                        "read:d085c7b02b1649c69a5781098c7bfc9c",
+                        "read:35521f6ec2c044d89fbc73f6590da4c0"
+                      ],
+                      "note": "合成资料中的克制编配与当前听感需求相关"
+                    }
+                  ],
+                  "tensions": [],
+                  "unknowns": [
+                    "真实音乐效果未测"
+                  ]
+                }
+              },
+              "read_refs": [
+                {
+                  "read_id": "read:d085c7b02b1649c69a5781098c7bfc9c",
+                  "url": "https://one.example/album-11",
+                  "publisher_key": "one.example"
+                },
+                {
+                  "read_id": "read:35521f6ec2c044d89fbc73f6590da4c0",
+                  "url": "https://two.example/album-11",
+                  "publisher_key": "two.example"
+                }
+              ],
+              "long_review_state": "NOT_STARTED"
+            }
+          ],
+          "display_state": {
+            "display_seq": 1,
+            "shown_candidate_ids": [
+              "album-1"
+            ],
+            "heard_candidate_ids": [],
+            "ready_unshown_ids": [
+              "album-10"
+            ],
+            "user_waiting": true,
+            "run_id": "contract-rescreen"
+          },
+          "pending": {
+            "rescreen_run_id": "contract-rescreen",
+            "regenerate_long_review_ids": [],
+            "prioritized_long_review_ids": []
+          }
+        },
+        "curated_candidates": null,
+        "payload_digest": "sha256:dc5d61a32bf67f13ff8857033e4bd96d0e067d59225ed8506e3428302bd11885"
+      }
+    },
+    "structural_valid": true,
+    "semantic_valid": false
   }
 ]

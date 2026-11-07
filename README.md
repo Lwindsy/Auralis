@@ -19,8 +19,13 @@ Use Python 3.10+ with the dependencies in [pyproject.toml](apps/intelligence/pyp
 ```powershell
 python -m pip install -e apps/intelligence
 python -m auralis_intelligence.agents demo --scenario mixed
+python -m auralis_intelligence.agents demo --scenario mixed --background --r 3 --k 2 --n 1
 python -m auralis_intelligence.agents demo --scenario genre --r 5 --k 4 --n 2 --include-calls
 ```
+
+The optional `--background` mode also runs replenishment and closes with a round report. The service supports prioritized long reviews, preemption, explicit regeneration and continuation.
+
+增加 `--background` 可运行后台补充并输出关闭报告。服务支持长评提优先级、抢占、显式重新生成与续接。
 
 The output reports first-batch composition, publication counts, stage timing and optional safe call records. Synthetic timing and zero-price fixtures do not measure real model quality, speed or cost. The other input scenarios are `album`, `text` and `no-positive`; the last hands control back to Java's curated-list branch.
 
@@ -47,9 +52,9 @@ python -m auralis_intelligence.recall --snapshot apps/intelligence/tests/fixture
 
 Use Python 3.10+ and the dependencies in [pyproject.toml](apps/intelligence/pyproject.toml).
 Pass a caller-authorized local snapshot explicitly. The adapter emits candidate IDs and
-snapshot binding for integration. The online execution service is still pending.
+snapshot binding for integration. The Python execution service includes this stage; Java product integration is pending.
 
-请使用 Python 3.10+ 和应用清单中的依赖。调用方显式指定已获准的本地快照，入口返回候选作品 ID 与快照标识。在线执行服务仍待接入。
+请使用 Python 3.10+ 和应用清单中的依赖。调用方显式指定已获准的本地快照，入口返回候选作品 ID 与快照标识。Python执行服务已接通此阶段，Java产品接入仍待完成。
 
 This branch also supports the C-V0 comparison. Use `load_c_v0` from the same
 Python port, or add `--c-v0-model <model.npz>` to the local command with the

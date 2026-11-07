@@ -202,7 +202,7 @@ def test_resolver_validates_addresses_used_for_connection_not_a_preflight_lookup
     asyncio.run(run())
 
 
-@pytest.mark.parametrize("kind", ["private_redirect", "oversize", "no_permission", "expired", "revoked_during_read"])
+@pytest.mark.parametrize("kind", ["private_redirect", "oversize", "no_permission", "no_locator_permission", "expired", "revoked_during_read"])
 def test_web_guards_prevent_unapproved_content_use(kind):
     async def run():
         execution, control = web_execution()
@@ -210,6 +210,7 @@ def test_web_guards_prevent_unapproved_content_use(kind):
         if kind == "private_redirect": replies[0] = FetchResponse(302, {"location": "https://127.0.0.1/private"}, b"")
         if kind == "oversize": replies[0] = FetchResponse(200, {"content-type": "text/plain"}, b"x" * 10001)
         if kind == "no_permission": control.policy["rules"][0]["decision"] = "DENY"
+        if kind == "no_locator_permission": control.policy["rules"][0]["uses"].remove("STORE_LOCATOR")
         if kind == "expired": control.policy["valid_until"] = "2000-01-01T00:00:00Z"
         fetcher = FakeFetcher(replies)
         if kind == "revoked_during_read":
@@ -280,5 +281,28 @@ def test_model_timeout_on_supported_python_310_is_uncertain_and_closed():
         result = await execution.invoke(execution.invocation_plan("SCREEN", "screen", {}), send, timeout_seconds=0.01)
         assert result.outcome == "UNCERTAIN" and closed.is_set()
         assert control.invocations[result.invocation_id]["uncertain"]
+        await execution.cleanup()
+    asyncio.run(run())
+
+
+def test_search_policy_change_between_snapshot_and_grant_prevents_dispatch():
+    from auralis_intelligence.providers.testing import ScriptedModelAdapter, StaticSearchAdapter
+    async def run():
+        execution, control = web_execution()
+        class Search(StaticSearchAdapter):
+            calls = 0
+            async def search(self, *args):
+                self.calls += 1
+                return await super().search(*args)
+        search = Search(())
+        model = ModelGateway(ScriptedModelAdapter([]), {BINDING.ref: BINDING})
+        original = control.request
+        async def changed(identifier, operation, payload):
+            if operation == "invocation-grants": control.policy["policy_epoch"] += 1
+            return await original(identifier, operation, payload)
+        control.request = changed
+        with pytest.raises(CallDenied, match="SOURCE_POLICY_CHANGED"):
+            await ToolGateway(search_adapter=search, model_gateway=model).search(execution, candidate_id="album-1", query="Artist Album review")
+        assert search.calls == 0 and not control.invocations
         await execution.cleanup()
     asyncio.run(run())

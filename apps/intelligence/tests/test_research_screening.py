@@ -155,7 +155,7 @@ def test_screen_failure_does_not_admit_or_delete_candidate_from_denominator(mode
                 return await original(*args, **kwargs)
             stage.model.generate = revoke
         result = await stage.run(execution, candidate, preferences)
-        assert not result.eligible and result.screening["reason_code"] == "SCREEN_FAILED"
+        assert not result.eligible and result.screening["reason_code"] == ("SOURCE_NOT_PERMITTED" if mode == "revoked" else "SCREEN_FAILED")
         assert execution.counters["researched"] == 1
         assert len(adapter.requests) == (1 if mode in {"refused", "uncertain"} else 0)
         await execution.cleanup()

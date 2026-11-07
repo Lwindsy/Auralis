@@ -24,6 +24,7 @@ CONTROL_ROUTES = {
     "read-authorization": ("POST", "/executions/{execution_id}/read-authorization", "ReadAuthorization", "ReadAuthorizationResult"),
     "read-receipts": ("POST", "/executions/{execution_id}/read-receipts", "ReadReceipts", "ReadRegistrationResult"),
     "source-policy": ("GET", "/executions/{execution_id}/source-policy", None, "SourcePolicy"),
+    "budget-state": ("GET", "/executions/{execution_id}/budget-state", None, "BudgetState"),
     "delivery": ("PUT", "/executions/{execution_id}/deliveries/{delivery_id}", "Delivery", "DeliveryResult"),
 }
 
@@ -123,6 +124,8 @@ def create_execution_app(supervisor: RoundSupervisor, control: ControlPort, fact
         payload = await read_message(request, "RoundStart")
         if payload["execution_id"] != request.match_info["execution_id"]:
             raise ContractError("BINDING_MISMATCH")
+        if payload["boot"]["python_boot_id"] != supervisor.boot_id:
+            raise ContractError("STALE_BOOT")
         if sha256(payload["erasure_handle"].encode()).digest() in erased:
             raise ContractError("SUBJECT_REVOKED")
         if prepare:
