@@ -53,7 +53,7 @@ def validate_message(message: Mapping[str, Any]) -> None:
 
 def envelope(name: str, payload: Any, request_id: str, trace_id: str = "local", span_id: str = "local") -> dict[str, Any]:
     result = {
-        "schema_version": "intel.v1", "contract_revision": "0.17",
+        "schema_version": "intel.v1", "contract_revision": "0.18",
         "request_id": request_id, "trace_context": {"trace_id": trace_id, "span_id": span_id},
         "message_type": name, "payload": deepcopy(payload),
     }
@@ -135,6 +135,8 @@ def _semantic(name: str, value: Any) -> None:
             raise ContractError("BINDING_MISMATCH")
         if value["kind"] == "CARD_BATCH":
             cards = value["payload"]["cards"]
+            if value["binding"] is None and (value["payload"]["outcome"] == "DISPLAYABLE" or cards or value["payload"]["screenings"]):
+                raise ContractError("MISSING_BINDING")
             _unique(cards, "candidate_id")
             if value["payload"]["outcome"] == "DISPLAYABLE" and not cards:
                 raise ContractError("EMPTY_DISPLAYABLE")

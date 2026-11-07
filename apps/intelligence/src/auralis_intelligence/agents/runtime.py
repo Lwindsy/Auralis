@@ -11,12 +11,12 @@ from uuid import uuid4
 
 from auralis_intelligence.contracts import ContractError, IdempotencyLedger, digest, validate_definition
 from .clock import AgentClock
-from .ports import CallDenied, CallResult, ControlPort, ControlUnavailable, Stage
+from .ports import CallDenied, CallResult, ControlPort, ControlUnavailable, DeliveryPending, Stage
 from .scheduler import BoundedScheduler
 
 
 class Execution:
-    def __init__(self, start: dict[str, Any], control: ControlPort, *, monotonic: Callable[[], float] = time.monotonic,
+    def __init__(self, start: dict[str, Any], control: ControlPort, *, monotonic: Callable[[], float] = time.perf_counter,
                  buffer_items: int = 128, buffer_bytes: int = 4000000) -> None:
         self.start = deepcopy(start)
         self.id = start["execution_id"]
@@ -41,6 +41,9 @@ class Execution:
             self.candidates = {item["release_group_id"]: deepcopy(item) for item in start["curated_candidates"]["accepted"]}
         self.dossiers: dict[str, Any] = {}
         self.buffer: dict[str, dict[str, Any]] = {}
+        self.delivery_results: dict[str, dict[str, Any]] = {}
+        self.handoff: str | None = None
+        self.work: Any = None
         self.buffer_items, self.buffer_bytes = buffer_items, buffer_bytes
         self.sequence = 0
         self.call_sequence = 0
@@ -92,8 +95,21 @@ class Execution:
     async def control_request(self, operation: str, payload: dict[str, Any]) -> dict[str, Any]:
         with self.clock.measure("java"):
             result = await self.control.request(self.id, operation, payload)
+        if operation == "preference-resolution":
+            validate_definition("EffectivePreferenceSnapshot", result)
+            if any(result[key] != payload[key] for key in ("input_digest", "reference_revision", "parser_revision")):
+                raise ContractError("BINDING_MISMATCH")
+            self.start["input"]["accepted_preferences"] = deepcopy(result)
         if operation == "candidate-validation":
             validate_definition("CandidateBundle", result)
+            expected = {"effective_preference_digest": payload["effective_preference_digest"], "exclusion_digest": self.start["input"]["exclusion_digest"],
+                        "selection_config_revision": self.start["selection_config"]["revision"], "agent_policy_revision": self.start["agent_policy"]["revision"], "recall_binding": self.start["recall_binding"]}
+            if any(result["binding"][key] != value for key, value in expected.items()) or result["digest"] != digest(result["accepted"]) or result["binding"]["candidate_bundle_digest"] != result["digest"]:
+                raise ContractError("BINDING_MISMATCH")
+            proposed = {item["release_group_id"]: item["recall_rank"] for item in payload["candidates"]}
+            identifiers = [item["release_group_id"] for item in result["accepted"]]
+            if len(identifiers) != len(set(identifiers)) or any(proposed.get(item["release_group_id"]) != item["recall_rank"] for item in result["accepted"]):
+                raise ContractError("BINDING_MISMATCH")
             self.binding = deepcopy(result["binding"])
             self.candidates = {item["release_group_id"]: deepcopy(item) for item in result["accepted"]}
         return result
@@ -190,7 +206,7 @@ class Execution:
     async def deliver(self, kind: str, payload: Any, *, run_id: str | None = None,
                       versions: dict[str, Any] | None = None) -> dict[str, Any]:
         self.ensure_active()
-        if self.binding is None:
+        if self.binding is None and not (kind == "CARD_BATCH" and payload.get("outcome") != "DISPLAYABLE" and not payload.get("cards") and not payload.get("screenings")):
             raise ContractError("MISSING_BINDING")
         async with self._delivery_lock:
             self.sequence += 1
@@ -204,13 +220,19 @@ class Execution:
             if len(self.buffer) >= self.buffer_items or current_bytes + size > self.buffer_bytes:
                 raise CallDenied("DELIVERY_BUFFER_FULL")
             self.buffer[identifier] = delivery
-        return await self._send_delivery(identifier)
+        try:
+            return await self._send_delivery(identifier)
+        except ControlUnavailable as error:
+            raise DeliveryPending(identifier) from error
 
     async def _send_delivery(self, identifier: str) -> dict[str, Any]:
         self.ensure_active()
+        if identifier in self.delivery_results:
+            return deepcopy(self.delivery_results[identifier])
         result = await self.control_request("delivery", self.buffer[identifier])
         validate_definition("DeliveryResult", result)
         self.buffer.pop(identifier, None)
+        self.delivery_results[identifier] = deepcopy(result)
         self.event("DELIVERED", identifier)
         return result
 
@@ -239,7 +261,11 @@ class Execution:
             dossier.clear()
         self.dossiers.clear()
         self.candidates.clear()
+        if self.work is not None:
+            self.work.clear()
+            self.work = None
         self.buffer.clear()
+        self.delivery_results.clear()
         self.pending_usage.clear()
         self.commands.clear()
         while not self.command_queue.empty():
@@ -248,6 +274,7 @@ class Execution:
         self.calls.clear()
         self.final_timing = self.clock.snapshot()
         self.clock.clear()
+        self.foreground = False
         self.slot_released = True
 
 
@@ -262,6 +289,8 @@ class RoundSupervisor:
 
     async def accept(self, start: dict[str, Any], stage: Stage, control: ControlPort) -> tuple[int, Execution]:
         validate_definition("RoundStart", start)
+        if datetime.fromisoformat(start["deadlines"]["round_deadline_at"].replace("Z", "+00:00")) <= datetime.now(timezone.utc):
+            raise ContractError("DEADLINE_EXCEEDED")
         if start["boot"]["python_boot_id"] != self.boot_id:
             raise ContractError("STALE_BOOT")
         async with self._lock:
@@ -302,7 +331,7 @@ class RoundSupervisor:
             execution.event("FAILED")
         except Exception:
             execution.status = "FAILED"
-            execution.error_code = "STAGE_FAILED"
+            execution.error_code = execution.error_code or "STAGE_FAILED"
             execution.event("FAILED")
         finally:
             await execution.cleanup()

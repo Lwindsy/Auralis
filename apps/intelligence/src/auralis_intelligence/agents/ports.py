@@ -8,6 +8,12 @@ class ControlUnavailable(RuntimeError):
     """The control operation has no usable response; mutation may have happened."""
 
 
+class DeliveryPending(ControlUnavailable):
+    def __init__(self, delivery_id: str) -> None:
+        super().__init__("DELIVERY_PENDING")
+        self.delivery_id = delivery_id
+
+
 class CallDenied(RuntimeError):
     """A safe denial code, with no prompt or source content."""
 

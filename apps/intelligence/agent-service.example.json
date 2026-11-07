@@ -1,0 +1,9 @@
+{
+  "reference": "SET_EXPLICIT_GENRE_REFERENCE_PATH",
+  "recall_snapshot": "SET_EXPLICIT_APPROVED_RECALL_SNAPSHOT_PATH",
+  "model_bindings": "provider-bindings.example.json",
+  "control_url": "http://127.0.0.1:8080",
+  "service_token_env": "AURALIS_SERVICE_TOKEN",
+  "control_token_env": "AURALIS_CONTROL_TOKEN",
+  "provider_key_env": "AURALIS_OPENAI_API_KEY"
+}
