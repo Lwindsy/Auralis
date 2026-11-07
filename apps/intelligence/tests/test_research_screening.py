@@ -36,13 +36,14 @@ def good_reply(binding, request, score=4, bad_read=None):
     return CallResult({"reads": reads, "score": score, "matches": [{"pref": pref, "refs": refs, "note": "克制的编配与深夜独处需求有关"}] if refs else [], "tensions": [], "unknowns": ["曲目间动态变化"], "summary": "两篇材料讨论克制编配和空间感，对展开速度有分歧。"}, usage=Usage(20, 20, 0))
 
 
-async def environment(pages=None, reply=good_reply, *, urls=None, threshold=3):
+async def environment(pages=None, reply=good_reply, *, urls=None, threshold=3, output_limit=1000, writing=None):
     request = start()
     request["capabilities"] = ["web_search.v1", "web_read.v1"]
     request["source_policy"]["guards"].update(max_bytes=10000, read_timeout_ms=1000, max_redirects=2)
     request["agent_policy"]["screening"].update(shortlist_min_score=threshold, min_review_chars=200, excerpt_token_cap=2000)
+    request["agent_policy"]["writing"].update(writing or {})
     request["agent_policy"]["digest"] = content_digest(request["agent_policy"], "digest")
-    for binding in request["model_bindings"].values(): binding.update(max_input_tokens=20000, max_output_tokens=1000)
+    for binding in request["model_bindings"].values(): binding.update(max_input_tokens=20000, max_output_tokens=output_limit)
     request["payload_digest"] = content_digest(request)
     _, control = setup(request)
     urls = URLS if urls is None else urls
