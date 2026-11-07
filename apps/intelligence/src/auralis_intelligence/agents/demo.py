@@ -105,13 +105,15 @@ class DemoHarness:
         result["payload_digest"] = content_digest(result)
         return result
 
-    def pipeline(self, start):
-        return FirstBatchPipeline(PreferencesStage(self.model, self.reference), RecallStage(self.snapshot, binding=start["recall_binding"], weights=WeightConfig(**start["agent_policy"]["recall"]["weights"])),
+    def pipeline(self, start, *, background: bool = False):
+        from .background import RoundPipeline
+        implementation = RoundPipeline if background else FirstBatchPipeline
+        return implementation(PreferencesStage(self.model, self.reference), RecallStage(self.snapshot, binding=start["recall_binding"], weights=WeightConfig(**start["agent_policy"]["recall"]["weights"])),
                                   ResearchStage(self.model, self.tools), WriteStage(self.model, self.tools), SelectStage(self.model))
 
-    async def run(self, *, include_calls: bool = False):
+    async def run(self, *, include_calls: bool = False, background: bool = False):
         self.control.register(self.request)
-        _, execution = await self.supervisor.accept(self.request, self.pipeline(self.request), self.control)
+        _, execution = await self.supervisor.accept(self.request, self.pipeline(self.request, background=background), self.control)
         await self.supervisor.wait(execution.id)
         return self.summary(execution, include_calls=include_calls)
 
@@ -122,13 +124,16 @@ class DemoHarness:
                 "analysis_mode": first["analysis_mode"] if first else None, "selection_config": self.request["selection_config"],
                 "first_card_count": len(first["cards"]) if first else 0, "published_count": len(self.control.executions[execution.id]["display"]["shown_candidate_ids"]),
                 "long_reviews": sum(item["kind"] == "LONG_REVIEW" for item in self.control.deliveries.values()),
-                "model_calls": sum(item["plan"]["cost_class"] == "MODEL" for item in self.control.invocations.values()),
+                "model_calls": len(self.adapter.requests),
+                "authorized_model_calls": sum(item["plan"]["cost_class"] == "MODEL" for item in self.control.invocations.values()),
                 "tool_service_calls": sum(item["plan"]["cost_class"] == "TOOL_SERVICE" for item in self.control.invocations.values()),
                 "timing": first["timing"] if first else None, "slot_released": execution.slot_released}
         if include_calls:
             summary["calls"] = [{"invocation_id": identifier, "purpose": item["plan"]["purpose"], "lane": item["plan"]["lane"],
                                   "reserved_microusd": item["reserved"], "settled": item["settled"], "usage": item.get("usage")}
                                  for identifier, item in self.control.invocations.items()]
+        if execution.final_report is not None:
+            summary["round_report"] = execution.final_report
         return summary
 
     def close(self):

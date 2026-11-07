@@ -27,6 +27,8 @@ class ModelGateway:
                        timeout_ms: int | None = None) -> CallResult:
         binding = self.binding(execution, role)
         self.adapter.check_binding(binding)
+        if lane == "BACKGROUND" and priority == 0:
+            priority = 4
         request = ModelRequest(system, input, prompt_version.replace(".", "_"), output_schema, binding.max_output_tokens)
         # Text-only inputs: UTF-8 byte count plus framing is a conservative token bound.
         material = {"system": system, "input": input, "schema": output_schema}

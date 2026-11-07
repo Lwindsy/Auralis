@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:auralis:intelligence:0.18",
+  "$id": "urn:auralis:intelligence:0.19",
   "title": "Auralis internal agent messages",
   "$ref": "#/$defs/Envelope",
   "$defs": {
@@ -1446,6 +1446,10 @@
         "input_digest": {
           "type": "string",
           "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "source_policy_epoch": {
+          "type": "integer",
+          "minimum": 0
         }
       },
       "required": [
@@ -1462,7 +1466,23 @@
         "max_output_tokens",
         "input_digest"
       ],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "purpose": {
+                "const": "SEARCH"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "source_policy_epoch"
+            ]
+          }
+        }
+      ]
     },
     "GrantResult": {
       "type": "object",
@@ -1497,7 +1517,8 @@
                 "REPAIR_QUOTA_EXHAUSTED",
                 "SOURCE_NOT_PERMITTED",
                 "EXECUTION_NOT_ACTIVE",
-                "STALE_BOOT"
+                "STALE_BOOT",
+                "SOURCE_POLICY_CHANGED"
               ]
             },
             {
@@ -2139,6 +2160,14 @@
         },
         "user_waiting": {
           "type": "boolean"
+        },
+        "run_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1,
+          "maxLength": 160
         }
       },
       "required": [
@@ -2148,7 +2177,30 @@
         "ready_unshown_ids",
         "user_waiting"
       ],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "user_waiting": {
+                "const": true
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "run_id"
+            ],
+            "properties": {
+              "run_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 160
+              }
+            }
+          }
+        }
+      ]
     },
     "BriefEvidence": {
       "type": "object",
@@ -2416,9 +2468,6 @@
                 "minimum": 1,
                 "maximum": 1000
               },
-              "identity": {
-                "$ref": "#/$defs/Identity"
-              },
               "state": {
                 "type": "string",
                 "enum": [
@@ -2466,7 +2515,6 @@
             "required": [
               "release_group_id",
               "recall_rank",
-              "identity",
               "state",
               "screening",
               "read_refs",
@@ -2524,12 +2572,16 @@
             "prioritized_long_review_ids"
           ],
           "additionalProperties": false
+        },
+        "candidate_bundle": {
+          "$ref": "#/$defs/CandidateBundle"
         }
       },
       "required": [
         "candidates",
         "display_state",
-        "pending"
+        "pending",
+        "candidate_bundle"
       ],
       "additionalProperties": false
     },
@@ -2601,7 +2653,8 @@
               "enum": [
                 "INITIAL",
                 "RESCREEN",
-                "RERUN"
+                "RERUN",
+                "SUPPLY"
               ]
             },
             {
@@ -3212,7 +3265,8 @@
               "enum": [
                 "SUPPLYING",
                 "SUFFICIENT",
-                "R_EXHAUSTED"
+                "R_EXHAUSTED",
+                "PAUSED"
               ]
             }
           },
@@ -3446,7 +3500,8 @@
           "enum": [
             "SUPPLYING",
             "SUFFICIENT",
-            "R_EXHAUSTED"
+            "R_EXHAUSTED",
+            "PAUSED"
           ]
         },
         "counts": {
@@ -3578,6 +3633,18 @@
               "type": "integer",
               "minimum": 0,
               "maximum": 2147483647
+            },
+            "unresearched": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "reserve": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "shown": {
+              "type": "integer",
+              "minimum": 0
             }
           },
           "required": [
@@ -3587,7 +3654,10 @@
             "ready",
             "long_ready",
             "ineligible",
-            "below_floor"
+            "below_floor",
+            "unresearched",
+            "reserve",
+            "shown"
           ],
           "additionalProperties": false
         },
@@ -3597,35 +3667,55 @@
           "maximum": 2147483647
         },
         "lanes": {
-          "type": "object",
-          "properties": {
-            "FOREGROUND": {
-              "$ref": "#/$defs/LaneSummary"
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "FOREGROUND": {
+                  "$ref": "#/$defs/LaneSummary"
+                },
+                "BACKGROUND": {
+                  "$ref": "#/$defs/LaneSummary"
+                }
+              },
+              "required": [
+                "FOREGROUND",
+                "BACKGROUND"
+              ],
+              "additionalProperties": false
             },
-            "BACKGROUND": {
-              "$ref": "#/$defs/LaneSummary"
+            {
+              "type": "null"
             }
-          },
-          "required": [
-            "FOREGROUND",
-            "BACKGROUND"
-          ],
-          "additionalProperties": false
+          ]
         },
         "structure_repairs": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 100
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
         },
         "cached_input_tokens": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 2147483647
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
         },
         "input_tokens": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 2147483647
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "trigger_reason": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 160
         }
       },
       "required": [
@@ -3635,7 +3725,8 @@
         "lanes",
         "structure_repairs",
         "cached_input_tokens",
-        "input_tokens"
+        "input_tokens",
+        "trigger_reason"
       ],
       "additionalProperties": false
     },
@@ -4117,7 +4208,14 @@
               ]
             },
             "binding": {
-              "$ref": "#/$defs/Binding"
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Binding"
+                },
+                {
+                  "type": "null"
+                }
+              ]
             },
             "versions": {
               "type": "object",
@@ -4723,20 +4821,27 @@
           "uniqueItems": true
         },
         "lanes": {
-          "type": "object",
-          "properties": {
-            "FOREGROUND": {
-              "$ref": "#/$defs/LaneSummary"
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "FOREGROUND": {
+                  "$ref": "#/$defs/LaneSummary"
+                },
+                "BACKGROUND": {
+                  "$ref": "#/$defs/LaneSummary"
+                }
+              },
+              "required": [
+                "FOREGROUND",
+                "BACKGROUND"
+              ],
+              "additionalProperties": false
             },
-            "BACKGROUND": {
-              "$ref": "#/$defs/LaneSummary"
+            {
+              "type": "null"
             }
-          },
-          "required": [
-            "FOREGROUND",
-            "BACKGROUND"
-          ],
-          "additionalProperties": false
+          ]
         },
         "policy_epoch": {
           "type": "integer",
@@ -4980,7 +5085,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.18"
+              "const": "0.19"
             },
             "request_id": {
               "type": "string",
@@ -5031,7 +5136,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.18"
+              "const": "0.19"
             },
             "request_id": {
               "type": "string",
@@ -5082,7 +5187,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.18"
+              "const": "0.19"
             },
             "request_id": {
               "type": "string",
@@ -5133,7 +5238,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.18"
+              "const": "0.19"
             },
             "request_id": {
               "type": "string",
@@ -5184,7 +5289,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.18"
+              "const": "0.19"
             },
             "request_id": {
               "type": "string",
@@ -5235,7 +5340,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.18"
+              "const": "0.19"
             },
             "request_id": {
               "type": "string",
@@ -5286,7 +5391,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.18"
+              "const": "0.19"
             },
             "request_id": {
               "type": "string",
@@ -5337,7 +5442,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.18"
+              "const": "0.19"
             },
             "request_id": {
               "type": "string",
@@ -5388,7 +5493,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.18"
+              "const": "0.19"
             },
             "request_id": {
               "type": "string",
@@ -5439,7 +5544,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.18"
+              "const": "0.19"
             },
             "request_id": {
               "type": "string",
@@ -5490,7 +5595,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.18"
+              "const": "0.19"
             },
             "request_id": {
               "type": "string",
@@ -5541,7 +5646,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.18"
+              "const": "0.19"
             },
             "request_id": {
               "type": "string",
@@ -5592,7 +5697,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.18"
+              "const": "0.19"
             },
             "request_id": {
               "type": "string",
@@ -5643,7 +5748,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.18"
+              "const": "0.19"
             },
             "request_id": {
               "type": "string",
@@ -5694,7 +5799,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.18"
+              "const": "0.19"
             },
             "request_id": {
               "type": "string",
@@ -5745,7 +5850,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.18"
+              "const": "0.19"
             },
             "request_id": {
               "type": "string",
@@ -5796,7 +5901,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.18"
+              "const": "0.19"
             },
             "request_id": {
               "type": "string",
@@ -5847,7 +5952,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.18"
+              "const": "0.19"
             },
             "request_id": {
               "type": "string",
@@ -5898,7 +6003,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.18"
+              "const": "0.19"
             },
             "request_id": {
               "type": "string",
@@ -5949,7 +6054,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.18"
+              "const": "0.19"
             },
             "request_id": {
               "type": "string",
@@ -6000,7 +6105,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.18"
+              "const": "0.19"
             },
             "request_id": {
               "type": "string",
@@ -6051,7 +6156,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.18"
+              "const": "0.19"
             },
             "request_id": {
               "type": "string",
@@ -6102,7 +6207,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.18"
+              "const": "0.19"
             },
             "request_id": {
               "type": "string",
@@ -6134,6 +6239,57 @@
             },
             "payload": {
               "$ref": "#/$defs/UsageSettlement"
+            }
+          },
+          "required": [
+            "schema_version",
+            "contract_revision",
+            "request_id",
+            "trace_context",
+            "message_type",
+            "payload"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "schema_version": {
+              "const": "intel.v1"
+            },
+            "contract_revision": {
+              "const": "0.19"
+            },
+            "request_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160
+            },
+            "trace_context": {
+              "type": "object",
+              "properties": {
+                "trace_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 64
+                },
+                "span_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 32
+                }
+              },
+              "required": [
+                "trace_id",
+                "span_id"
+              ],
+              "additionalProperties": false
+            },
+            "message_type": {
+              "const": "BudgetState"
+            },
+            "payload": {
+              "$ref": "#/$defs/BudgetState"
             }
           },
           "required": [
@@ -6416,7 +6572,8 @@
             "SUFFICIENT",
             "R_EXHAUSTED",
             "FINAL_EXHAUSTED",
-            "CLOSED"
+            "CLOSED",
+            "PAUSED"
           ]
         },
         "message_key": {
@@ -6636,6 +6793,88 @@
         "status",
         "lanes",
         "settlement_seq"
+      ],
+      "additionalProperties": false
+    },
+    "BudgetState": {
+      "type": "object",
+      "properties": {
+        "settlement_seq": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "session_remaining_microusd": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "round_remaining_microusd": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "lanes": {
+          "type": "object",
+          "properties": {
+            "FOREGROUND": {
+              "$ref": "#/$defs/LaneSummary"
+            },
+            "BACKGROUND": {
+              "$ref": "#/$defs/LaneSummary"
+            }
+          },
+          "required": [
+            "FOREGROUND",
+            "BACKGROUND"
+          ],
+          "additionalProperties": false
+        },
+        "lane_caps": {
+          "type": "object",
+          "properties": {
+            "FOREGROUND": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 60000
+            },
+            "BACKGROUND": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 60000
+            }
+          },
+          "required": [
+            "FOREGROUND",
+            "BACKGROUND"
+          ],
+          "additionalProperties": false
+        },
+        "structure_repairs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "input_tokens": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "cached_input_tokens": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        }
+      },
+      "required": [
+        "settlement_seq",
+        "session_remaining_microusd",
+        "round_remaining_microusd",
+        "lanes",
+        "lane_caps",
+        "structure_repairs",
+        "input_tokens",
+        "cached_input_tokens"
       ],
       "additionalProperties": false
     }

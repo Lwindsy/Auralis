@@ -17,11 +17,16 @@ from .scheduler import BoundedScheduler
 
 class Execution:
     def __init__(self, start: dict[str, Any], control: ControlPort, *, monotonic: Callable[[], float] = time.perf_counter,
-                 buffer_items: int = 128, buffer_bytes: int = 4000000) -> None:
+                 buffer_items: int = 128, buffer_bytes: int = 4000000, receipt_timeout_seconds: float = 1.0) -> None:
+        if not 0 < receipt_timeout_seconds <= 30:
+            raise ValueError("INVALID_RECEIPT_TIMEOUT")
+        self.receipt_timeout_seconds = receipt_timeout_seconds
+        self._receipt_backoff_until = 0.0
         self.start = deepcopy(start)
         self.id = start["execution_id"]
         self.control = control
         self.clock = AgentClock(monotonic)
+        self.created_at = self.clock.now()
         self.final_timing: dict[str, int] | None = None
         limits = start["agent_policy"]["concurrency"]
         self.scheduler = BoundedScheduler({"model": limits["model_max_in_flight"], "search": limits["search_max_in_flight"], "read": limits["read_max_in_flight"]}, background_model_limit=limits["background_model_max_in_flight"], per_host_limit=limits["read_max_per_host"])
@@ -44,6 +49,13 @@ class Execution:
         self.delivery_results: dict[str, dict[str, Any]] = {}
         self.handoff: str | None = None
         self.work: Any = None
+        self.final_report: dict[str, Any] | None = None
+        self.report_builder: Callable | None = None
+        self.policy_handler: Callable | None = None
+        self.first_outcome: str | None = None
+        self.first_reason: str | None = None
+        self.priorities: dict[str, int] = {}
+        self.revoked_candidates: set[str] = set()
         self.buffer_items, self.buffer_bytes = buffer_items, buffer_bytes
         self.sequence = 0
         self.call_sequence = 0
@@ -56,21 +68,22 @@ class Execution:
         self.command_queue: asyncio.Queue = asyncio.Queue(maxsize=128)
         self.updated_seq = 0
         self.counters = {name: 0 for name in ("researched", "qualified", "shortlisted", "ready", "long_ready", "long_generating")}
-        self.lanes = {name: {"reserved_microusd": 0, "settled_microusd": 0, "uncertain_invocations": 0} for name in ("FOREGROUND", "BACKGROUND")}
+        self.lanes = None
+        self.budget_state = None
         self._issued: set[str] = set()
         self.children: set[asyncio.Task] = set()
         self.calls: dict[str, dict[str, Any]] = {}
         self._delivery_lock = asyncio.Lock()
         self._deadline = datetime.fromisoformat(start["deadlines"]["round_deadline_at"].replace("Z", "+00:00"))
 
-    def ensure_active(self) -> None:
+    def ensure_active(self, *, start_work: bool = True, allow_expired: bool = False) -> None:
         if self.cancelled.is_set():
             raise asyncio.CancelledError
-        if self.slot_released or self.status in {"CLOSING", "CLOSED", "FAILED", "CANCELLED"}:
+        if self.slot_released or self.status in {"CLOSED", "FAILED", "CANCELLED"}:
             raise CallDenied("EXECUTION_CLOSED")
-        if self.close_requested:
+        if self.close_requested and start_work:
             raise CallDenied("EXECUTION_CLOSING")
-        if datetime.now(timezone.utc) >= self._deadline:
+        if not allow_expired and datetime.now(timezone.utc) >= self._deadline:
             raise CallDenied("DEADLINE_EXCEEDED")
 
     def event(self, kind: str, object_id: str | None = None) -> None:
@@ -81,8 +94,8 @@ class Execution:
         self.updated_seq += 1
         self.events.append({"seq": self.updated_seq, "kind": kind, "object_id": object_id})
 
-    def spawn(self, factory: Callable[[], Awaitable[Any]]) -> asyncio.Task:
-        self.ensure_active()
+    def spawn(self, factory: Callable[[], Awaitable[Any]], *, start_work: bool = True) -> asyncio.Task:
+        self.ensure_active(start_work=start_work)
         task = asyncio.create_task(factory())
         self.children.add(task)
         def completed(finished: asyncio.Task) -> None:
@@ -91,6 +104,25 @@ class Execution:
                 self.event("FAILED", "child-stage")
         task.add_done_callback(completed)
         return task
+
+    def prioritize_long(self, candidate_id: str, priority: int = 1) -> None:
+        self.priorities[candidate_id] = min(priority, self.priorities.get(candidate_id, priority))
+        self.scheduler.prioritize(candidate_id, priority)
+
+    def reject_reads(self, read_ids: set[str]) -> None:
+        for identifier, dossier in self.dossiers.items():
+            if hasattr(dossier, "discard_reads") and dossier.discard_reads(read_ids):
+                self.revoked_candidates.add(identifier)
+                self.scheduler.cancel_pending(identifier)
+
+    async def refresh_budget(self) -> dict[str, Any]:
+        result = await self.control_request("budget-state", {})
+        validate_definition("BudgetState", result)
+        if result["settlement_seq"] >= self._settlement_seq:
+            self._settlement_seq = result["settlement_seq"]
+            self.lanes = deepcopy(result["lanes"])
+            self.budget_state = deepcopy(result)
+        return result
 
     async def control_request(self, operation: str, payload: dict[str, Any]) -> dict[str, Any]:
         with self.clock.measure("java"):
@@ -143,6 +175,7 @@ class Execution:
             try:
                 response = await self.control_request("invocation-grants", {"items": [plan]})
             except ControlUnavailable as error:
+                self.lanes = self.budget_state = None
                 self.uncertain.add(plan["invocation_id"])
                 self.event("CALL_UNCERTAIN", plan["invocation_id"])
                 raise CallDenied("GRANT_UNCERTAIN") from error
@@ -151,19 +184,25 @@ class Execution:
             if result["invocation_id"] != plan["invocation_id"]:
                 raise ContractError("BINDING_MISMATCH")
             if result["decision"] != "GRANTED":
+                if result["not_permitted_read_ids"]:
+                    self.reject_reads(set(result["not_permitted_read_ids"]))
                 raise CallDenied(result["deny_reason"] or "ALREADY_CLAIMED")
-            self.lanes[plan["lane"]]["reserved_microusd"] += result["reserved_microusd"]
+            self.lanes = None
+            self.budget_state = None
             self.event("CALL_GRANTED", plan["invocation_id"])
-            reply = CallResult(outcome="UNCERTAIN", finish="ERROR")
+            reply = CallResult(outcome="NOT_PROCESSED", finish="ERROR")
             cancelled = False
             try:
                 self.ensure_active()
+                if plan["read_ids"] and result["policy_epoch"] < self.start["source_policy"]["policy_epoch"]:
+                    raise CallDenied("STALE_SOURCE_POLICY")
                 call["sent_at"] = self.clock.now()
+                reply = CallResult(outcome="UNCERTAIN", finish="ERROR")
                 with self.clock.measure(resource):
                     reply = await asyncio.wait_for(send(), timeout=timeout_seconds)
             except asyncio.CancelledError:
                 cancelled = True
-                reply = CallResult(outcome="CANCELLED_AFTER_SEND", finish="ERROR")
+                reply = CallResult(outcome="CANCELLED_AFTER_SEND" if call["sent_at"] is not None else "NOT_PROCESSED", finish="ERROR")
             except (asyncio.TimeoutError, TimeoutError, OSError, ControlUnavailable):
                 reply = CallResult(outcome="UNCERTAIN", finish="ERROR")
             finally:
@@ -171,7 +210,6 @@ class Execution:
                 receipt = {"invocation_id": plan["invocation_id"], "receipt_id": plan["invocation_id"] + ":usage", "outcome": reply.outcome, "finish": reply.finish, "input_tokens": reply.usage.input_tokens, "output_tokens": reply.usage.output_tokens, "cached_input_tokens": reply.usage.cached_input_tokens, "provider_request_ref": reply.provider_request_ref}
                 if reply.outcome != "NOT_PROCESSED" and (reply.outcome in {"UNCERTAIN", "CANCELLED_AFTER_SEND"} or reply.usage.input_tokens is None):
                     self.uncertain.add(plan["invocation_id"])
-                    self.lanes[plan["lane"]]["uncertain_invocations"] += 1
                 self.pending_usage[plan["invocation_id"]] = receipt
                 settlement = asyncio.create_task(self.flush_usage())
                 try:
@@ -181,21 +219,30 @@ class Execution:
                     await settlement
             if cancelled:
                 raise asyncio.CancelledError
-            self.ensure_active()
+            self.ensure_active(start_work=False)
             return replace(reply, invocation_id=plan["invocation_id"])
-        return await self.scheduler.run(resource, perform, priority=priority, background=plan["lane"] == "BACKGROUND")
+        priority = min(priority, self.priorities.get(plan["candidate_id"], priority))
+        return await self.scheduler.run(resource, perform, priority=priority, background=plan["lane"] == "BACKGROUND", key=plan["candidate_id"])
 
-    async def flush_usage(self) -> None:
+    async def flush_usage(self, *, force: bool = False) -> None:
         async with self._usage_lock:
+            if not force and self.clock.now() < self._receipt_backoff_until:
+                return
             await self._flush_usage_locked()
 
     async def _flush_usage_locked(self) -> None:
+        deadline = self.clock.now() + self.receipt_timeout_seconds
         for identifier, receipt in list(self.pending_usage.items()):
+            remaining = deadline - self.clock.now()
+            if remaining <= 0:
+                self._receipt_backoff_until = self.clock.now() + self.receipt_timeout_seconds
+                break
             try:
-                settlement = await self.control_request("usage-receipt", receipt)
+                settlement = await asyncio.wait_for(self.control_request("usage-receipt", receipt), remaining)
                 validate_definition("UsageSettlement", settlement)
-            except (ControlUnavailable, ContractError):
-                continue
+            except (ControlUnavailable, ContractError, asyncio.TimeoutError):
+                self._receipt_backoff_until = self.clock.now() + self.receipt_timeout_seconds
+                break
             self.pending_usage.pop(identifier, None)
             if settlement["status"] == "SETTLED":
                 self.uncertain.discard(identifier)
@@ -205,8 +252,8 @@ class Execution:
 
     async def deliver(self, kind: str, payload: Any, *, run_id: str | None = None,
                       versions: dict[str, Any] | None = None) -> dict[str, Any]:
-        self.ensure_active()
-        if self.binding is None and not (kind == "CARD_BATCH" and payload.get("outcome") != "DISPLAYABLE" and not payload.get("cards") and not payload.get("screenings")):
+        self.ensure_active(start_work=False, allow_expired=kind == "ROUND_REPORT")
+        if self.binding is None and not (kind == "ROUND_REPORT" or kind == "CARD_BATCH" and payload.get("outcome") != "DISPLAYABLE" and not payload.get("cards") and not payload.get("screenings")):
             raise ContractError("MISSING_BINDING")
         async with self._delivery_lock:
             self.sequence += 1
@@ -226,10 +273,14 @@ class Execution:
             raise DeliveryPending(identifier) from error
 
     async def _send_delivery(self, identifier: str) -> dict[str, Any]:
-        self.ensure_active()
+        self.ensure_active(start_work=False, allow_expired=self.buffer.get(identifier, {}).get("kind") == "ROUND_REPORT")
         if identifier in self.delivery_results:
             return deepcopy(self.delivery_results[identifier])
-        result = await self.control_request("delivery", self.buffer[identifier])
+        try:
+            result = await self.control_request("delivery", self.buffer[identifier])
+        except ContractError:
+            self.buffer.pop(identifier, None)
+            raise
         validate_definition("DeliveryResult", result)
         self.buffer.pop(identifier, None)
         self.delivery_results[identifier] = deepcopy(result)
@@ -252,7 +303,15 @@ class Execution:
         if children:
             await asyncio.gather(*children, return_exceptions=True)
         await self.scheduler.close()
-        await self.flush_usage()
+        await self.flush_usage(force=True)
+        if self.report_builder is not None:
+            try:
+                await asyncio.wait_for(self.refresh_budget(), self.receipt_timeout_seconds)
+            except (ControlUnavailable, ContractError, asyncio.TimeoutError):
+                self.lanes = self.budget_state = None
+            self.final_report = self.report_builder(self)
+        self.report_builder = None
+        self.policy_handler = None
         self.start["input"]["raw"] = None
         self.start["input"]["accepted_preferences"] = None
         self.start["continuation"] = None
@@ -272,6 +331,8 @@ class Execution:
             self.command_queue.get_nowait()
         self._issued.clear()
         self.calls.clear()
+        self.priorities.clear()
+        self.revoked_candidates.clear()
         self.final_timing = self.clock.snapshot()
         self.clock.clear()
         self.foreground = False
@@ -279,9 +340,10 @@ class Execution:
 
 
 class RoundSupervisor:
-    def __init__(self, *, boot_id: str | None = None, max_records: int = 256) -> None:
+    def __init__(self, *, boot_id: str | None = None, max_records: int = 256, receipt_timeout_seconds: float = 1.0) -> None:
         self.boot_id = boot_id or str(uuid4())
         self.max_records = max_records
+        self.receipt_timeout_seconds = receipt_timeout_seconds
         self.active: Execution | None = None
         self.records: dict[str, tuple[str, Execution, asyncio.Task]] = {}
         self.maintenance = False
@@ -307,7 +369,7 @@ class RoundSupervisor:
             self.records = {key: value for key, value in self.records.items() if not value[1].slot_released or value[1]._deadline > now}
             if len(self.records) >= self.max_records:
                 raise CallDenied("EXECUTION_RECORD_CAPACITY")
-            execution = Execution(start, control)
+            execution = Execution(start, control, receipt_timeout_seconds=self.receipt_timeout_seconds)
             self.active = execution
             execution.event("ACCEPTED")
             task = asyncio.create_task(self._drive(execution, stage))
@@ -325,6 +387,10 @@ class RoundSupervisor:
             execution.status = "CLOSED" if not execution.cancelled.is_set() else "CANCELLED"
         except asyncio.CancelledError:
             execution.status = "CANCELLED"
+        except asyncio.TimeoutError:
+            execution.status = "CLOSED"
+            execution.close_reason = "ROUND_MAX_LIFETIME"
+            execution.error_code = "DEADLINE_EXCEEDED"
         except (ContractError, CallDenied) as error:
             execution.status = "FAILED"
             execution.error_code = str(error)
@@ -367,15 +433,45 @@ class RoundSupervisor:
         if record is None or record[1].slot_released:
             raise ContractError("EXECUTION_GONE")
         execution = record[1]
+        if execution.cancelled.is_set() or execution.close_requested:
+            raise ContractError("EXECUTION_GONE")
         if command["boot"] != execution.start["boot"]:
             raise ContractError("STALE_BOOT")
         found, result = execution.commands.lookup(command["command_id"], command)
         if found:
             return result
+        kind, payload = command["kind"], command["payload"]
+        if kind == "DISPLAY_STATE" and execution.work is not None and payload["display_seq"] <= execution.work.display_seq:
+            result = {"accepted": True}
+            execution.commands.record(command["command_id"], command, result)
+            return result
+        if kind == "RESCREEN" and datetime.fromisoformat(payload["deadline"].replace("Z", "+00:00")) <= datetime.now(timezone.utc):
+            raise ContractError("DEADLINE_EXCEEDED")
+        if kind == "RESCREEN" and execution.start["operation"] == "CURATED_REVIEWS":
+            raise ContractError("UNKNOWN_CAPABILITY")
+        if (kind == "RESCREEN" or kind == "DISPLAY_STATE" and payload["user_waiting"]) and execution.foreground:
+            raise ContractError("EXECUTOR_BUSY")
+        if kind in {"PRIORITIZE_LONG_REVIEW", "REGENERATE_LONG_REVIEW"} and payload["candidate_id"] not in execution.candidates:
+            raise ContractError("BINDING_MISMATCH")
         if execution.command_queue.full():
             raise CallDenied("COMMAND_CAPACITY")
         result = {"accepted": True}
-        execution.command_queue.put_nowait(deepcopy(command))
+        if kind == "REDELIVER":
+            execution.spawn(lambda: execution.redeliver(payload["after_seq"]))
+        else:
+            execution.command_queue.put_nowait(deepcopy(command))
+        if kind == "CLOSE":
+            execution.close_requested = True
+            execution.close_reason = payload["reason"]
+            execution.status = "CLOSING"
+        elif kind == "PRIORITIZE_LONG_REVIEW":
+            execution.prioritize_long(payload["candidate_id"])
+        elif kind == "SOURCE_POLICY_UPDATE" and payload["policy_epoch"] > execution.start["source_policy"]["policy_epoch"]:
+            execution.start["source_policy"] = deepcopy(payload)
+            if execution.policy_handler:
+                execution.policy_handler(execution, payload)
+        elif kind == "RESCREEN" or kind == "DISPLAY_STATE" and payload["user_waiting"]:
+            execution.foreground = True
         execution.commands.record(command["command_id"], command, result)
         execution.event("COMMAND", command["command_id"])
         return result

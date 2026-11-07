@@ -218,7 +218,7 @@ def test_budget_denial_and_usage_receipt_loss_do_not_duplicate_charge():
             async def send(): return CallResult(usage=Usage(4, 6, 0))
             await execution.invoke(execution.invocation_plan("SCREEN", "screen", {}), send, timeout_seconds=1)
             assert execution.pending_usage
-            await execution.flush_usage()
+            await execution.flush_usage(force=True)
             assert not execution.pending_usage
             control.sessions[request["budget"]["session_budget_scope_id"]].cap = 200
             plan = execution.invocation_plan("SCREEN", "screen", {})
@@ -257,11 +257,17 @@ def test_command_duplicate_and_conflict_have_one_queue_effect():
         gate = asyncio.Event()
         async def stage(execution): await gate.wait()
         _, execution = await supervisor.accept(request, stage, control)
+        redeliveries = []
+        async def redeliver(after_seq=0):
+            redeliveries.append(after_seq)
+            return []
+        execution.redeliver = redeliver
         payload = {"after_seq": 0}
         command = {"command_id": "command-1", "kind": "REDELIVER", "boot": request["boot"], "payload": payload, "payload_digest": digest(payload)}
         await supervisor.command(execution.id, command)
         await supervisor.command(execution.id, command)
-        assert execution.command_queue.qsize() == 1
+        await asyncio.sleep(0)
+        assert redeliveries == [0] and execution.command_queue.empty()
         command["payload"]["after_seq"] = 2
         command["payload_digest"] = digest(command["payload"])
         with pytest.raises(ContractError, match="IDEMPOTENCY_CONFLICT"):

@@ -14,6 +14,7 @@ class _Job:
     future: asyncio.Future = field(compare=False)
     background: bool = field(compare=False, default=False)
     host: str | None = field(compare=False, default=None)
+    key: str | None = field(compare=False, default=None)
 
 
 class BoundedScheduler:
@@ -32,7 +33,7 @@ class BoundedScheduler:
         self.closed = False
         self._sequence = 0
 
-    async def run(self, resource: str, factory: Callable[[], Awaitable[Any]], *, priority: int = 0, background: bool = False, host: str | None = None) -> Any:
+    async def run(self, resource: str, factory: Callable[[], Awaitable[Any]], *, priority: int = 0, background: bool = False, host: str | None = None, key: str | None = None) -> Any:
         if self.closed:
             raise asyncio.CancelledError
         if resource not in self.limits:
@@ -41,7 +42,7 @@ class BoundedScheduler:
             raise RuntimeError("SCHEDULER_CAPACITY")
         self._sequence += 1
         future = asyncio.get_running_loop().create_future()
-        job = _Job(priority, self._sequence, resource, factory, future, background, host)
+        job = _Job(priority, self._sequence, resource, factory, future, background, host, key)
         self.pending.append(job)
         self._dispatch()
         try:
@@ -65,6 +66,18 @@ class BoundedScheduler:
         if job.host and self.hosts.get(job.host, 0) >= self.per_host_limit:
             return False
         return True
+
+    def prioritize(self, key: str, priority: int) -> None:
+        for job in self.pending:
+            if job.key == key:
+                job.priority = min(job.priority, priority)
+        self._dispatch()
+
+    def cancel_pending(self, key: str) -> None:
+        for job in list(self.pending):
+            if job.key == key:
+                self.pending.remove(job)
+                job.future.cancel()
 
     def _dispatch(self) -> None:
         if self.closed:

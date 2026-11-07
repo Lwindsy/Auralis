@@ -13,6 +13,7 @@ class AgentClock:
         self._sequence = 0
         self.agent_start: float | None = None
         self.agent_end: float | None = None
+        self.phase_floor: float | None = None
 
     @contextmanager
     def measure(self, category: str) -> Iterator[None]:
@@ -26,9 +27,10 @@ class AgentClock:
             self.active.pop(identifier, None)
             self.intervals.append((category, start, self.now()))
 
-    def start_agent(self) -> None:
+    def start_agent(self, *, reset_phases: bool = False) -> None:
         self.agent_start = self.now()
         self.agent_end = None
+        self.phase_floor = self.agent_start if reset_phases else None
 
     def finish_agent(self) -> dict[str, int]:
         self.agent_end = self.now()
@@ -55,7 +57,7 @@ class AgentClock:
         blocked = max(0, round(java_only * 1000))
         result = {"agent_wall_ms": wall, "java_blocked_ms": blocked, "agent_wait_ms": max(0, wall - blocked)}
         for category in ("interpret", "recall", "candidate_validation"):
-            result[category + "_ms"] = round(sum(b - a for kind, a, b in intervals if kind == category) * 1000)
+            result[category + "_ms"] = round(sum(max(0, b - max(a, self.phase_floor)) if self.phase_floor is not None else b - a for kind, a, b in intervals if kind == category) * 1000)
         return result
 
     def clear(self) -> None:

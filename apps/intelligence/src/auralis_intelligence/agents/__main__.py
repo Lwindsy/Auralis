@@ -17,6 +17,7 @@ from auralis_intelligence.recall import WeightConfig
 from .demo import DemoHarness
 from .http import ControlHTTPClient, create_execution_app
 from .pipeline import FirstBatchPipeline
+from .background import RoundPipeline
 from .recall_stage import RecallStage
 from .runtime import RoundSupervisor
 
@@ -24,7 +25,7 @@ from .runtime import RoundSupervisor
 async def demo(args):
     harness = DemoHarness(scenario=args.scenario, r=args.r, k=args.k, n=args.n)
     try:
-        summary = await harness.run(include_calls=args.include_calls)
+        summary = await harness.run(include_calls=args.include_calls, background=args.background)
         print(json.dumps(summary, ensure_ascii=False, indent=2))
         return 0 if summary["execution_status"] == "CLOSED" and summary["first_outcome"] not in {"FAILED", "EXPIRED", "NEEDS_INPUT"} else 1
     finally:
@@ -42,9 +43,9 @@ def serve(args):
     reference = ReferenceCatalog.load(relative("reference"))
     tools = ToolGateway(search_adapter=adapter, model_gateway=model)
     def factory(start):
-        return FirstBatchPipeline(PreferencesStage(model, reference), RecallStage(relative("recall_snapshot"), binding=start["recall_binding"], weights=WeightConfig(**start["agent_policy"]["recall"]["weights"])),
+        return RoundPipeline(PreferencesStage(model, reference), RecallStage(relative("recall_snapshot"), binding=start["recall_binding"], weights=WeightConfig(**start["agent_policy"]["recall"]["weights"])),
                                   ResearchStage(model, tools), WriteStage(model, tools), SelectStage(model))
-    app = create_execution_app(RoundSupervisor(), control, factory, token=service_token)
+    app = create_execution_app(RoundSupervisor(receipt_timeout_seconds=config.get("receipt_timeout_seconds", 1.0)), control, factory, token=service_token)
     async def cleanup(app):
         await control.close()
         await adapter.close()
@@ -61,6 +62,7 @@ def main() -> int:
     local.add_argument("--k", type=int, default=8)
     local.add_argument("--n", type=int, default=3)
     local.add_argument("--include-calls", action="store_true", help="include safe synthetic invocation and usage records")
+    local.add_argument("--background", action="store_true", help="run background supply, idle close and the round report")
     server = commands.add_parser("serve", help="explicit configured loopback service")
     server.add_argument("--config", required=True)
     server.add_argument("--port", type=int, default=8765)

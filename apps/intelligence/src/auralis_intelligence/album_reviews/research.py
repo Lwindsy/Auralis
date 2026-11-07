@@ -70,7 +70,8 @@ class ResearchStage:
         self.model, self.tools = model, tools
         self.genre_names, self.album_names = genre_names, album_names
 
-    async def run(self, execution: Execution, candidate: dict[str, Any], preferences: dict[str, Any], *, lane: str = "FOREGROUND") -> ResearchResult:
+    async def run(self, execution: Execution, candidate: dict[str, Any], preferences: dict[str, Any], *, lane: str = "FOREGROUND",
+                  known_read_refs: list[dict[str, Any]] | None = None, require_score: bool = True, min_score: int | None = None) -> ResearchResult:
         validate_definition("Candidate", candidate)
         if execution.candidates.get(candidate["release_group_id"]) != candidate:
             raise ContractError("NOT_IN_BUNDLE")
@@ -79,7 +80,7 @@ class ResearchStage:
         execution.counters["researched"] += 1
         timeout_key = "research_timeout_fg_ms" if lane == "FOREGROUND" else "research_timeout_bg_ms"
         try:
-            result = await asyncio.wait_for(self._run(execution, candidate, preferences, dossier, lane), execution.start["agent_policy"]["timing"][timeout_key] / 1000)
+            result = await asyncio.wait_for(self._run(execution, candidate, preferences, dossier, lane, known_read_refs, require_score, min_score), execution.start["agent_policy"]["timing"][timeout_key] / 1000)
         except asyncio.CancelledError:
             dossier.clear()
             raise
@@ -92,13 +93,17 @@ class ResearchStage:
         validate_definition("CandidateScreening", result.screening)
         if result.screening["research_status"] == "QUALIFIED_READS" and result.screening["screen"]["status"] == "OK":
             execution.counters["qualified"] += 1
-        if not result.eligible:
+        reusable = result.screening["screen"]["status"] == "OK" and result.screening["research_status"] == "QUALIFIED_READS" and result.screening["screen"]["score"] >= min(execution.start["agent_policy"]["screening"]["shortlist_min_score"], execution.start["agent_policy"]["screening"]["supplement_min_score"])
+        if not result.eligible and not reusable:
             dossier.clear()
         return result
 
-    async def _run(self, execution, candidate, preferences, dossier, lane):
+    async def _run(self, execution, candidate, preferences, dossier, lane, known_read_refs, require_score, min_score):
         policy = execution.start["agent_policy"]["screening"]
-        queue = [item["url"] for item in candidate["known_review_refs"]]
+        refs = candidate["known_review_refs"] if known_read_refs is None else known_read_refs
+        for reference in refs:
+            validate_definition("ReadReference", reference)
+        queue = [item["url"] for item in refs]
         attempted = set()
         searches = 0
         identity = candidate["identity"]
@@ -129,7 +134,7 @@ class ResearchStage:
                     batch.append(url)
             async def read_url(url):
                 try:
-                    return await self.tools.read(execution, candidate_id=dossier.candidate_id, url=url, title=identity["title"], artist=identity["artist_credit"])
+                    return await self.tools.read(execution, candidate_id=dossier.candidate_id, url=url, title=identity["title"], artist=identity["artist_credit"], purpose="REREAD" if known_read_refs is not None else "SCREEN_RESEARCH")
                 except FetchFailure:
                     return None
             tasks = [asyncio.create_task(read_url(url)) for url in batch]
@@ -194,8 +199,8 @@ class ResearchStage:
         def evidence(items):
             return [{"preference_id": pref_aliases[item["pref"]], "read_ids": [lookup[ref].result.receipt["read_id"] for ref in item["refs"]], "note": item["note"]} for item in items]
         qualified = len(qualified_ids) >= 2
-        threshold = policy["shortlist_min_score"] if lane == "FOREGROUND" else policy["supplement_min_score"]
-        eligible = qualified and (output["score"] >= threshold or execution.start["operation"] == "CURATED_REVIEWS")
+        threshold = min_score if min_score is not None else policy["shortlist_min_score"] if lane == "FOREGROUND" else policy["supplement_min_score"]
+        eligible = qualified and (not require_score or output["score"] >= threshold or execution.start["operation"] == "CURATED_REVIEWS")
         screening = {"candidate_id": dossier.candidate_id, "recall_rank": candidate["recall_rank"], "research_status": "QUALIFIED_READS" if qualified else "INSUFFICIENT_REVIEWS",
                      "read_assessments": [{"read_id": record.result.receipt["read_id"], "deterministic_pass": record.deterministic_pass, "about_target": assessments.get(record.ref, {}).get("about_target", "unclear"), "substantive": assessments.get(record.ref, {}).get("substantive", "no")} for record in dossier.reads],
                      "qualified_read_ids": qualified_ids,
@@ -207,8 +212,9 @@ class ResearchStage:
 
     @staticmethod
     def _failed(candidate, dossier, reason, error_code=None):
+        wire_reason = error_code if error_code in {"SOURCE_NOT_PERMITTED", "READ_NOT_PERMITTED", "SOURCE_POLICY_EXPIRED", "STALE_SOURCE_POLICY", "SOURCE_POLICY_CHANGED", "READ_AUTHORIZATION_MISMATCH", "CONTROL_UNAVAILABLE"} else reason
         screening = {"candidate_id": candidate["release_group_id"], "recall_rank": candidate["recall_rank"], "research_status": "QUALIFIED_READS" if reason == "SCREEN_FAILED" else "READ_FAILED" if reason == "READ_FAILED" else "INSUFFICIENT_REVIEWS",
                      "read_assessments": [{"read_id": record.result.receipt["read_id"], "deterministic_pass": record.deterministic_pass, "about_target": "unclear", "substantive": "no"} for record in dossier.reads],
                      "qualified_read_ids": [], "screen": {"status": "FAILED" if reason == "SCREEN_FAILED" else "NOT_RUN", "score": None, "invocation_id": None, "prompt_version": "screen.v1" if reason == "SCREEN_FAILED" else None},
-                     "disposition": "INELIGIBLE", "reason_code": reason, "brief": None}
+                     "disposition": "INELIGIBLE", "reason_code": wire_reason, "brief": None}
         return ResearchResult(screening, dossier, False, error_code)

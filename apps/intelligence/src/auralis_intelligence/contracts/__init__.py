@@ -53,7 +53,7 @@ def validate_message(message: Mapping[str, Any]) -> None:
 
 def envelope(name: str, payload: Any, request_id: str, trace_id: str = "local", span_id: str = "local") -> dict[str, Any]:
     result = {
-        "schema_version": "intel.v1", "contract_revision": "0.18",
+        "schema_version": "intel.v1", "contract_revision": "0.19",
         "request_id": request_id, "trace_context": {"trace_id": trace_id, "span_id": span_id},
         "message_type": name, "payload": deepcopy(payload),
     }
@@ -107,6 +107,21 @@ def _semantic(name: str, value: Any) -> None:
             raise ContractError("POLICY_OUT_OF_RANGE")
         if accepted is not None:
             _semantic("EffectivePreferenceSnapshot", accepted)
+        if value["start_mode"] == "CONTINUE":
+            continuation = value["continuation"]
+            bundle = continuation["candidate_bundle"]
+            expected = {"effective_preference_digest": accepted["effective_preference_digest"], "exclusion_digest": value["input"]["exclusion_digest"],
+                        "selection_config_revision": config["revision"], "agent_policy_revision": policy["revision"], "recall_binding": value["recall_binding"]}
+            if any(bundle["binding"][key] != item for key, item in expected.items()) or bundle["digest"] != digest(bundle["accepted"]) or bundle["binding"]["candidate_bundle_digest"] != bundle["digest"]:
+                raise ContractError("BINDING_MISMATCH")
+            _unique(bundle["accepted"], "release_group_id")
+            _unique(continuation["candidates"], "release_group_id")
+            candidates = {item["release_group_id"]: item["recall_rank"] for item in bundle["accepted"]}
+            if len(continuation["candidates"]) != len(candidates) or any(candidates.get(item["release_group_id"]) != item["recall_rank"] for item in continuation["candidates"]):
+                raise ContractError("BINDING_MISMATCH")
+            display = continuation["display_state"]
+            if not set(display["shown_candidate_ids"] + display["ready_unshown_ids"]).issubset(candidates) or set(display["shown_candidate_ids"]) & set(display["ready_unshown_ids"]):
+                raise ContractError("BINDING_MISMATCH")
     elif name in {"PreferenceResolutionProposal", "RecallProposal"}:
         if content_digest(value, "proposal_digest") != value["proposal_digest"]:
             raise ContractError("BINDING_MISMATCH")

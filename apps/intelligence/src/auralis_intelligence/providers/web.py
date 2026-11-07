@@ -136,6 +136,8 @@ class ToolGateway:
         execution.ensure_active()
         policy = await execution.control_request("source-policy", {})
         validate_definition("SourcePolicy", policy)
+        if policy["policy_epoch"] < execution.start["source_policy"]["policy_epoch"]:
+            raise CallDenied("STALE_SOURCE_POLICY")
         if datetime.fromisoformat(policy["valid_until"].replace("Z", "+00:00")) <= datetime.now(timezone.utc):
             raise CallDenied("SOURCE_POLICY_EXPIRED")
         execution.start["source_policy"] = policy
@@ -147,6 +149,8 @@ class ToolGateway:
         policy = await self.policy(execution)
         allowed = tuple(rule["match"]["domain_suffix"] for rule in policy["rules"] if rule["decision"] == "ALLOW" and {"READ", "AI_PROCESS"}.issubset(rule["uses"]))
         blocked = tuple(rule["match"]["domain_suffix"] for rule in policy["rules"] if rule["decision"] == "DENY")
+        if not allowed:
+            raise CallDenied("SOURCE_NOT_PERMITTED")
         binding = self.model_gateway.binding(execution, "screen")
         self.search_adapter.check_binding(binding, search=True)
         bound = len(query.encode("utf-8")) + sum(len(domain) for domain in allowed + blocked) + 1024
@@ -155,6 +159,7 @@ class ToolGateway:
         # Hosted search may add result context beyond the query. Reserve the full
         # approved input bound; the query's own byte bound cannot price that context.
         plan = execution.invocation_plan("SEARCH", "screen", {"query": query, "domains": allowed, "blocked": blocked}, candidate_id=candidate_id, lane=lane, max_input_tokens=binding.max_input_tokens, max_output_tokens=min(binding.max_output_tokens, 1024))
+        plan["source_policy_epoch"] = policy["policy_epoch"]
         result = await execution.invoke(plan, lambda: self.search_adapter.search(binding, query, allowed, blocked), timeout_seconds=execution.start["agent_policy"]["timing"]["research_timeout_fg_ms"] / 1000)
         if result.finish != "COMPLETE":
             raise CallDenied("SEARCH_UNAVAILABLE")
@@ -194,12 +199,16 @@ class ToolGateway:
                             raise CallDenied("SOURCE_NOT_PERMITTED")
                         authorization = await execution.control_request("read-authorization", {"read_id": read_id, "candidate_id": candidate_id, "url": current, "purpose": purpose, "policy_epoch": policy["policy_epoch"]})
                         validate_definition("ReadAuthorizationResult", authorization)
+                        if authorization["read_id"] != read_id or authorization["policy_epoch"] < policy["policy_epoch"]:
+                            raise CallDenied("READ_AUTHORIZATION_MISMATCH")
                         if authorization["decision"] != "GRANTED":
                             raise CallDenied(authorization["reason"] or "READ_ALREADY_CLAIMED")
                         receipt["source_policy_epoch"] = authorization["policy_epoch"]
                         with execution.clock.measure("read"):
                             return await self.fetcher.fetch(current, guards["max_bytes"], guards["read_timeout_ms"] / 1000)
-                    response = await execution.scheduler.run("read", get_page, priority=priority, host=urlsplit(current).hostname)
+                    read_priority = priority if priority else (0 if execution.foreground else 4)
+                    read_priority = min(read_priority, execution.priorities.get(candidate_id, read_priority))
+                    response = await execution.scheduler.run("read", get_page, priority=read_priority, host=urlsplit(current).hostname, key=candidate_id)
                     if response.status in {301, 302, 303, 307, 308}:
                         if redirect == guards["max_redirects"] or "location" not in response.headers:
                             raise FetchFailure("REDIRECT_LIMIT")
