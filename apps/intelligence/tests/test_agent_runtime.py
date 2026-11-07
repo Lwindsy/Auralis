@@ -51,6 +51,19 @@ def supply():
     return {"state": "R_EXHAUSTED", "counts": {"unresearched": 0, "reserve": 0, "in_flight": 0, "ready_unshown_known": 0}, "reason_code": None}
 
 
+def test_control_double_prices_cached_tokens_and_search_separately():
+    prices = {"screen": {"input_microusd_per_million": 100000,
+                          "cached_input_microusd_per_million": 10000,
+                          "output_microusd_per_million": 500000,
+                          "search_microusd_per_call": 10000}}
+    control = JavaControlDouble("java-test", pricing_by_binding=prices)
+    plan = {"model_binding_ref": "screen", "max_input_tokens": 1000, "max_output_tokens": 200,
+            "cost_class": "TOOL_SERVICE"}
+    assert control._reservation_amount(plan) == 10200
+    receipt = {"input_tokens": 1000, "cached_input_tokens": 400, "output_tokens": 200}
+    assert control._charge_amount(plan, receipt) == 10164
+
+
 def test_fake_stage_admission_grant_delivery_close_and_clean_memory():
     async def run():
         request = start()

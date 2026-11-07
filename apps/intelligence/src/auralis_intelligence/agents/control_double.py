@@ -41,11 +41,19 @@ class JavaControlDouble:
     """Atomic in one event loop; explicitly synthetic prices and catalog."""
 
     def __init__(self, coordinator_boot_id: str, *, catalog: dict[str, dict[str, Any]] | None = None,
-                 price_per_token: int | Fraction = 1, now: Callable[[], datetime] | None = None) -> None:
+                 price_per_token: int | Fraction = 1,
+                 pricing_by_binding: dict[str, dict[str, int]] | None = None,
+                 now: Callable[[], datetime] | None = None) -> None:
         self.boot_id = coordinator_boot_id
         self.catalog = deepcopy(catalog or {})
         self.known_review_refs: dict[str, list[dict[str, str]]] = {}
         self.price_per_token = price_per_token
+        self.pricing_by_binding = deepcopy(pricing_by_binding or {})
+        required_prices = {"input_microusd_per_million", "cached_input_microusd_per_million",
+                           "output_microusd_per_million", "search_microusd_per_call"}
+        if any(set(prices) != required_prices or any(type(value) is not int or value < 0 for value in prices.values())
+               for prices in self.pricing_by_binding.values()):
+            raise ValueError("INVALID_BINDING_PRICING")
         self.now = now or (lambda: datetime.now(timezone.utc))
         self.sessions: dict[str, BudgetAccount] = {}
         self.session_scopes: dict[str, str] = {}
@@ -365,7 +373,7 @@ class JavaControlDouble:
         budget = self.rounds[start["budget"]["round_budget_scope_id"]]
         session = self.sessions[budget.session_id]
         lane = budget.lanes[plan["lane"]]
-        amount = math.ceil((plan["max_input_tokens"] + plan["max_output_tokens"]) * self.price_per_token)
+        amount = self._reservation_amount(plan)
         denied_reads = [identifier for identifier in plan["read_ids"] if identifier not in self.reads or self.reads[identifier]["round_id"] != start["round_id"] or not self.permits(self.reads[identifier]["receipt"]["final_url"], "AI_PROCESS")]
         reason = None
         existing = self.invocations.get(plan["invocation_id"])
@@ -420,13 +428,13 @@ class JavaControlDouble:
                 invocation["finish"] = receipt["finish"]
         known = receipt["outcome"] == "NOT_PROCESSED" or (receipt["outcome"] == "COMPLETED" and receipt["input_tokens"] is not None and receipt["output_tokens"] is not None)
         if known and not invocation["settled"]:
-            charge = 0 if receipt["outcome"] == "NOT_PROCESSED" else math.ceil((receipt["input_tokens"] + receipt["output_tokens"]) * self.price_per_token)
+            charge = 0 if receipt["outcome"] == "NOT_PROCESSED" else self._charge_amount(invocation["plan"], receipt)
             budget = self.rounds[invocation["round_scope"]]
             for account in (self.sessions[budget.session_id], budget.total, budget.lanes[invocation["plan"]["lane"]]):
                 account.reserved -= invocation["reserved"]
                 account.settled += charge
             self.price_violation |= charge > invocation["reserved"]
-            invocation.update(settled=True, uncertain=False)
+            invocation.update(settled=True, uncertain=False, charge=charge)
             invocation["outcome"] = receipt["outcome"]
             invocation["finish"] = receipt["finish"]
         budget = self.rounds[invocation["round_scope"]]
@@ -437,6 +445,27 @@ class JavaControlDouble:
         result = {"accepted": True, "invocation_id": receipt["invocation_id"], "status": "SETTLED" if invocation["settled"] else "UNCERTAIN", "settlement_seq": self._settlement_seq, "lanes": lanes}
         self.ledger.record(key, receipt, result)
         return result
+
+    def _reservation_amount(self, plan: dict[str, Any]) -> int:
+        prices = self.pricing_by_binding.get(plan["model_binding_ref"])
+        if prices is None:
+            return math.ceil((plan["max_input_tokens"] + plan["max_output_tokens"]) * self.price_per_token)
+        token_cost = (plan["max_input_tokens"] * prices["input_microusd_per_million"]
+                      + plan["max_output_tokens"] * prices["output_microusd_per_million"])
+        search_cost = prices["search_microusd_per_call"] if plan["cost_class"] == "TOOL_SERVICE" else 0
+        return search_cost + math.ceil(token_cost / 1_000_000)
+
+    def _charge_amount(self, plan: dict[str, Any], receipt: dict[str, Any]) -> int:
+        prices = self.pricing_by_binding.get(plan["model_binding_ref"])
+        if prices is None:
+            return math.ceil((receipt["input_tokens"] + receipt["output_tokens"]) * self.price_per_token)
+        cached = min(receipt["cached_input_tokens"] or 0, receipt["input_tokens"])
+        uncached = receipt["input_tokens"] - cached
+        token_cost = (uncached * prices["input_microusd_per_million"]
+                      + cached * prices["cached_input_microusd_per_million"]
+                      + receipt["output_tokens"] * prices["output_microusd_per_million"])
+        search_cost = prices["search_microusd_per_call"] if plan["cost_class"] == "TOOL_SERVICE" else 0
+        return search_cost + math.ceil(token_cost / 1_000_000)
 
     def _deliver(self, execution_id: str, delivery: dict[str, Any]) -> dict[str, Any]:
         validate_definition("Delivery", delivery)
