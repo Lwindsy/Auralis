@@ -11,13 +11,16 @@ from .prompts import PASS_ONE_PROMPT, PASS_TWO_PROMPT
 from .reference import PreferenceError, ReferenceCatalog, locate
 from .schemas import PASS_ONE, PASS_TWO
 
-PARSER_REVISION = "preferences-v1-pass1-v0.4-pass2-v0.3"
+PARSER_REVISION = "preferences-v1-pass1-v0.5-pass2-v0.6"
 
 
 class PreferencesStage:
-    def __init__(self, gateway: ModelGateway, reference: ReferenceCatalog) -> None:
+    def __init__(self, gateway: ModelGateway, reference: ReferenceCatalog, *, genre_limit: int | None = None) -> None:
         self.gateway = gateway
         self.reference = reference
+        if genre_limit is not None and genre_limit < 1:
+            raise ValueError("GENRE_LIMIT_MUST_BE_POSITIVE")
+        self.genre_limit = genre_limit
 
     async def _generate(self, execution: Execution, system: str, payload: dict, schema: dict, version: str) -> dict:
         result = await self.gateway.generate(execution, role="interpret", purpose="INTERPRET", system=system,
@@ -47,14 +50,15 @@ class PreferencesStage:
         if text.strip():
             execution.phase = "INTERPRETING"
             branches = self.reference.branch_material()
-            first = await self._generate(execution, PASS_ONE_PROMPT, {"request_text": text, "branches": branches}, PASS_ONE, "genre_pass1_v0.4")
+            first = await self._generate(execution, PASS_ONE_PROMPT, {"request_text": text, "branches": branches}, PASS_ONE, "genre_pass1_v0.5")
             ids = [row["id"] for row in first["branches"]]
             if len(set(ids)) != len(ids) or set(ids) - {row["id"] for row in branches}:
                 raise PreferenceError("INTERPRETATION_INVALID_ID")
             for row in first["branches"]:
                 locate(text, row["quote"])
-            genres = self.reference.expand(ids)
-            second = await self._generate(execution, PASS_TWO_PROMPT, {"request_text": text, "genres": genres}, PASS_TWO, "genre_pass2_v0.3")
+            genres = (self.reference.expand(ids) if self.genre_limit is None
+                      else self.reference.expand_limited(ids, self.genre_limit, text))
+            second = await self._generate(execution, PASS_TWO_PROMPT, {"request_text": text, "genres": genres}, PASS_TWO, "genre_pass2_v0.6")
             if not any(second.values()):
                 raise PreferenceError("INTERPRETATION_INVALID_OUTPUT")
             known = {row["id"] for row in genres}

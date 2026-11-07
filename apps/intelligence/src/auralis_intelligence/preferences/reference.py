@@ -79,6 +79,37 @@ class ReferenceCatalog:
             raise PreferenceError("REFERENCE_UNAVAILABLE")
         return list(result.values())
 
+    def expand_limited(self, identifiers: list[str], limit: int, request_text: str) -> list[dict]:
+        if limit < 1:
+            raise ValueError("GENRE_LIMIT_MUST_BE_POSITIVE")
+        expanded = self.expand(identifiers)
+        if len(expanded) <= limit:
+            return expanded
+        text = request_text.casefold()
+        explicit = []
+        for row in expanded:
+            labels = [row["name"], *row["aliases"]]
+            if any(label.strip() and label.casefold() in text for label in labels):
+                explicit.append(row)
+        chosen = {row["id"]: row for row in explicit[:limit]}
+        branch_rows = []
+        for identifier in identifiers:
+            rows = []
+            for genre_id in self.branches[identifier]["genre_ids"]:
+                row = self.genres[genre_id]
+                if row["description"].strip():
+                    rows.append(self.material(row))
+            branch_rows.append(rows)
+        cursor = 0
+        while len(chosen) < limit and any(cursor < len(rows) for rows in branch_rows):
+            for rows in branch_rows:
+                if cursor < len(rows):
+                    chosen.setdefault(rows[cursor]["id"], rows[cursor])
+                    if len(chosen) == limit:
+                        break
+            cursor += 1
+        return list(chosen.values())
+
 
 def locate(text: str, quote: str) -> dict[str, int]:
     """Unicode code points, half-open; ambiguous repeated quotes are rejected."""

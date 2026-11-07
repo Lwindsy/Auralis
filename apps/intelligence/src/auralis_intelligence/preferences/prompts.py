@@ -51,6 +51,7 @@ PASS_ONE_PROMPT = """# 角色与任务
 用 `name`、`aliases` 和 `description` 中的大类归属来定位。
 
 - 同义写法、中英文、缩写都可以帮助定位，例如「R&B」「节奏布鲁斯」。以资料中的名称、别名和关系为依据。
+- 明确点名的风格无论是想听、软避让还是硬限制，都必须选择能展开到该风格的大类入口；不要只选择句中另一个正向风格的入口。可使用基本音乐分类常识补足跨语言归属，例如「来点放克，迪斯科尽量少一点」需要同时查看 R&B / Soul / Funk 与 Dance 分支。
 - 风格词偶然出现在别的语境里时，按听众实际的诉求判断。例如「我在摇滚咖啡馆打工，想听点安静的」，音乐需求是「想听点安静的」。
 - 听众说的是大类（如「电子」），而分支更细时，普通正向偏好可以选介绍里明确属于该大类、且最贴近其他线索的几个入口。优先覆盖真正不同的方向。
 - 普通软偏好找不到准确的对应分支时，可以参考介绍中写明的相近风格或同一谱系，也可以从原话整体的听感和状态寻找别的合理方向。
@@ -112,7 +113,7 @@ PASS_ONE_PROMPT = """# 角色与任务
 1. 每个 `id` 都在输入的 `branches` 里，并且各自只出现一次吗？
 2. 每个 `quote` 都能在 `request_text` 中原样找到吗？
 3. 被改口撤回的方向是不是已经去掉了？
-4. `quote` 是不是保留了会影响范围和力度的否定词、程度词或例外？明确点名的限制能按原范围展开吗？
+4. `quote` 是不是保留了会影响范围和力度的否定词、程度词或例外？每个明确点名的偏好、避让或限制都有能展开到该风格的入口吗？
 5. 至少选了一个分支吗？每个选择能否说明它和原话的诉求、情境或语气有什么联系？
 6. 输出是不是一个合法的 JSON 对象，且只有这个对象？
 
@@ -247,6 +248,8 @@ PASS_TWO_PROMPT = """# 角色与任务
 | `constraints` | 明确要求或排除，且给定的风格 ID 能准确表达该项条件 | 明确要求用 `kind: "require"`，明确排除用 `kind: "exclude"`。每项填写 `id` 和 `quote`。多个条件彼此独立且同时生效时，可以分别记录。 |
 | `unresolved_constraints` | 明确条件无法用上述单项限制忠实表达 | 把整条条件作为一段原文交回核对，包括二选一、父类排除但允许某个子类、彼此矛盾的要求，以及给定资料里没有可靠映射的硬限制。每项是一段字符串。 |
 
+原话明确点名风格且输入提供了对应 ID 时，必须按实际力度写入 `preferences` 或 `constraints`；`soft_preferences` 只能补充场景、关系和听感，不能替代这个结构化风格项。例如「迪斯科尽量少一点」使用 `preferences / avoid / explicit`，「绝对不要迪斯科」使用 `constraints / exclude`。
+
 「不要金属，尤其不要嘶吼」里，金属可以是明确排除，嘶吼是软避让的听感细节。无法映射为有依据的风格线索时，这些细节同时写入 `soft_preferences`。仅表示「不介意」的许可也写入该数组并标为 `permission`。有另行表达的偏好时，再生成对应的建议。
 
 ## 第四步｜保留完整需求含义
@@ -278,7 +281,7 @@ PASS_TWO_PROMPT = """# 角色与任务
 # 输出前自检
 
 1. 每个 `id` 都能在输入的 `genres` 中找到吗？
-2. 还在生效的方向、限制和例外都按原来的力度表达了吗？
+2. 还在生效的方向、限制和例外都按原来的力度表达了吗？点名且有对应 ID 的风格是否进入了 `preferences` 或 `constraints`，而不是只留在 `soft_preferences`？
 3. 明说的风格与推测出的风格分别标成 `explicit` 和 `inferred` 了吗？
 4. 每个硬限制都能用所给 ID 表达原有范围吗？复杂关系有没有作为整体交回？
 5. 每个 `quote` 和待处理限制都能在原话中逐字定位吗？
@@ -317,6 +320,64 @@ PASS_TWO_PROMPT = """# 角色与任务
 ```
 
 「想听爵士」是点名的软偏好，「不要 metal」是风格排除，「尤其不要嘶吼」是同时保留在 soft_preferences 中的听感细节。
+
+## 示例 1B｜点名风格的软避让
+
+输入
+
+```json
+{
+  "request_text": "做饭呢，来点放克，迪斯科尽量少一点。",
+  "genres": [
+    {"id":"genre:funk","name":"Funk","aliases":["放克"],"description":"以切分贝斯、短促吉他和紧密鼓组形成突出律动。"},
+    {"id":"genre:disco","name":"Disco","aliases":["迪斯科"],"description":"稳定舞拍、反复低音和弦乐或合成器铺陈。"}
+  ]
+}
+```
+
+输出
+
+```json
+{
+  "preferences":[
+    {"id":"genre:funk","kind":"prefer","basis":"explicit","quote":"来点放克"},
+    {"id":"genre:disco","kind":"avoid","basis":"explicit","quote":"迪斯科尽量少一点"}
+  ],
+  "constraints":[],
+  "unresolved_constraints":[],
+  "soft_preferences":[{"description":"做饭时听音乐","kind":"context","basis":"explicit","quote":"做饭呢"}]
+}
+```
+
+「尽量少一点」是可权衡的软避让，因此使用 `preferences / avoid`，不能升级为 `exclude`，也不能只写进 `soft_preferences`。
+
+## 示例 1C｜融合关系不拆成并列偏好
+
+输入
+
+```json
+{
+  "request_text": "来点爵士和嘻哈揉在一起的，那种一张里就能听到两样的。",
+  "genres": [
+    {"id":"genre:jazz","name":"Jazz","aliases":["爵士"],"description":"爵士大类。"},
+    {"id":"genre:hip-hop","name":"Hip Hop","aliases":["嘻哈"],"description":"嘻哈大类。"},
+    {"id":"genre:jazz-rap","name":"Jazz Rap","aliases":["爵士说唱"],"description":"把爵士采样、和声或演奏与嘻哈节拍及说唱结合。"}
+  ]
+}
+```
+
+输出
+
+```json
+{
+  "preferences":[{"id":"genre:jazz-rap","kind":"prefer","basis":"inferred","quote":"爵士和嘻哈揉在一起"}],
+  "constraints":[],
+  "unresolved_constraints":[],
+  "soft_preferences":[{"description":"希望同一张作品中融合爵士与嘻哈","kind":"prefer","basis":"explicit","quote":"一张里就能听到两样"}]
+}
+```
+
+用户要求的是融合，不是两个独立方向；已有可靠融合ID时，不要再把普通爵士和普通嘻哈分别输出为独立偏好。
 
 ## 示例 2｜从比喻推测听感
 

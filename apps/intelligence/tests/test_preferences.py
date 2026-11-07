@@ -94,6 +94,24 @@ def test_blank_text_preserves_preselected_flags_and_seed_descriptions_without_mo
     asyncio.run(run())
 
 
+def test_limited_expansion_keeps_explicit_names_then_round_robins_branches():
+    reference = ReferenceCatalog({
+        "branches": [
+            {"id": "one", "name": "One", "aliases": [], "description": "one", "genre_ids": ["a", "b", "c"]},
+            {"id": "two", "name": "Two", "aliases": [], "description": "two", "genre_ids": ["d", "e", "f"]},
+        ],
+        "genres": [
+            {"id": identifier, "name": name, "aliases": aliases, "description": identifier}
+            for identifier, name, aliases in (
+                ("a", "Alpha", []), ("b", "Beta", []), ("c", "Gamma", []),
+                ("d", "Delta", []), ("e", "Epsilon", ["named target"]), ("f", "Zeta", []),
+            )
+        ],
+    })
+    rows = reference.expand_limited(["one", "two"], 4, "Please keep named target in view")
+    assert [row["id"] for row in rows] == ["e", "a", "d", "b"]
+
+
 @pytest.mark.parametrize("kind,basis,tag,disliked,forbidden,required", [
     ("prefer", "explicit", True, False, False, False),
     ("prefer", "inferred", False, True, False, False),
