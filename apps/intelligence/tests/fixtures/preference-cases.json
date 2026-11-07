@@ -1,0 +1,526 @@
+{
+  "reference": {
+    "branches": [
+      {
+        "id": "branch:jazz",
+        "name": "爵士",
+        "aliases": [
+          "Jazz"
+        ],
+        "description": "即兴与爵士和声，从克制疏朗的冷爵士（Cool Jazz）到与电子节拍结合的方向。",
+        "genre_ids": [
+          "genre:jazz",
+          "genre:cool-jazz",
+          "genre:nu-jazz"
+        ]
+      },
+      {
+        "id": "branch:electronic",
+        "name": "电子",
+        "aliases": [
+          "Electronic"
+        ],
+        "description": "从节拍几乎消失、声场开阔且带回声的氛围音乐（Ambient），到低频脉冲及与爵士乐融合的方向。",
+        "genre_ids": [
+          "genre:ambient",
+          "genre:dub-techno",
+          "genre:nu-jazz"
+        ]
+      },
+      {
+        "id": "branch:metal",
+        "name": "金属",
+        "aliases": [
+          "Metal"
+        ],
+        "description": "以有重量的失真吉他和鼓为主，死亡金属（Death Metal）等方向可采用低沉吼腔。",
+        "genre_ids": [
+          "genre:metal",
+          "genre:death-metal"
+        ]
+      },
+      {
+        "id": "branch:latin",
+        "name": "拉丁音乐",
+        "aliases": [
+          "Latin"
+        ],
+        "description": "包括 Bossa Nova 等方向，可找到律动松弛、以原声吉他和轻柔演唱为主的声音。",
+        "genre_ids": [
+          "genre:bossa-nova"
+        ]
+      },
+      {
+        "id": "branch:rock",
+        "name": "摇滚",
+        "aliases": [
+          "Rock"
+        ],
+        "description": "力度与编配跨度大，包括旋律舒展、编配柔和的 Soft Rock。",
+        "genre_ids": [
+          "genre:soft-rock"
+        ]
+      },
+      {
+        "id": "branch:pop",
+        "name": "流行",
+        "aliases": [
+          "Pop"
+        ],
+        "description": "包括 Indie Pop 等方向，其中一些分支以轻快旋律和轻盈编配为主。",
+        "genre_ids": [
+          "genre:indie-pop"
+        ]
+      }
+    ],
+    "genres": [
+      {
+        "id": "genre:jazz",
+        "name": "爵士",
+        "aliases": [
+          "Jazz"
+        ],
+        "description": "爵士语汇的大类，常有即兴与丰富和声，速度与编制跨度大。"
+      },
+      {
+        "id": "genre:cool-jazz",
+        "name": "冷爵士",
+        "aliases": [
+          "Cool Jazz"
+        ],
+        "description": "音色克制，编曲留白，演奏的力度和铺陈相对舒缓。"
+      },
+      {
+        "id": "genre:nu-jazz",
+        "name": "Nu Jazz",
+        "aliases": [
+          "Nu 爵士"
+        ],
+        "description": "在电子节拍或制作中保留爵士和声与演奏。"
+      },
+      {
+        "id": "genre:ambient",
+        "name": "氛围音乐",
+        "aliases": [
+          "Ambient"
+        ],
+        "description": "重空间与延展音色，可带回声或长混响，节奏可以极弱。"
+      },
+      {
+        "id": "genre:dub-techno",
+        "name": "Dub Techno",
+        "aliases": [],
+        "description": "有连续的低频节拍，常以回声和混响处理重复和弦。"
+      },
+      {
+        "id": "genre:metal",
+        "name": "金属",
+        "aliases": [
+          "Metal"
+        ],
+        "description": "失真吉他和厚重节奏的风格大类，人声与速度跨度大。"
+      },
+      {
+        "id": "genre:death-metal",
+        "name": "死亡金属",
+        "aliases": [
+          "Death Metal"
+        ],
+        "description": "重失真和密集鼓点，常见低沉吼腔。"
+      },
+      {
+        "id": "genre:bossa-nova",
+        "name": "Bossa Nova",
+        "aliases": [
+          "巴萨诺瓦"
+        ],
+        "description": "轻柔演唱与原声吉他，律动松弛而有弹性。"
+      },
+      {
+        "id": "genre:soft-rock",
+        "name": "Soft Rock",
+        "aliases": [
+          "柔和摇滚"
+        ],
+        "description": "较柔和的编配，舒展的旋律和适中的力度。"
+      },
+      {
+        "id": "genre:indie-pop",
+        "name": "Indie Pop",
+        "aliases": [
+          "独立流行"
+        ],
+        "description": "听感跨度较大，其中一些方向的旋律轻快，编配轻盈。"
+      }
+    ]
+  },
+  "cases": [
+    {
+      "id": "explicit-genre",
+      "request_text": "想听点 cool jazz。",
+      "expected_pass_1": {
+        "branches": [
+          {
+            "id": "branch:jazz",
+            "quote": "想听点 cool jazz"
+          }
+        ]
+      },
+      "expected_pass_2": {
+        "preferences": [
+          {
+            "id": "genre:cool-jazz",
+            "kind": "prefer",
+            "basis": "explicit",
+            "quote": "想听点 cool jazz"
+          }
+        ],
+        "constraints": [],
+        "unresolved_constraints": [],
+        "soft_preferences": []
+      }
+    },
+    {
+      "id": "exclude-with-soft-detail",
+      "request_text": "想听爵士，但不要 metal，尤其不要嘶吼。",
+      "expected_pass_1": {
+        "branches": [
+          {
+            "id": "branch:jazz",
+            "quote": "想听爵士"
+          },
+          {
+            "id": "branch:metal",
+            "quote": "但不要 metal"
+          }
+        ]
+      },
+      "expected_pass_2": {
+        "preferences": [
+          {
+            "id": "genre:jazz",
+            "kind": "prefer",
+            "basis": "explicit",
+            "quote": "想听爵士"
+          }
+        ],
+        "constraints": [
+          {
+            "id": "genre:metal",
+            "kind": "exclude",
+            "quote": "但不要 metal"
+          }
+        ],
+        "unresolved_constraints": [],
+        "soft_preferences": [
+          {
+            "description": "倾向避免嘶吼人声",
+            "kind": "avoid",
+            "quote": "尤其不要嘶吼",
+            "basis": "explicit"
+          }
+        ]
+      }
+    },
+    {
+      "id": "metaphor-with-audible-clues",
+      "request_text": "想听一点像深夜空站台里远远回荡的广播。",
+      "expected_pass_1": {
+        "branches": [
+          {
+            "id": "branch:electronic",
+            "quote": "想听一点像深夜空站台里远远回荡的广播"
+          }
+        ]
+      },
+      "expected_pass_2": {
+        "preferences": [
+          {
+            "id": "genre:ambient",
+            "kind": "prefer",
+            "basis": "inferred",
+            "quote": "想听一点像深夜空站台里远远回荡的广播"
+          }
+        ],
+        "constraints": [],
+        "unresolved_constraints": [],
+        "soft_preferences": [
+          {
+            "description": "希望声音有深夜空站台般的空间感、远处广播般的回响",
+            "kind": "prefer",
+            "quote": "像深夜空站台里远远回荡的广播",
+            "basis": "explicit"
+          }
+        ]
+      }
+    },
+    {
+      "id": "parallel-interests",
+      "request_text": "A bit of cool jazz and some ambient, separate albums are fine.",
+      "expected_pass_1": {
+        "branches": [
+          {
+            "id": "branch:jazz",
+            "quote": "A bit of cool jazz"
+          },
+          {
+            "id": "branch:electronic",
+            "quote": "some ambient"
+          }
+        ]
+      },
+      "expected_pass_2": {
+        "preferences": [
+          {
+            "id": "genre:cool-jazz",
+            "kind": "prefer",
+            "basis": "explicit",
+            "quote": "A bit of cool jazz"
+          },
+          {
+            "id": "genre:ambient",
+            "kind": "prefer",
+            "basis": "explicit",
+            "quote": "some ambient"
+          }
+        ],
+        "constraints": [],
+        "unresolved_constraints": [],
+        "soft_preferences": [
+          {
+            "description": "冷爵士与氛围音乐为并列兴趣，不要求每张专辑融合两者",
+            "kind": "context",
+            "quote": "cool jazz and some ambient, separate albums are fine",
+            "basis": "explicit"
+          }
+        ]
+      }
+    },
+    {
+      "id": "relaxed-soft-directions",
+      "request_text": "轻松一点就好。",
+      "expected_pass_1": {
+        "branches": [
+          {
+            "id": "branch:latin",
+            "quote": "轻松一点就好"
+          },
+          {
+            "id": "branch:rock",
+            "quote": "轻松一点就好"
+          },
+          {
+            "id": "branch:pop",
+            "quote": "轻松一点就好"
+          }
+        ]
+      },
+      "expected_pass_2": {
+        "preferences": [
+          {
+            "id": "genre:bossa-nova",
+            "kind": "prefer",
+            "basis": "inferred",
+            "quote": "轻松一点就好"
+          },
+          {
+            "id": "genre:soft-rock",
+            "kind": "prefer",
+            "basis": "inferred",
+            "quote": "轻松一点就好"
+          },
+          {
+            "id": "genre:indie-pop",
+            "kind": "prefer",
+            "basis": "inferred",
+            "quote": "轻松一点就好"
+          }
+        ],
+        "constraints": [],
+        "unresolved_constraints": [],
+        "soft_preferences": [
+          {
+            "description": "希望听感轻松",
+            "kind": "prefer",
+            "quote": "轻松一点就好",
+            "basis": "explicit"
+          }
+        ]
+      }
+    },
+    {
+      "id": "mood-with-open-request",
+      "request_text": "最近心情不太好，随便推点歌吧。",
+      "expected_pass_1": {
+        "branches": [
+          {
+            "id": "branch:electronic",
+            "quote": "最近心情不太好，随便推点歌吧"
+          }
+        ]
+      },
+      "expected_pass_2": {
+        "preferences": [
+          {
+            "id": "genre:ambient",
+            "kind": "prefer",
+            "basis": "inferred",
+            "quote": "最近心情不太好，随便推点歌吧"
+          }
+        ],
+        "constraints": [],
+        "unresolved_constraints": [],
+        "soft_preferences": [
+          {
+            "description": "近期情绪低落，对音乐方向保持开放",
+            "kind": "context",
+            "quote": "最近心情不太好，随便推点歌吧",
+            "basis": "explicit"
+          }
+        ]
+      }
+    },
+    {
+      "id": "hard-alternatives",
+      "request_text": "只听 Cool Jazz 或 Ambient。",
+      "expected_pass_1": {
+        "branches": [
+          {
+            "id": "branch:jazz",
+            "quote": "只听 Cool Jazz 或 Ambient"
+          },
+          {
+            "id": "branch:electronic",
+            "quote": "只听 Cool Jazz 或 Ambient"
+          }
+        ]
+      },
+      "expected_pass_2": {
+        "preferences": [],
+        "constraints": [],
+        "unresolved_constraints": [
+          "只听 Cool Jazz 或 Ambient"
+        ],
+        "soft_preferences": []
+      }
+    },
+    {
+      "id": "changed-mind",
+      "request_text": "本来想听金属，算了，还是来点爵士吧。",
+      "expected_pass_1": {
+        "branches": [
+          {
+            "id": "branch:jazz",
+            "quote": "算了，还是来点爵士吧"
+          }
+        ]
+      },
+      "expected_pass_2": {
+        "preferences": [
+          {
+            "id": "genre:jazz",
+            "kind": "prefer",
+            "basis": "explicit",
+            "quote": "算了，还是来点爵士吧"
+          }
+        ],
+        "constraints": [],
+        "unresolved_constraints": [],
+        "soft_preferences": []
+      }
+    },
+    {
+      "id": "hard-genre-unmapped",
+      "request_text": "今晚想放松，但就只听那个我记不清名字的风格。",
+      "expected_pass_1": {
+        "branches": [
+          {
+            "id": "branch:jazz",
+            "quote": "今晚想放松"
+          }
+        ]
+      },
+      "expected_pass_2": {
+        "preferences": [],
+        "constraints": [],
+        "unresolved_constraints": [
+          "但就只听那个我记不清名字的风格"
+        ],
+        "soft_preferences": [
+          {
+            "description": "今晚希望放松",
+            "kind": "context",
+            "quote": "今晚想放松",
+            "basis": "explicit"
+          }
+        ]
+      }
+    },
+    {
+      "id": "single-required-genre",
+      "request_text": "这次只听 Jazz。",
+      "expected_pass_1": {
+        "branches": [
+          {
+            "id": "branch:jazz",
+            "quote": "这次只听 Jazz"
+          }
+        ]
+      },
+      "expected_pass_2": {
+        "preferences": [],
+        "constraints": [
+          {
+            "id": "genre:jazz",
+            "kind": "require",
+            "quote": "这次只听 Jazz"
+          }
+        ],
+        "unresolved_constraints": [],
+        "soft_preferences": []
+      }
+    },
+    {
+      "id": "soft-avoid",
+      "request_text": "想听氛围音乐，金属尽量少一点。",
+      "expected_pass_1": {
+        "branches": [
+          {
+            "id": "branch:electronic",
+            "quote": "想听氛围音乐"
+          },
+          {
+            "id": "branch:metal",
+            "quote": "金属尽量少一点"
+          }
+        ]
+      },
+      "expected_pass_2": {
+        "preferences": [
+          {
+            "id": "genre:ambient",
+            "kind": "prefer",
+            "basis": "explicit",
+            "quote": "想听氛围音乐"
+          },
+          {
+            "id": "genre:metal",
+            "kind": "avoid",
+            "basis": "explicit",
+            "quote": "金属尽量少一点"
+          }
+        ],
+        "constraints": [],
+        "unresolved_constraints": [],
+        "soft_preferences": [
+          {
+            "description": "金属元素尽量少一点",
+            "kind": "avoid",
+            "quote": "金属尽量少一点",
+            "basis": "explicit"
+          }
+        ]
+      }
+    }
+  ]
+}
