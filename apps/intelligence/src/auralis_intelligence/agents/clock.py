@@ -6,7 +6,7 @@ from typing import Callable, Iterator
 
 
 class AgentClock:
-    def __init__(self, now: Callable[[], float] = time.monotonic) -> None:
+    def __init__(self, now: Callable[[], float] = time.perf_counter) -> None:
         self.now = now
         self.intervals: list[tuple[str, float, float]] = []
         self.active: dict[int, tuple[str, float]] = {}

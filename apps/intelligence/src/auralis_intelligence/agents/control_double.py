@@ -83,7 +83,7 @@ class JavaControlDouble:
                 raise ContractError("BINDING_MISMATCH")
         else:
             self.rounds[round_id] = RoundBudget(session_id, BudgetAccount(limits["round_cap_microusd"]), {name: BudgetAccount(cap) for name, cap in limits["lane_caps"].items()})
-        self.executions[identifier] = {"start": deepcopy(start), "active": True, "bundle": None, "display": {"display_seq": 0, "shown_candidate_ids": [], "heard_candidate_ids": [], "ready_unshown_ids": [], "user_waiting": False}}
+        self.executions[identifier] = {"start": deepcopy(start), "active": True, "bundle": deepcopy(start.get("curated_candidates")), "display": {"display_seq": 0, "shown_candidate_ids": [], "heard_candidate_ids": [], "ready_unshown_ids": [], "user_waiting": False}}
         if self.policy is None or start["source_policy"]["policy_epoch"] > self.policy["policy_epoch"]:
             self.policy = deepcopy(start["source_policy"])
 
@@ -267,6 +267,8 @@ class JavaControlDouble:
         invocation = self.invocations.get(receipt["invocation_id"])
         if invocation is None or invocation["execution_id"] != execution_id:
             raise ContractError("BINDING_MISMATCH")
+        if not invocation["settled"]:
+            invocation["usage"] = {key: receipt[key] for key in ("outcome", "finish", "input_tokens", "cached_input_tokens", "output_tokens")}
         known = receipt["outcome"] == "NOT_PROCESSED" or (receipt["outcome"] == "COMPLETED" and receipt["input_tokens"] is not None and receipt["output_tokens"] is not None)
         if known and not invocation["settled"]:
             charge = 0 if receipt["outcome"] == "NOT_PROCESSED" else (receipt["input_tokens"] + receipt["output_tokens"]) * self.price_per_token
@@ -295,9 +297,15 @@ class JavaControlDouble:
             return result
         entry = self.executions[execution_id]
         bundle = entry["bundle"]
-        if bundle is None or not delivery["delivery_id"].startswith(execution_id + ":"):
+        if not delivery["delivery_id"].startswith(execution_id + ":") or delivery["round_id"] != entry["start"]["round_id"]:
             raise ContractError("BINDING_MISMATCH")
-        require_binding(delivery["binding"], bundle["binding"])
+        if delivery["binding"] is None:
+            if delivery["kind"] != "CARD_BATCH" or delivery["binding"] is not None or delivery["payload"]["outcome"] == "DISPLAYABLE":
+                raise ContractError("BINDING_MISMATCH")
+        else:
+            if bundle is None:
+                raise ContractError("BINDING_MISMATCH")
+            require_binding(delivery["binding"], bundle["binding"])
         payload = delivery["payload"]
         rows = payload if delivery["kind"] == "SCREENINGS" else payload.get("screenings", []) if isinstance(payload, dict) else []
         for screening in rows:
@@ -306,7 +314,7 @@ class JavaControlDouble:
             self.screenings[(entry["start"]["round_id"], screening["candidate_id"])] = deepcopy(screening)
         items, published = [], []
         if delivery["kind"] == "CARD_BATCH":
-            candidates = {item["release_group_id"] for item in bundle["accepted"]}
+            candidates = {item["release_group_id"] for item in bundle["accepted"]} if bundle else set()
             for card in payload["cards"]:
                 reason = None
                 qualified = card["admission"]["qualified_read_ids"]

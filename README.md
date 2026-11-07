@@ -6,9 +6,29 @@ Auralis帮助你通过风格偏好、喜欢的专辑或自然语言描述发现�
 
 ## Availability / 当前状态
 
-Frontend functions were provisionally frozen on November 5, 2026. The product has no runnable recommendation application or installable release yet. Visual design and backend integration are still pending.
+A standalone Python agent demo and an internal execution service are available. Java product integration and the browser application are still pending; there is no complete website release yet.
 
-前端功能已于2026-11-05暂时冻结，目前仍没有可运行的推荐应用或可安装版本。最终视觉设计和后端接入尚未完成。
+Python Agent 已有独立演示与内部执行服务。Java 产品接入与浏览器应用仍待完成，目前没有完整网站发布版本。
+
+## Agent development / Agent 开发
+
+Use Python 3.10+ with the dependencies in [pyproject.toml](apps/intelligence/pyproject.toml). From the repository root, run the complete first-batch flow with synthetic models and pages and the local A-V2 implementation. This performs no paid requests.
+
+在 Python 3.10+ 环境安装应用清单中的依赖后，从仓库根运行。演示使用合成模型与网页、真实本地 A-V2 代码，不产生付费请求。
+
+```powershell
+python -m pip install -e apps/intelligence
+python -m auralis_intelligence.agents demo --scenario mixed
+python -m auralis_intelligence.agents demo --scenario genre --r 5 --k 4 --n 2 --include-calls
+```
+
+The output reports first-batch composition, publication counts, stage timing and optional safe call records. Synthetic timing and zero-price fixtures do not measure real model quality, speed or cost. The other input scenarios are `album`, `text` and `no-positive`; the last hands control back to Java's curated-list branch.
+
+输出包括首批构成、发布数量、分段计时，以及可选的不含正文或密钥的调用记录。合成计时和零价替身不能证明真实质量、速度或费用。其他输入场景为 `album`、`text`、`no-positive`，最后一种交回 Java 固定名单分支。
+
+For the loopback HTTP service, provide explicit local paths and credential environment-variable names using [agent-service.example.json](apps/intelligence/agent-service.example.json) and reviewed [model bindings](apps/intelligence/provider-bindings.example.json), then run `python -m auralis_intelligence.agents serve --config <config.json>`. A matching Java control service is required. The sample bindings keep live calls disabled.
+
+启动 loopback HTTP 服务时，按配置样例显式填写获准资料路径、凭据环境变量名和已核实的模型绑定，再运行上述 `serve` 命令；它需要同版 Java 控制服务。配置样例默认关闭真实调用。短长评独立并行，首批等待全部实际短评结论，长评可随后交付；不会以8秒截断来缩小首批。
 
 ## Recall development / 召回开发
 
@@ -42,10 +62,10 @@ matching snapshot. The trained artifact is supplied locally. A-V2 remains the de
 
 - Provide genre preferences, favorite albums, or natural-language requests without logging in or saving a persistent personal taste profile.
 - Choose familiar, expand, or surprise exploration, then view album artwork, artist, main genres, release year and a short review. Detailed reviews open on request.
-- Mark an album as heard for an immediate replacement, or like/dislike it and choose a replacement afterward. Replace the whole displayed group or edit your prefilled request in place.
+- Mark an album as heard, or request a new album with the separate replacement button. Replace the whole group or edit the prefilled request in place. A replenishing empty slot fills automatically when ready.
 - Receive the available number of results. With no results or an error, return to your prefilled input using the provided button.
 
 - 无需登录或保存个人持续偏好，提供风格、喜欢的专辑或本次文字需求。
 - 选择熟悉、拓展或惊喜，查看封面、艺人、主要风格、推出年份和短评，按需打开详细乐评。
-- 已听过立即补位；喜欢／不喜欢后可选择来张新的。可以整组换批，或在当前页编辑预填需求。
+- “已听过”与“来张新的”分别提供单卡补位；可以整组换批，或在当前页编辑预填需求。空位补充中保留其他卡片，完成后自动填入。
 - 结果不足按实际数量展示；零结果或失败均提供重新输入按钮，保留原输入供修改。

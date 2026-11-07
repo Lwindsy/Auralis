@@ -71,7 +71,7 @@ class PreferencesStage:
                 proposal["soft_preferences"].append({"preference_id": f"text:{index + 1}",
                     **{key: row[key] for key in ("description", "kind", "basis")}, "strength": "normal", "focused": False})
             if proposal["unresolved_constraints"]:
-                raise PreferenceError("UNSUPPORTED_CONSTRAINT", "NEEDS_INPUT")
+                raise PreferenceError("UNSUPPORTED_CONSTRAINT", "NEEDS_INPUT", spans=tuple(proposal["unresolved_constraints"]))
             directions = {}
             for row in proposal["preferences"] + proposal["constraints"]:
                 if row.get("basis", "explicit") != "explicit":

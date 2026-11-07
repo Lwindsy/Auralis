@@ -10,10 +10,11 @@ from auralis_intelligence.contracts import digest
 class PreferenceError(ValueError):
     """Safe failure code and outcome, never containing user or source text."""
 
-    def __init__(self, code: str, status: str = "FAILED") -> None:
+    def __init__(self, code: str, status: str = "FAILED", *, spans: tuple[dict[str, int], ...] = ()) -> None:
         super().__init__(code)
         self.code = code
         self.status = status
+        self.spans = tuple(dict(span) for span in spans)
 
 
 class ReferenceCatalog:

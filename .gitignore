@@ -32,6 +32,7 @@ playwright-report/
 test-results/
 *.log
 *.tsbuildinfo
+*.egg-info/
 
 # Local user data, raw evaluation output, downloads and worktrees.
 /local-data/
