@@ -23,7 +23,8 @@ class ModelGateway:
 
     async def generate(self, execution: Execution, *, role: str, purpose: str, system: str, input: Any,
                        output_schema: dict[str, Any], prompt_version: str, candidate_id: str | None = None,
-                       read_ids: tuple[str, ...] = (), lane: str = "FOREGROUND", priority: int = 0) -> CallResult:
+                       read_ids: tuple[str, ...] = (), lane: str = "FOREGROUND", priority: int = 0,
+                       timeout_ms: int | None = None) -> CallResult:
         binding = self.binding(execution, role)
         self.adapter.check_binding(binding)
         request = ModelRequest(system, input, prompt_version.replace(".", "_"), output_schema, binding.max_output_tokens)
@@ -36,4 +37,4 @@ class ModelGateway:
                                          max_input_tokens=token_bound, max_output_tokens=binding.max_output_tokens)
         timing = execution.start["agent_policy"]["timing"]
         timeout_key = {"interpret": "interpret_timeout_ms", "screen": "research_timeout_fg_ms", "select": "select_tech_timeout_ms", "write": "long_review_timeout_ms" if purpose == "WRITE_LONG" else "short_review_tech_timeout_ms"}[role]
-        return await execution.invoke(plan, lambda: self.adapter.complete(binding, request), timeout_seconds=timing[timeout_key] / 1000, priority=priority)
+        return await execution.invoke(plan, lambda: self.adapter.complete(binding, request), timeout_seconds=(timeout_ms or timing[timeout_key]) / 1000, priority=priority)

@@ -55,6 +55,8 @@ class Execution:
         self.counters = {name: 0 for name in ("researched", "qualified", "shortlisted", "ready", "long_ready", "long_generating")}
         self.lanes = {name: {"reserved_microusd": 0, "settled_microusd": 0, "uncertain_invocations": 0} for name in ("FOREGROUND", "BACKGROUND")}
         self._issued: set[str] = set()
+        self.children: set[asyncio.Task] = set()
+        self.calls: dict[str, dict[str, Any]] = {}
         self._delivery_lock = asyncio.Lock()
         self._deadline = datetime.fromisoformat(start["deadlines"]["round_deadline_at"].replace("Z", "+00:00"))
 
@@ -75,6 +77,17 @@ class Execution:
             self.events.pop(0)
         self.updated_seq += 1
         self.events.append({"seq": self.updated_seq, "kind": kind, "object_id": object_id})
+
+    def spawn(self, factory: Callable[[], Awaitable[Any]]) -> asyncio.Task:
+        self.ensure_active()
+        task = asyncio.create_task(factory())
+        self.children.add(task)
+        def completed(finished: asyncio.Task) -> None:
+            self.children.discard(finished)
+            if not finished.cancelled() and finished.exception() is not None:
+                self.event("FAILED", "child-stage")
+        task.add_done_callback(completed)
+        return task
 
     async def control_request(self, operation: str, payload: dict[str, Any]) -> dict[str, Any]:
         with self.clock.measure("java"):
@@ -105,6 +118,9 @@ class Execution:
             raise CallDenied("ALREADY_CLAIMED")
         # Reserve locally before any await: concurrent duplicate callers cannot both send.
         self._issued.add(plan["invocation_id"])
+        call = {"purpose": plan["purpose"], "candidate_id": plan["candidate_id"], "lane": plan["lane"],
+                "queued_at": self.clock.now(), "sent_at": None, "finished_at": None}
+        self.calls[plan["invocation_id"]] = call
         resource = "search" if plan["cost_class"] == "TOOL_SERVICE" else "model"
         async def perform() -> CallResult:
             self.ensure_active()
@@ -126,6 +142,7 @@ class Execution:
             cancelled = False
             try:
                 self.ensure_active()
+                call["sent_at"] = self.clock.now()
                 with self.clock.measure(resource):
                     reply = await asyncio.wait_for(send(), timeout=timeout_seconds)
             except asyncio.CancelledError:
@@ -134,6 +151,7 @@ class Execution:
             except (asyncio.TimeoutError, TimeoutError, OSError, ControlUnavailable):
                 reply = CallResult(outcome="UNCERTAIN", finish="ERROR")
             finally:
+                call["finished_at"] = self.clock.now()
                 receipt = {"invocation_id": plan["invocation_id"], "receipt_id": plan["invocation_id"] + ":usage", "outcome": reply.outcome, "finish": reply.finish, "input_tokens": reply.usage.input_tokens, "output_tokens": reply.usage.output_tokens, "cached_input_tokens": reply.usage.cached_input_tokens, "provider_request_ref": reply.provider_request_ref}
                 if reply.outcome != "NOT_PROCESSED" and (reply.outcome in {"UNCERTAIN", "CANCELLED_AFTER_SEND"} or reply.usage.input_tokens is None):
                     self.uncertain.add(plan["invocation_id"])
@@ -205,6 +223,12 @@ class Execution:
         return result
 
     async def cleanup(self) -> None:
+        self.close_requested = True
+        children = [task for task in self.children if task is not asyncio.current_task()]
+        for task in children:
+            task.cancel()
+        if children:
+            await asyncio.gather(*children, return_exceptions=True)
         await self.scheduler.close()
         await self.flush_usage()
         self.start["input"]["raw"] = None
@@ -221,6 +245,7 @@ class Execution:
         while not self.command_queue.empty():
             self.command_queue.get_nowait()
         self._issued.clear()
+        self.calls.clear()
         self.final_timing = self.clock.snapshot()
         self.clock.clear()
         self.slot_released = True
