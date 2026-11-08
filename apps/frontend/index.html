@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="referrer" content="no-referrer" />
+    <title>Auralis · 发现下一张专辑</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="/style.css" />
+    <script type="module" src="/app.js"></script>
+  </head>
+  <body>
+    <main>
+      <header>
+        <span class="eyebrow">AURALIS / ALBUM DISCOVERY</span>
+        <h1>下一张，听什么？</h1>
+        <p>从你的喜欢出发，发现值得完整听一遍的专辑。</p>
+      </header>
+      <p id="welcome" hidden></p>
+      <div id="notice" role="alert"></div>
+      <div id="recovery" class="actions"></div>
+      <section
+        id="editor"
+        class="box"
+        aria-labelledby="editor-title"
+        hidden
+      ></section>
+      <section id="results" aria-labelledby="results-title"></section>
+      <footer>无需登录 · 有效期内可接着上次的发现</footer>
+    </main>
+    <dialog id="review" aria-labelledby="review-title">
+      <div id="review-body"></div>
+      <button id="review-close">关闭乐评</button>
+    </dialog>
+    <noscript>请启用 JavaScript 以提交需求和查看推荐。</noscript>
+  </body>
+</html>

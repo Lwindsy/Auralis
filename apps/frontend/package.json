@@ -1,0 +1,29 @@
+{
+  "name": "auralis-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/serve.mjs",
+    "generate": "node scripts/generate.mjs",
+    "build": "node scripts/build.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "test:browser": "playwright test",
+    "check": "eslint . && prettier --check .",
+    "format": "prettier --write .",
+    "test:java": "playwright test --config playwright.java.config.mjs"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "devDependencies": {
+    "@eslint/js": "9.39.5",
+    "@playwright/test": "1.65.0",
+    "ajv": "8.20.0",
+    "ajv-formats": "3.0.1",
+    "esbuild": "0.28.2",
+    "eslint": "9.39.5",
+    "globals": "17.14.0",
+    "prettier": "3.9.10"
+  }
+}

@@ -1,0 +1,131 @@
+{
+  "POST /v1/discovery-sessions": {
+    "request": "DiscoverySubmission",
+    "responses": {
+      "200": "ProductState",
+      "202": "ProductState",
+      "400": "ProductError",
+      "409": "ProductError",
+      "429": "ProductError",
+      "503": "ProductError"
+    }
+  },
+  "GET /v1/current-state": {
+    "request": null,
+    "responses": {
+      "200": "ProductState",
+      "400": "ProductError",
+      "409": "ProductError",
+      "503": "ProductError"
+    }
+  },
+  "GET /v1/discovery-sessions/{session_id}": {
+    "request": null,
+    "responses": {
+      "200": "ProductState",
+      "400": "ProductError",
+      "409": "ProductError",
+      "503": "ProductError"
+    }
+  },
+  "POST /v1/discovery-sessions/{session_id}/cards/{slot_id}/actions": {
+    "request": "CardAction",
+    "responses": {
+      "200": "ProductState",
+      "202": "ProductState",
+      "400": "ProductError",
+      "409": "ProductError",
+      "429": "ProductError",
+      "503": "ProductError"
+    }
+  },
+  "POST /v1/discovery-sessions/{session_id}/next-batch": {
+    "request": "SessionAction",
+    "responses": {
+      "200": "ProductState",
+      "202": "ProductState",
+      "400": "ProductError",
+      "409": "ProductError",
+      "429": "ProductError",
+      "503": "ProductError"
+    }
+  },
+  "POST /v1/discovery-sessions/{session_id}/rescreen": {
+    "request": "SessionAction",
+    "responses": {
+      "200": "ProductState",
+      "202": "ProductState",
+      "400": "ProductError",
+      "409": "ProductError",
+      "429": "ProductError",
+      "503": "ProductError"
+    }
+  },
+  "GET /v1/discovery-sessions/{session_id}/long-reviews/{candidate_id}": {
+    "request": null,
+    "responses": {
+      "200": "LongReviewView",
+      "400": "ProductError",
+      "409": "ProductError",
+      "503": "ProductError"
+    }
+  },
+  "POST /v1/discovery-sessions/{session_id}/long-reviews/{candidate_id}/open": {
+    "request": "SessionAction",
+    "responses": {
+      "200": "LongReviewView",
+      "400": "ProductError",
+      "409": "ProductError",
+      "429": "ProductError",
+      "503": "ProductError"
+    }
+  },
+  "POST /v1/discovery-sessions/{session_id}/long-reviews/{candidate_id}/regenerate": {
+    "request": "SessionAction",
+    "responses": {
+      "200": "LongReviewView",
+      "400": "ProductError",
+      "409": "ProductError",
+      "429": "ProductError",
+      "503": "ProductError"
+    }
+  },
+  "POST /v1/bootstrap": {
+    "request": "BootstrapRequest",
+    "responses": {
+      "200": "BootstrapState",
+      "403": "ProductError"
+    }
+  },
+  "GET /v1/catalog/albums": {
+    "request": null,
+    "responses": {
+      "200": "AlbumSearchResult",
+      "400": "ProductError",
+      "401": "ProductError",
+      "429": "ProductError",
+      "503": "ProductError",
+      "504": "ProductError"
+    }
+  },
+  "GET /v1/catalog/genres": {
+    "request": null,
+    "responses": {
+      "200": "GenreSearchResult",
+      "400": "ProductError",
+      "401": "ProductError",
+      "429": "ProductError",
+      "503": "ProductError",
+      "504": "ProductError"
+    }
+  },
+  "GET /v1/catalog/albums/{mb_release_group_id}": {
+    "request": null,
+    "responses": {
+      "200": "ResolvedAlbum",
+      "404": "ProductError",
+      "503": "ProductError",
+      "504": "ProductError"
+    }
+  }
+}
