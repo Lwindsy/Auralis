@@ -1,5 +1,6 @@
 package io.auralis.catalog.adapters;
 
+import io.auralis.catalog.api.CatalogFailure;
 import io.auralis.catalog.api.CatalogVersion;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
@@ -13,6 +14,8 @@ public class PostgresCatalogVersion implements CatalogVersion {
     }
 
     public long current() {
-        return jdbc.queryForObject("SELECT dataset_id FROM ingestion.active_dataset", Long.class);
+        var rows = jdbc.queryForList("SELECT dataset_id FROM ingestion.active_dataset", Long.class);
+        if (rows.size() != 1) throw new CatalogFailure(503, "CATALOG_UNAVAILABLE");
+        return rows.getFirst();
     }
 }

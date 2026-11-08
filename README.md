@@ -68,3 +68,9 @@ matching snapshot. The trained artifact is supplied locally. A-V2 remains the de
 - Choose familiar, expand, or surprise exploration, then view album artwork, artist, main genres, release year and a short review. Detailed reviews open on request.
 - Mark an album as heard, or request a new album with the separate replacement button. Replace the whole group or edit the prefilled request in place. A replenishing empty slot fills automatically when ready.
 - Receive the available number of results. With no results or an error, return to your prefilled input using the provided button.
+
+## Full catalog search
+
+Java catalog endpoints search an explicitly versioned, complete MusicBrainz release-group snapshot using a local read-only Lucene index, including album names, artist credits and aliases. The retrieval subset is not used as the full directory. Configure `AURALIS_CATALOG_SEARCH_INDEX` and `AURALIS_CATALOG_SEARCH_MANIFEST_SHA256` with a verified offline index and its candidate-manifest digest. Missing configuration returns 503 for catalog requests; an invalid index prevents startup.
+
+After anonymous bootstrap, read `/v1/catalog/albums?query=...`, `/v1/catalog/albums/{mb_release_group_id}` and `/v1/genres`. GET requests never renew retention; unknown IDs and empty search results are distinct. External albums remain selectable, while only verified supported information enters retrieval; covers remain placeholders. The offline `io.auralis.catalog.adapters.CatalogIndexBuild` importer requires a complete candidate directory, a new output directory and the expected manifest digest. Update paths and digests during maintenance and restart; restore the previous complete index if validation fails. There is no online download or remote fallback. Catalog capabilities are implemented; complete recommendation APIs and website integration remain future work.
