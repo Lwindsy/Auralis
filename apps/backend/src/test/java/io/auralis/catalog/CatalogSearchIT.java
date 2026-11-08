@@ -51,7 +51,7 @@ class CatalogSearchIT {
                     new String[][] {
                         {"/v1/catalog/albums?query=Bjork", "AlbumSearchResult"},
                         {"/v1/catalog/albums/" + LuceneCatalogSearchTest.OLD, "ResolvedAlbum"},
-                        {"/v1/genres?query=%E6%91%87%E6%BB%9A", "GenreSearchResult"}
+                        {"/v1/catalog/genres?query=%E6%91%87%E6%BB%9A", "GenreSearchResult"}
                     }) {
                 var response =
                         client.send(

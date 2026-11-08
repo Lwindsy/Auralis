@@ -6,11 +6,28 @@ Auralis aims to help you discover albums through genre preferences, favorite alb
 
 ## Availability
 
-A standalone Python agent demo and an internal execution service are available. Java product integration and the browser application are still pending; there is no complete website release yet.
+A standalone Python agent demo and an internal execution service are available. The browser application supports contract-based recommendation interactions and has been tested against real Java bootstrap and catalog APIs. Recommendation commands still await backend integration; there is no complete website release yet.
 
 The Java online bootstrap can be built with `mvn -f apps/backend/pom.xml verify` and started with `java -jar apps/backend/target/auralis-core-database-0.1.0-SNAPSHOT-online.jar`. It requires explicit `AURALIS_JDBC_URL`, `AURALIS_DATABASE_USER`, `AURALIS_DATABASE_PASSWORD`, `AURALIS_PRODUCT_ORIGIN`, `AURALIS_PYTHON_URL`, `AURALIS_SERVICE_TOKEN`, `AURALIS_CONTRACT_REVISION` and `AURALIS_SUBJECT_SECRET` environment variables. Use PostgreSQL 18 with the existing migrations applied by the offline CLI and a non-DDL runtime role. The service exposes liveness/readiness probes, anonymous bootstrap and session recovery; recommendation command APIs still require subsequent integration.
 
 The offline migrator must apply V1–V9 before startup; use protocol revision 0.30 with matching Java and Python builds.
+
+## Browser development
+
+Use Node.js 24 or newer. From the repository root:
+
+```powershell
+npm --prefix apps/frontend ci
+npm --prefix apps/frontend run build
+npm --prefix apps/frontend test
+npm --prefix apps/frontend run check
+npm --prefix apps/frontend run test:browser
+npm --prefix apps/frontend run dev -- --fixture
+```
+
+Open `http://127.0.0.1:4173`. Explicit fixture mode displays a synthetic-data notice and does not call models. For Java, omit `--fixture`, set `AURALIS_JAVA_ORIGIN` to its loopback URL, and set Java's `AURALIS_PRODUCT_ORIGIN` to the frontend URL. Local HTTP also requires the explicit insecure-cookie option above. The development proxy serves only built assets and `/v1/` requests; it is not a production hosting configuration. Search requires Java's verified full catalog index. With the current backend, bootstrap, recovery reads and catalog operations work; recommendation commands remain unavailable.
+
+Routes and validators are checked in, so normal builds need only the product checkout. `npm --prefix apps/frontend run generate` additionally requires the matching private OpenAPI workspace and regenerates from the shared schema; generated files must not be edited manually. Browser tests use installed Chrome and a dedicated port 4187. For real Java catalog browser tests, set `AURALIS_JAVA_ORIGIN` and run `npm --prefix apps/frontend run test:java`; Java must allow frontend origin `http://127.0.0.1:4188`.
 
 ## Anonymous sessions
 
