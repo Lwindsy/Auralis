@@ -78,6 +78,13 @@ public class PostgresEvidenceStore implements EvidenceStore {
     @Override
     public void saveSeed(Scope scope, Seed s) {
         sessions.lockActive(scope);
+        if (s.readId() != null)
+            jdbc.update(
+                    "INSERT INTO discovery.seed_read_binding(session_id,read_id,seed_id,source_read_id,receipt) SELECT session_id,id,?,?,receipt FROM discovery.read_receipt WHERE session_id=? AND id=? ON CONFLICT DO NOTHING",
+                    s.seedId(),
+                    s.sourceReadId(),
+                    scope.sessionId(),
+                    s.readId());
         int inserted =
                 jdbc.update(
                         "INSERT INTO discovery.seed_evidence VALUES (?,?,?,?,?,?,?,?,?,?,?::jsonb) ON CONFLICT(session_id,seed_id,identity_revision) DO NOTHING",
@@ -117,7 +124,7 @@ public class PostgresEvidenceStore implements EvidenceStore {
         sessions.lockActive(scope);
         return jdbc
                 .query(
-                        "SELECT evidence::text FROM discovery.seed_evidence WHERE session_id=? AND seed_id=? AND identity_revision=? AND expires_at>clock_timestamp()",
+                        "SELECT evidence::text FROM discovery.seed_evidence WHERE session_id=? AND seed_id=? AND identity_revision=? AND EXISTS(SELECT 1 FROM discovery.session s WHERE s.id=session_id AND s.status='ACTIVE' AND s.expires_at>clock_timestamp())",
                         (rs, n) -> rs.getString(1),
                         scope.sessionId(),
                         seed,

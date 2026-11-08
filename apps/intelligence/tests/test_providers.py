@@ -303,6 +303,10 @@ def test_actual_read_extracts_text_and_registers_receipt_after_redirect():
             result.receipt["status"] == "READ_OK"
             and result.receipt["publisher_key"] == "two.example"
         )
+        from auralis_intelligence.contracts import digest
+        from auralis_intelligence.providers.excerpts import excerpt
+
+        assert result.receipt["excerpt_digest"] == digest(excerpt(result.text, 3500))
         assert result.receipt["read_id"] in control.reads
         assert result.receipt["checks"] == {"mentions_title": True, "mentions_artist": True}
         assert "Detailed music" in result.text and "ignore" not in result.text

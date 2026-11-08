@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:auralis:intelligence:0.29",
+  "$id": "urn:auralis:intelligence:0.30",
   "title": "Auralis internal agent messages",
   "$ref": "#/$defs/Envelope",
   "$defs": {
@@ -904,6 +904,11 @@
             "NETWORK",
             "PREPARED_EXCERPT"
           ]
+        },
+        "excerpt_digest": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "description": "Digest of the deterministic 3500-byte excerpt stamped before read registration; required for seed excerpt admission."
         }
       },
       "required": [
@@ -4965,7 +4970,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.29"
+              "const": "0.30"
             },
             "request_id": {
               "type": "string",
@@ -5016,7 +5021,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.29"
+              "const": "0.30"
             },
             "request_id": {
               "type": "string",
@@ -5067,7 +5072,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.29"
+              "const": "0.30"
             },
             "request_id": {
               "type": "string",
@@ -5118,7 +5123,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.29"
+              "const": "0.30"
             },
             "request_id": {
               "type": "string",
@@ -5169,7 +5174,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.29"
+              "const": "0.30"
             },
             "request_id": {
               "type": "string",
@@ -5220,7 +5225,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.29"
+              "const": "0.30"
             },
             "request_id": {
               "type": "string",
@@ -5271,7 +5276,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.29"
+              "const": "0.30"
             },
             "request_id": {
               "type": "string",
@@ -5322,7 +5327,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.29"
+              "const": "0.30"
             },
             "request_id": {
               "type": "string",
@@ -5373,7 +5378,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.29"
+              "const": "0.30"
             },
             "request_id": {
               "type": "string",
@@ -5424,7 +5429,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.29"
+              "const": "0.30"
             },
             "request_id": {
               "type": "string",
@@ -5475,7 +5480,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.29"
+              "const": "0.30"
             },
             "request_id": {
               "type": "string",
@@ -5526,7 +5531,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.29"
+              "const": "0.30"
             },
             "request_id": {
               "type": "string",
@@ -5577,7 +5582,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.29"
+              "const": "0.30"
             },
             "request_id": {
               "type": "string",
@@ -5628,7 +5633,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.29"
+              "const": "0.30"
             },
             "request_id": {
               "type": "string",
@@ -5679,7 +5684,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.29"
+              "const": "0.30"
             },
             "request_id": {
               "type": "string",
@@ -5730,7 +5735,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.29"
+              "const": "0.30"
             },
             "request_id": {
               "type": "string",
@@ -5781,7 +5786,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.29"
+              "const": "0.30"
             },
             "request_id": {
               "type": "string",
@@ -5832,7 +5837,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.29"
+              "const": "0.30"
             },
             "request_id": {
               "type": "string",
@@ -5883,7 +5888,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.29"
+              "const": "0.30"
             },
             "request_id": {
               "type": "string",
@@ -5934,7 +5939,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.29"
+              "const": "0.30"
             },
             "request_id": {
               "type": "string",
@@ -5985,7 +5990,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.29"
+              "const": "0.30"
             },
             "request_id": {
               "type": "string",
@@ -6036,7 +6041,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.29"
+              "const": "0.30"
             },
             "request_id": {
               "type": "string",
@@ -6087,7 +6092,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.29"
+              "const": "0.30"
             },
             "request_id": {
               "type": "string",
@@ -6138,7 +6143,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.29"
+              "const": "0.30"
             },
             "request_id": {
               "type": "string",
@@ -6189,7 +6194,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.29"
+              "const": "0.30"
             },
             "request_id": {
               "type": "string",
@@ -6240,7 +6245,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.29"
+              "const": "0.30"
             },
             "request_id": {
               "type": "string",

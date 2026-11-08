@@ -1215,7 +1215,7 @@
     "semantic_valid": false
   },
   {
-    "name": "copy-cannot-extend-source-expiry",
+    "name": "derived-copy-follows-target-expiry",
     "definition": "SeedEvidenceCopy",
     "payload": {
       "source": {
@@ -1246,7 +1246,7 @@
       ]
     },
     "structural_valid": true,
-    "semantic_valid": false
+    "semantic_valid": true
   },
   {
     "name": "deleted-source-cannot-resurrect",

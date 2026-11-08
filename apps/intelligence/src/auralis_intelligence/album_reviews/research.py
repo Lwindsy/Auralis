@@ -2,7 +2,6 @@
 
 import asyncio
 import json
-import re
 from copy import deepcopy
 from importlib.resources import files
 from typing import Any, Mapping
@@ -10,6 +9,7 @@ from typing import Any, Mapping
 from auralis_intelligence.agents import CallDenied, ControlUnavailable, Execution
 from auralis_intelligence.contracts import ContractError, validate_definition
 from auralis_intelligence.providers import ModelGateway, ToolGateway
+from auralis_intelligence.providers.excerpts import excerpt as excerpt
 from jsonschema import Draft202012Validator
 
 from .context import preference_context
@@ -19,31 +19,6 @@ SCREEN_SCHEMA = json.loads(
     files(__package__).joinpath("screen.v1.schema.json").read_text(encoding="utf-8")
 )
 RESEARCH_PROMPT = files(__package__).joinpath("research.v2.txt").read_text(encoding="utf-8")
-_MUSIC = re.compile(
-    r"guitar|drum|rhythm|melod|vocal|synth|production|piano|bass|arrang|texture|节奏|配器|人声|音色|编曲|制作|氛围|演奏|旋律|鼓",
-    re.I,
-)
-
-
-def excerpt(text: str, byte_budget: int) -> str:
-    paragraphs = [paragraph.strip() for paragraph in text.splitlines() if paragraph.strip()]
-    if not paragraphs:
-        return ""
-    ranked = sorted(
-        range(len(paragraphs)),
-        key=lambda index: (index != 0, -len(_MUSIC.findall(paragraphs[index])), index),
-    )
-    chosen = {}
-    remaining = byte_budget
-    for index in ranked:
-        encoded = paragraphs[index].encode("utf-8")
-        if remaining <= 0:
-            break
-        piece = encoded[:remaining].decode("utf-8", errors="ignore")
-        if piece:
-            chosen[index] = piece
-            remaining -= len(piece.encode("utf-8")) + 1
-    return "\n".join(chosen[index] for index in sorted(chosen))
 
 
 def validate_screen(

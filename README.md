@@ -10,9 +10,11 @@ A standalone Python agent demo and an internal execution service are available. 
 
 The Java online bootstrap can be built with `mvn -f apps/backend/pom.xml verify` and started with `java -jar apps/backend/target/auralis-core-database-0.1.0-SNAPSHOT-online.jar`. It requires explicit `AURALIS_JDBC_URL`, `AURALIS_DATABASE_USER`, `AURALIS_DATABASE_PASSWORD`, `AURALIS_PRODUCT_ORIGIN`, `AURALIS_PYTHON_URL`, `AURALIS_SERVICE_TOKEN`, `AURALIS_CONTRACT_REVISION` and `AURALIS_SUBJECT_SECRET` environment variables. Use PostgreSQL 18 with the existing migrations applied by the offline CLI and a non-DDL runtime role. The service exposes liveness/readiness probes, anonymous bootstrap and session recovery; recommendation command APIs still require subsequent integration.
 
+The offline migrator must apply V1–V9 before startup; use protocol revision 0.30 with matching Java and Python builds.
+
 ## Anonymous sessions
 
-Provide a separate, securely generated URL-safe signing key of at least 43 characters in `AURALIS_SUBJECT_SECRET`. Keep it stable across ordinary restarts and separate from database backups. HTTPS uses Secure/HttpOnly/SameSite=Lax cookies; local loopback HTTP requires the explicit `AURALIS_ALLOW_INSECURE_COOKIE=true` exception. Internal protocol configuration must match the packaged schema (currently 0.29).
+Provide a separate, securely generated URL-safe signing key of at least 43 characters in `AURALIS_SUBJECT_SECRET`. Keep it stable across ordinary restarts and separate from database backups. HTTPS uses Secure/HttpOnly/SameSite=Lax cookies; local loopback HTTP requires the explicit `AURALIS_ALLOW_INSECURE_COOKIE=true` exception. Internal protocol configuration must match the packaged schema (currently 0.30).
 
 `POST /v1/bootstrap` accepts an empty JSON object from the configured same origin and returns a CSRF token and recoverable state. `GET /v1/current-state` and `GET /v1/discovery-sessions/{session_id}` enforce credential ownership and never renew retention. Successful active operations retain the current process for exactly 30 days; expired credentials bootstrap a fresh empty identity. The lifecycle application port supports replacement, heard albums and deletion, while production recommendation commands remain for later integration.
 

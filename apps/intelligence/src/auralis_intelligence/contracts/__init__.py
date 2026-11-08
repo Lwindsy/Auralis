@@ -59,7 +59,7 @@ def envelope(
 ) -> dict[str, Any]:
     result = {
         "schema_version": "intel.v1",
-        "contract_revision": "0.29",
+        "contract_revision": "0.30",
         "request_id": request_id,
         "trace_context": {"trace_id": trace_id, "span_id": span_id},
         "message_type": name,
@@ -167,8 +167,7 @@ def _semantic(name: str, value: Any) -> None:
             if (
                 row["source_read_id"] == row["target_read_id"]
                 or not _time(row["read_at"]) <= copied < _time(row["expires_at"])
-                or _time(row["expires_at"])
-                > min(_time(source["expires_at"]), _time(target["expires_at"]))
+                or _time(row["expires_at"]) > _time(target["expires_at"])
             ):
                 raise ContractError("BINDING_MISMATCH")
     elif name == "FullAudienceSnapshot":

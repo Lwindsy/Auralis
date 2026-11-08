@@ -35,6 +35,7 @@ public class SubjectSessions implements SubjectSession {
     private final ObjectMapper json;
     private final MessageDefinitions protocol;
     private final SessionPolicy properties;
+    private final java.util.List<io.auralis.session.api.SessionDerivation> derivations;
 
     public SubjectSessions(
             SubjectRepository subjects,
@@ -47,7 +48,8 @@ public class SubjectSessions implements SubjectSession {
             Clock clock,
             ObjectMapper json,
             MessageDefinitions protocol,
-            SessionPolicy properties) {
+            SessionPolicy properties,
+            java.util.List<io.auralis.session.api.SessionDerivation> derivations) {
         this.subjects = subjects;
         this.sessions = sessions;
         this.discovery = discovery;
@@ -59,6 +61,7 @@ public class SubjectSessions implements SubjectSession {
         this.json = json;
         this.protocol = protocol;
         this.properties = properties;
+        this.derivations = List.copyOf(derivations);
     }
 
     private Optional<SubjectRepository.Subject> lookup(String token, boolean lock) {
@@ -285,6 +288,9 @@ public class SubjectSessions implements SubjectSession {
                     subjects.renew(subject.id(), null, now, expiry);
                     var created = subjects.session(subject.id(), id).orElseThrow();
                     var scope = created.scope(subject.epoch());
+                    if (expected != null)
+                        for (var derivation : derivations)
+                            derivation.derive(expected, scope, canonical.toString());
                     var state = empty(expiry, null);
                     state.put("session_id", id);
                     state.put("revision", scope.revision());
