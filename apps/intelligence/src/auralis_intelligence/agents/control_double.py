@@ -81,6 +81,8 @@ class JavaControlDouble:
         self.executions: dict[str, dict[str, Any]] = {}
         self.invocations: dict[str, dict[str, Any]] = {}
         self.reads: dict[str, dict[str, Any]] = {}
+        self.deleted_sessions: set[str] = set()
+        self.seed_cache: dict[tuple[str, str], dict[str, Any]] = {}
         self.read_claims: set[tuple[str, str, str]] = set()
         self.deliveries: dict[str, dict[str, Any]] = {}
         self.screenings: dict[tuple[str, str], dict[str, Any]] = {}
@@ -101,6 +103,8 @@ class JavaControlDouble:
 
     def register(self, start: dict[str, Any]) -> None:
         validate_definition("RoundStart", start)
+        if start["session_id"] in self.deleted_sessions:
+            raise ContractError("EXECUTION_GONE")
         if start["boot"]["coordinator_boot_id"] != self.boot_id:
             raise ContractError("STALE_BOOT")
         identifier = start["execution_id"]
@@ -171,6 +175,65 @@ class JavaControlDouble:
             "run_active": start["foreground"],
             "bundle": bundle,
             "display": display,
+        }
+
+    def seed_ids(self, start):
+        raw = start["input"].get("raw")
+        if raw is not None:
+            return list(
+                dict.fromkeys(
+                    item["release_group_id"]
+                    for item in raw["liked_albums"]
+                    if item.get("release_group_id")
+                )
+            )
+        accepted = start["input"].get("accepted_preferences") or {}
+        return list(dict.fromkeys(item["id"] for item in accepted.get("seeds", [])))
+
+    def seed_state(self, start):
+        items, missing = [], []
+        for identifier in self.seed_ids(start):
+            identity = self.catalog.get(identifier)
+            if identity is None:
+                missing.append(identifier)
+                continue
+            cached = self.seed_cache.get((start["session_id"], identifier))
+            if cached and cached["identity"] != identity:
+                cached = None
+            items.append(
+                {
+                    "seed_id": identifier,
+                    "identity": deepcopy(identity),
+                    "evidence": deepcopy(cached),
+                }
+            )
+        return {"items": items, "missing_seed_ids": missing}
+
+    def seed_read_available(self, start, read_id):
+        accepted = (
+            self.executions[start["execution_id"]].get("effective_preferences")
+            or start["input"].get("accepted_preferences")
+            or {}
+        )
+        active = {item["id"] for item in accepted.get("seeds", [])}
+        return any(
+            row["seed_id"] in active
+            and row["identity"] == self.catalog.get(row["seed_id"])
+            and any(source["read_id"] == read_id for source in row["sources"])
+            for (session, _), row in self.seed_cache.items()
+            if session == start["session_id"]
+        )
+
+    def delete_session(self, session_id):
+        self.deleted_sessions.add(session_id)
+        for entry in self.executions.values():
+            if entry["start"]["session_id"] == session_id:
+                entry["active"] = False
+        self.seed_cache = {
+            key: value for key, value in self.seed_cache.items() if key[0] != session_id
+        }
+        self.reads = {
+            key: value for key, value in self.reads.items() if value.get("session_id") != session_id
         }
 
     def close_execution(self, execution_id: str) -> None:
@@ -412,6 +475,39 @@ class JavaControlDouble:
     def _handle(self, execution_id: str, operation: str, payload: dict[str, Any]) -> dict[str, Any]:
         entry = self.executions[execution_id]
         start = entry["start"]
+        if operation == "seed-evidence":
+            return self.seed_state(start)
+        if operation == "seed-evidence-save":
+            validate_definition("SeedEvidenceUpdate", payload)
+            requested = set(self.seed_ids(start))
+            identifiers = [row["seed_id"] for row in payload["items"]]
+            if len(identifiers) != len(set(identifiers)):
+                raise ContractError("DUPLICATE_SEED")
+            for row in payload["items"]:
+                if row["seed_id"] not in requested or row["identity"] != self.catalog.get(
+                    row["seed_id"]
+                ):
+                    raise ContractError("BINDING_MISMATCH")
+                if (row["status"] == "READ_AVAILABLE") != bool(row["sources"]):
+                    raise ContractError("SEED_EVIDENCE_INVALID")
+                for source in row["sources"]:
+                    read = self.reads.get(source["read_id"])
+                    if (
+                        read is None
+                        or read["session_id"] != start["session_id"]
+                        or read["receipt"]["candidate_id"] != row["seed_id"]
+                        or read["receipt"]["final_url"] != source["url"]
+                        or read["receipt"]["read_at"] != source["read_at"]
+                        or source["text_digest"] != digest(source["text"])
+                        or len(source["text"].encode("utf-8")) > 3500
+                    ):
+                        raise ContractError("SEED_EVIDENCE_INVALID")
+                previous = self.seed_cache.get((start["session_id"], row["seed_id"]))
+                if previous and previous["identity"] == row["identity"] and previous != row:
+                    raise ContractError("IDEMPOTENCY_CONFLICT")
+            for row in payload["items"]:
+                self.seed_cache[(start["session_id"], row["seed_id"])] = deepcopy(row)
+            return self.seed_state(start)
         if operation == "budget-state":
             return self._budget_state(execution_id)
         if operation == "invocation-grants":
@@ -464,6 +560,7 @@ class JavaControlDouble:
                     self.reads[receipt["read_id"]] = {
                         "execution_id": execution_id,
                         "round_id": start["round_id"],
+                        "session_id": start["session_id"],
                         "receipt": deepcopy(receipt),
                     }
                     accepted.append(receipt["read_id"])
@@ -590,7 +687,10 @@ class JavaControlDouble:
             identifier
             for identifier in plan["read_ids"]
             if identifier not in self.reads
-            or self.reads[identifier]["round_id"] != start["round_id"]
+            or (
+                self.reads[identifier]["round_id"] != start["round_id"]
+                and not self.seed_read_available(start, identifier)
+            )
         ]
         reason = None
         existing = self.invocations.get(plan["invocation_id"])

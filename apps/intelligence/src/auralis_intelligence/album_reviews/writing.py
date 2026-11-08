@@ -199,7 +199,9 @@ class WriteStage:
                         {"marker": ref, "read_id": lookup[ref]} for ref in reply.output["refs"]
                     ],
                     "invocation_id": reply.invocation_id,
-                    "prompt_version": "short_review.v1.2",
+                    "prompt_version": self.model.version("short_review.v1.2")
+                    if hasattr(self.model, "version")
+                    else "short_review.v1.2",
                 },
             )
         except asyncio.CancelledError:
@@ -242,7 +244,9 @@ class WriteStage:
             "extra_read_ids": extra_ids,
             "missing_sections": [],
             "invocation_ids": invocation_ids,
-            "prompt_version": "long_review.v1.2",
+            "prompt_version": self.model.version("long_review.v1.2")
+            if hasattr(self.model, "version")
+            else "long_review.v1.2",
             "reason_code": None,
         }
         try:

@@ -58,7 +58,7 @@ def envelope(
 ) -> dict[str, Any]:
     result = {
         "schema_version": "intel.v1",
-        "contract_revision": "0.24",
+        "contract_revision": "0.25",
         "request_id": request_id,
         "trace_context": {"trace_id": trace_id, "span_id": span_id},
         "message_type": name,

@@ -299,7 +299,9 @@ class BatchResearchStage:
                     "status": "OK",
                     "score": score,
                     "invocation_id": reply.invocation_id,
-                    "prompt_version": "batch.v3",
+                    "prompt_version": self.model.version("batch.v3")
+                    if hasattr(self.model, "version")
+                    else "batch.v3",
                 },
                 "disposition": "RESERVE"
                 if qualified and score >= 3
@@ -326,7 +328,9 @@ class BatchResearchStage:
                     "text": row["text"],
                     "citations": [{"marker": ref, "read_id": lookup[ref]} for ref in row["refs"]],
                     "invocation_id": reply.invocation_id,
-                    "prompt_version": "batch.v3",
+                    "prompt_version": self.model.version("batch.v3")
+                    if hasattr(self.model, "version")
+                    else "batch.v3",
                 },
             )
         execution.counters["qualified"] += sum(

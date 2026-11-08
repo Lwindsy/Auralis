@@ -4953,7 +4953,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.24"
+              "const": "0.25"
             },
             "request_id": {
               "type": "string",
@@ -5004,7 +5004,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.24"
+              "const": "0.25"
             },
             "request_id": {
               "type": "string",
@@ -5055,7 +5055,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.24"
+              "const": "0.25"
             },
             "request_id": {
               "type": "string",
@@ -5106,7 +5106,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.24"
+              "const": "0.25"
             },
             "request_id": {
               "type": "string",
@@ -5157,7 +5157,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.24"
+              "const": "0.25"
             },
             "request_id": {
               "type": "string",
@@ -5208,7 +5208,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.24"
+              "const": "0.25"
             },
             "request_id": {
               "type": "string",
@@ -5259,7 +5259,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.24"
+              "const": "0.25"
             },
             "request_id": {
               "type": "string",
@@ -5310,7 +5310,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.24"
+              "const": "0.25"
             },
             "request_id": {
               "type": "string",
@@ -5361,7 +5361,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.24"
+              "const": "0.25"
             },
             "request_id": {
               "type": "string",
@@ -5412,7 +5412,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.24"
+              "const": "0.25"
             },
             "request_id": {
               "type": "string",
@@ -5463,7 +5463,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.24"
+              "const": "0.25"
             },
             "request_id": {
               "type": "string",
@@ -5514,7 +5514,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.24"
+              "const": "0.25"
             },
             "request_id": {
               "type": "string",
@@ -5565,7 +5565,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.24"
+              "const": "0.25"
             },
             "request_id": {
               "type": "string",
@@ -5616,7 +5616,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.24"
+              "const": "0.25"
             },
             "request_id": {
               "type": "string",
@@ -5667,7 +5667,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.24"
+              "const": "0.25"
             },
             "request_id": {
               "type": "string",
@@ -5718,7 +5718,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.24"
+              "const": "0.25"
             },
             "request_id": {
               "type": "string",
@@ -5769,7 +5769,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.24"
+              "const": "0.25"
             },
             "request_id": {
               "type": "string",
@@ -5820,7 +5820,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.24"
+              "const": "0.25"
             },
             "request_id": {
               "type": "string",
@@ -5871,7 +5871,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.24"
+              "const": "0.25"
             },
             "request_id": {
               "type": "string",
@@ -5922,7 +5922,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.24"
+              "const": "0.25"
             },
             "request_id": {
               "type": "string",
@@ -5973,7 +5973,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.24"
+              "const": "0.25"
             },
             "request_id": {
               "type": "string",
@@ -6024,7 +6024,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.24"
+              "const": "0.25"
             },
             "request_id": {
               "type": "string",
@@ -6075,7 +6075,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.24"
+              "const": "0.25"
             },
             "request_id": {
               "type": "string",
@@ -6107,6 +6107,108 @@
             },
             "payload": {
               "$ref": "#/$defs/BudgetState"
+            }
+          },
+          "required": [
+            "schema_version",
+            "contract_revision",
+            "request_id",
+            "trace_context",
+            "message_type",
+            "payload"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "schema_version": {
+              "const": "intel.v1"
+            },
+            "contract_revision": {
+              "const": "0.25"
+            },
+            "request_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160
+            },
+            "trace_context": {
+              "type": "object",
+              "properties": {
+                "trace_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 64
+                },
+                "span_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 32
+                }
+              },
+              "required": [
+                "trace_id",
+                "span_id"
+              ],
+              "additionalProperties": false
+            },
+            "message_type": {
+              "const": "SeedEvidenceState"
+            },
+            "payload": {
+              "$ref": "#/$defs/SeedEvidenceState"
+            }
+          },
+          "required": [
+            "schema_version",
+            "contract_revision",
+            "request_id",
+            "trace_context",
+            "message_type",
+            "payload"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "schema_version": {
+              "const": "intel.v1"
+            },
+            "contract_revision": {
+              "const": "0.25"
+            },
+            "request_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160
+            },
+            "trace_context": {
+              "type": "object",
+              "properties": {
+                "trace_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 64
+                },
+                "span_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 32
+                }
+              },
+              "required": [
+                "trace_id",
+                "span_id"
+              ],
+              "additionalProperties": false
+            },
+            "message_type": {
+              "const": "SeedEvidenceUpdate"
+            },
+            "payload": {
+              "$ref": "#/$defs/SeedEvidenceUpdate"
             }
           },
           "required": [
@@ -6761,6 +6863,145 @@
         "max_redirects",
         "max_bytes",
         "read_timeout_ms"
+      ],
+      "additionalProperties": false
+    },
+    "SeedEvidenceSource": {
+      "type": "object",
+      "properties": {
+        "read_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "url": {
+          "type": "string",
+          "format": "uri",
+          "pattern": "^https://",
+          "maxLength": 4096
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 3500
+        },
+        "text_digest": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "read_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "read_id",
+        "url",
+        "text",
+        "text_digest",
+        "read_at"
+      ],
+      "additionalProperties": false
+    },
+    "SeedEvidenceRecord": {
+      "type": "object",
+      "properties": {
+        "seed_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "identity": {
+          "$ref": "#/$defs/Identity"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "READ_AVAILABLE",
+            "NO_USABLE_PAGE"
+          ]
+        },
+        "sources": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SeedEvidenceSource"
+          },
+          "maxItems": 1
+        }
+      },
+      "required": [
+        "seed_id",
+        "identity",
+        "status",
+        "sources"
+      ],
+      "additionalProperties": false
+    },
+    "SeedEvidenceState": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "seed_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 160
+              },
+              "identity": {
+                "$ref": "#/$defs/Identity"
+              },
+              "evidence": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/SeedEvidenceRecord"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "seed_id",
+              "identity",
+              "evidence"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 100
+        },
+        "missing_seed_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          },
+          "maxItems": 100
+        }
+      },
+      "required": [
+        "items",
+        "missing_seed_ids"
+      ],
+      "additionalProperties": false
+    },
+    "SeedEvidenceUpdate": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SeedEvidenceRecord"
+          },
+          "maxItems": 100
+        }
+      },
+      "required": [
+        "items"
       ],
       "additionalProperties": false
     }
