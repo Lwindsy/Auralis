@@ -29,9 +29,9 @@ class SubjectCredentialsTest {
     void httpCookiesRequireAnExplicitLocalDevelopmentException() {
         var properties = OnlineBootstrapTest.properties();
         properties.setAllowInsecureCookie(false);
-        assertThrows(IllegalArgumentException.class, () -> properties.validate("0.27"));
+        assertThrows(IllegalArgumentException.class, () -> properties.validate("0.28"));
         properties.setProductOrigin("https://auralis.example");
-        properties.validate("0.27");
+        properties.validate("0.28");
         String header =
                 SubjectCookies.header(
                         "opaque",

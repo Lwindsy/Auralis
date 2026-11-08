@@ -36,6 +36,7 @@ class RecallRequest:
     required_tags: tuple[str, ...] = ()
     excluded_ids: tuple[str, ...] = ()
     mode: Literal["familiar", "explore", "surprise"] = "explore"
+    disliked_exceptions: tuple[str, ...] = ()
 
 
 @dataclass

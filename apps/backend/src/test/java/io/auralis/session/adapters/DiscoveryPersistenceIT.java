@@ -421,7 +421,7 @@ class DiscoveryPersistenceIT {
                         "auralis.service-token",
                         "be005-synthetic-service-token-12345",
                         "auralis.contract-revision",
-                        "0.27"));
+                        "0.28"));
         context =
                 app.run(
                         "--auralis.subject-secret=test-subject-secret-abcdefghijklmnopqrstuvwxyz0123456789",

@@ -18,6 +18,7 @@
     "seeds": {"$ref": "#/$defs/preferences"},
     "tags": {"$ref": "#/$defs/preferences"},
     "disliked_tags": {"$ref": "#/$defs/ids"},
+    "disliked_exceptions": {"$ref": "#/$defs/ids"},
     "forbidden_tags": {"$ref": "#/$defs/ids"},
     "required_tags": {"$ref": "#/$defs/ids"},
     "excluded_ids": {"$ref": "#/$defs/ids"}

@@ -49,6 +49,13 @@ def recall_request(snapshot: dict, exclusions: list[dict], limit: int) -> Recall
         required_tags=tuple(snapshot["required_tags"]),
         forbidden_tags=tuple(snapshot["forbidden_tags"]),
         disliked_tags=tuple(snapshot["disliked_tags"]),
+        disliked_exceptions=tuple(
+            dict.fromkeys(
+                row["genre_id"]
+                for row in snapshot["overrides"]
+                if row["action"] in {"PREFER", "REQUIRE"}
+            )
+        ),
         excluded_ids=tuple(row["release_group_id"] for row in exclusions),
         mode=snapshot["mode"],
     )

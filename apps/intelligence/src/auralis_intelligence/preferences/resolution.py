@@ -20,10 +20,21 @@ def merge_preferences(
     validate_definition("RawInput", raw)
     validate_definition("PreferenceResolutionProposal", proposal)
     if (
-        proposal["input_digest"] != raw["input_digest"]
+        content_digest(raw, "input_digest") != raw["input_digest"]
+        or proposal["input_digest"] != raw["input_digest"]
         or proposal["reference_revision"] != reference.revision
     ):
         raise PreferenceError("PREFERENCE_BINDING_MISMATCH")
+    for span in proposal["unresolved_constraints"]:
+        if not 0 <= span["start"] < span["end"] <= len(raw["request_text"]):
+            raise PreferenceError("INTERPRETATION_INVALID_SPAN")
+    liked_ids = [row["genre_id"] for row in raw["liked_genres"]]
+    album_ids = [
+        row["release_group_id"] or row["external"]["mb_release_group_id"]
+        for row in raw["liked_albums"]
+    ]
+    if len(liked_ids) != len(set(liked_ids)) or len(album_ids) != len(set(album_ids)):
+        raise PreferenceError("DUPLICATE_ID")
     if proposal["unresolved_constraints"]:
         raise PreferenceError("UNSUPPORTED_CONSTRAINT", "NEEDS_INPUT")
     tags = {
@@ -116,7 +127,7 @@ def merge_preferences(
             )
         if kind in ("prefer", "require"):
             disliked.pop(identifier, None)
-            tags[identifier] = {"id": identifier, "strength": "normal", "focused": False}
+            tags.setdefault(identifier, {"id": identifier, "strength": "normal", "focused": False})
             if kind == "require":
                 required[identifier] = None
         else:
@@ -158,6 +169,21 @@ def merge_preferences(
         add_soft(
             "forbidden:" + str(len(soft)),
             "排除含有风格的作品：" + genre_name(identifier),
+            "context",
+        )
+    positive_roots = list(
+        dict.fromkeys(
+            row["id"]
+            for row in proposal["preferences"] + proposal["constraints"]
+            if row["kind"] in {"prefer", "require"} and row.get("basis", "explicit") == "explicit"
+        )
+    )
+    if disliked and positive_roots:
+        add_soft(
+            "disliked-exceptions:" + str(len(soft)),
+            "若以下本次明确喜欢的风格属于预选不喜欢项的子类，则该风格及其子类作为例外："
+            + "、".join(genre_name(identifier) for identifier in positive_roots)
+            + "。其他子类仍按原规则排除；独立的更具体预选和明确硬排除不因该例外放宽。",
             "context",
         )
     soft.extend(deepcopy(proposal["soft_preferences"]))

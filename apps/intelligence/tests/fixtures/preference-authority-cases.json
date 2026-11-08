@@ -1,0 +1,1486 @@
+{
+  "reference_fixture": "preference-cases.json",
+  "cases": [
+    {
+      "name": "explicit-genre",
+      "raw": {
+        "liked_genres": [],
+        "disliked_genre_ids": [],
+        "liked_albums": [],
+        "mode": "explore",
+        "language": "zh",
+        "request_text": "想听点 cool jazz。",
+        "input_digest": "sha256:a5883e34ca483e8447ea5a4b7f356a4d06362f32f1cf05111d3f5eb119dc54d2"
+      },
+      "proposal": {
+        "input_digest": "sha256:a5883e34ca483e8447ea5a4b7f356a4d06362f32f1cf05111d3f5eb119dc54d2",
+        "reference_revision": "sha256:4b0665e3065a06e7e82d26564e964e98c1e21e5ce41df181ea56e15ff73beb52",
+        "parser_revision": "synthetic-v1",
+        "preferences": [
+          {
+            "id": "genre:cool-jazz",
+            "kind": "prefer",
+            "basis": "explicit",
+            "text_span": {
+              "start": 0,
+              "end": 13
+            }
+          }
+        ],
+        "constraints": [],
+        "soft_preferences": [],
+        "unresolved_constraints": [],
+        "proposal_digest": "sha256:f6137eda33df2209a94de7b733fbe81a103be0bd073322bb647d10d02660d2d2"
+      },
+      "seed_descriptions": {},
+      "expected_error": null
+    },
+    {
+      "name": "exclude-with-soft-detail",
+      "raw": {
+        "liked_genres": [],
+        "disliked_genre_ids": [],
+        "liked_albums": [],
+        "mode": "explore",
+        "language": "zh",
+        "request_text": "想听爵士，但不要 metal，尤其不要嘶吼。",
+        "input_digest": "sha256:85141bf0d52bdf7792df6dd48b8ef7cafb56c236344b327170ac4b415fa6fdbc"
+      },
+      "proposal": {
+        "input_digest": "sha256:85141bf0d52bdf7792df6dd48b8ef7cafb56c236344b327170ac4b415fa6fdbc",
+        "reference_revision": "sha256:4b0665e3065a06e7e82d26564e964e98c1e21e5ce41df181ea56e15ff73beb52",
+        "parser_revision": "synthetic-v1",
+        "preferences": [
+          {
+            "id": "genre:jazz",
+            "kind": "prefer",
+            "basis": "explicit",
+            "text_span": {
+              "start": 0,
+              "end": 4
+            }
+          }
+        ],
+        "constraints": [
+          {
+            "id": "genre:metal",
+            "kind": "exclude",
+            "text_span": {
+              "start": 5,
+              "end": 14
+            }
+          }
+        ],
+        "soft_preferences": [
+          {
+            "preference_id": "text:1",
+            "description": "倾向避免嘶吼人声",
+            "kind": "avoid",
+            "basis": "explicit",
+            "strength": "normal",
+            "focused": false
+          }
+        ],
+        "unresolved_constraints": [],
+        "proposal_digest": "sha256:ae86d0c43ecbaf48351738e25f17dd9f0f227ea2eaaffe82f194b4c28aaccfcd"
+      },
+      "seed_descriptions": {},
+      "expected_error": null
+    },
+    {
+      "name": "metaphor-with-audible-clues",
+      "raw": {
+        "liked_genres": [],
+        "disliked_genre_ids": [],
+        "liked_albums": [],
+        "mode": "explore",
+        "language": "zh",
+        "request_text": "想听一点像深夜空站台里远远回荡的广播。",
+        "input_digest": "sha256:53ca29382936a1bbc23d8200d3272f5690ac802c36506cddf39bcab14ea4df17"
+      },
+      "proposal": {
+        "input_digest": "sha256:53ca29382936a1bbc23d8200d3272f5690ac802c36506cddf39bcab14ea4df17",
+        "reference_revision": "sha256:4b0665e3065a06e7e82d26564e964e98c1e21e5ce41df181ea56e15ff73beb52",
+        "parser_revision": "synthetic-v1",
+        "preferences": [
+          {
+            "id": "genre:ambient",
+            "kind": "prefer",
+            "basis": "inferred",
+            "text_span": {
+              "start": 0,
+              "end": 18
+            }
+          }
+        ],
+        "constraints": [],
+        "soft_preferences": [
+          {
+            "preference_id": "text:1",
+            "description": "希望声音有深夜空站台般的空间感、远处广播般的回响",
+            "kind": "prefer",
+            "basis": "explicit",
+            "strength": "normal",
+            "focused": false
+          }
+        ],
+        "unresolved_constraints": [],
+        "proposal_digest": "sha256:23d1bdee8baa24d4c17cc58086e8f03bcc87b477330831fcfa3376f0f133ca49"
+      },
+      "seed_descriptions": {},
+      "expected_error": null
+    },
+    {
+      "name": "parallel-interests",
+      "raw": {
+        "liked_genres": [],
+        "disliked_genre_ids": [],
+        "liked_albums": [],
+        "mode": "explore",
+        "language": "zh",
+        "request_text": "A bit of cool jazz and some ambient, separate albums are fine.",
+        "input_digest": "sha256:a7d7bf2cb4dcd4f2449391893ffc1858447dbbeee521e36aca845579d0f1ed22"
+      },
+      "proposal": {
+        "input_digest": "sha256:a7d7bf2cb4dcd4f2449391893ffc1858447dbbeee521e36aca845579d0f1ed22",
+        "reference_revision": "sha256:4b0665e3065a06e7e82d26564e964e98c1e21e5ce41df181ea56e15ff73beb52",
+        "parser_revision": "synthetic-v1",
+        "preferences": [
+          {
+            "id": "genre:cool-jazz",
+            "kind": "prefer",
+            "basis": "explicit",
+            "text_span": {
+              "start": 0,
+              "end": 18
+            }
+          },
+          {
+            "id": "genre:ambient",
+            "kind": "prefer",
+            "basis": "explicit",
+            "text_span": {
+              "start": 23,
+              "end": 35
+            }
+          }
+        ],
+        "constraints": [],
+        "soft_preferences": [
+          {
+            "preference_id": "text:1",
+            "description": "冷爵士与氛围音乐为并列兴趣，不要求每张专辑融合两者",
+            "kind": "context",
+            "basis": "explicit",
+            "strength": "normal",
+            "focused": false
+          }
+        ],
+        "unresolved_constraints": [],
+        "proposal_digest": "sha256:af545acd9a5e2ccab76d735203e8d2e29706b70887daa920728d3de7439c654f"
+      },
+      "seed_descriptions": {},
+      "expected_error": null
+    },
+    {
+      "name": "relaxed-soft-directions",
+      "raw": {
+        "liked_genres": [],
+        "disliked_genre_ids": [],
+        "liked_albums": [],
+        "mode": "explore",
+        "language": "zh",
+        "request_text": "轻松一点就好。",
+        "input_digest": "sha256:01b86b538742284a964f77ede00fc332b03552d7e94491ceb7aa6eb1a9f21669"
+      },
+      "proposal": {
+        "input_digest": "sha256:01b86b538742284a964f77ede00fc332b03552d7e94491ceb7aa6eb1a9f21669",
+        "reference_revision": "sha256:4b0665e3065a06e7e82d26564e964e98c1e21e5ce41df181ea56e15ff73beb52",
+        "parser_revision": "synthetic-v1",
+        "preferences": [
+          {
+            "id": "genre:bossa-nova",
+            "kind": "prefer",
+            "basis": "inferred",
+            "text_span": {
+              "start": 0,
+              "end": 6
+            }
+          },
+          {
+            "id": "genre:soft-rock",
+            "kind": "prefer",
+            "basis": "inferred",
+            "text_span": {
+              "start": 0,
+              "end": 6
+            }
+          },
+          {
+            "id": "genre:indie-pop",
+            "kind": "prefer",
+            "basis": "inferred",
+            "text_span": {
+              "start": 0,
+              "end": 6
+            }
+          }
+        ],
+        "constraints": [],
+        "soft_preferences": [
+          {
+            "preference_id": "text:1",
+            "description": "希望听感轻松",
+            "kind": "prefer",
+            "basis": "explicit",
+            "strength": "normal",
+            "focused": false
+          }
+        ],
+        "unresolved_constraints": [],
+        "proposal_digest": "sha256:19ac6930a183549c0a9970705979f6147d7a0671cdb00d2f7c8b06c2cb0866d8"
+      },
+      "seed_descriptions": {},
+      "expected_error": null
+    },
+    {
+      "name": "mood-with-open-request",
+      "raw": {
+        "liked_genres": [],
+        "disliked_genre_ids": [],
+        "liked_albums": [],
+        "mode": "explore",
+        "language": "zh",
+        "request_text": "最近心情不太好，随便推点歌吧。",
+        "input_digest": "sha256:c95f920476a908cc3e8939b4c9132ca28bd6a150f69d4e4a837b37e502fa1058"
+      },
+      "proposal": {
+        "input_digest": "sha256:c95f920476a908cc3e8939b4c9132ca28bd6a150f69d4e4a837b37e502fa1058",
+        "reference_revision": "sha256:4b0665e3065a06e7e82d26564e964e98c1e21e5ce41df181ea56e15ff73beb52",
+        "parser_revision": "synthetic-v1",
+        "preferences": [
+          {
+            "id": "genre:ambient",
+            "kind": "prefer",
+            "basis": "inferred",
+            "text_span": {
+              "start": 0,
+              "end": 14
+            }
+          }
+        ],
+        "constraints": [],
+        "soft_preferences": [
+          {
+            "preference_id": "text:1",
+            "description": "近期情绪低落，对音乐方向保持开放",
+            "kind": "context",
+            "basis": "explicit",
+            "strength": "normal",
+            "focused": false
+          }
+        ],
+        "unresolved_constraints": [],
+        "proposal_digest": "sha256:952eccb50723897c2f55231db9d4f426496561b3e297b0d65e7c7fb3678cdc4c"
+      },
+      "seed_descriptions": {},
+      "expected_error": null
+    },
+    {
+      "name": "hard-alternatives",
+      "raw": {
+        "liked_genres": [],
+        "disliked_genre_ids": [],
+        "liked_albums": [],
+        "mode": "explore",
+        "language": "zh",
+        "request_text": "只听 Cool Jazz 或 Ambient。",
+        "input_digest": "sha256:54548e6a3f7961d24993b321309c8aca1416fa245242644f3d8a5e861ce88fd2"
+      },
+      "proposal": {
+        "input_digest": "sha256:54548e6a3f7961d24993b321309c8aca1416fa245242644f3d8a5e861ce88fd2",
+        "reference_revision": "sha256:4b0665e3065a06e7e82d26564e964e98c1e21e5ce41df181ea56e15ff73beb52",
+        "parser_revision": "synthetic-v1",
+        "preferences": [],
+        "constraints": [],
+        "soft_preferences": [],
+        "unresolved_constraints": [
+          {
+            "start": 0,
+            "end": 22
+          }
+        ],
+        "proposal_digest": "sha256:a353d8c27eb9dede1f8b444ff60e74c535b38990aca7e104e8b098763050bff8"
+      },
+      "seed_descriptions": {},
+      "expected_error": "UNSUPPORTED_CONSTRAINT"
+    },
+    {
+      "name": "changed-mind",
+      "raw": {
+        "liked_genres": [],
+        "disliked_genre_ids": [],
+        "liked_albums": [],
+        "mode": "explore",
+        "language": "zh",
+        "request_text": "本来想听金属，算了，还是来点爵士吧。",
+        "input_digest": "sha256:6c6b52b55fdb9c5f98808cd5c73322cf11ef98470d2c340986dab42a0c6dc6af"
+      },
+      "proposal": {
+        "input_digest": "sha256:6c6b52b55fdb9c5f98808cd5c73322cf11ef98470d2c340986dab42a0c6dc6af",
+        "reference_revision": "sha256:4b0665e3065a06e7e82d26564e964e98c1e21e5ce41df181ea56e15ff73beb52",
+        "parser_revision": "synthetic-v1",
+        "preferences": [
+          {
+            "id": "genre:jazz",
+            "kind": "prefer",
+            "basis": "explicit",
+            "text_span": {
+              "start": 7,
+              "end": 17
+            }
+          }
+        ],
+        "constraints": [],
+        "soft_preferences": [],
+        "unresolved_constraints": [],
+        "proposal_digest": "sha256:79777088eb47728629276027a5ca6189260281b593eb486d28060da57acc6ffc"
+      },
+      "seed_descriptions": {},
+      "expected_error": null
+    },
+    {
+      "name": "hard-genre-unmapped",
+      "raw": {
+        "liked_genres": [],
+        "disliked_genre_ids": [],
+        "liked_albums": [],
+        "mode": "explore",
+        "language": "zh",
+        "request_text": "今晚想放松，但就只听那个我记不清名字的风格。",
+        "input_digest": "sha256:f33eae77d77f3f31263f9502405f2cf2f1bd9026d2476a8a79e75c64ccfc2910"
+      },
+      "proposal": {
+        "input_digest": "sha256:f33eae77d77f3f31263f9502405f2cf2f1bd9026d2476a8a79e75c64ccfc2910",
+        "reference_revision": "sha256:4b0665e3065a06e7e82d26564e964e98c1e21e5ce41df181ea56e15ff73beb52",
+        "parser_revision": "synthetic-v1",
+        "preferences": [],
+        "constraints": [],
+        "soft_preferences": [
+          {
+            "preference_id": "text:1",
+            "description": "今晚希望放松",
+            "kind": "context",
+            "basis": "explicit",
+            "strength": "normal",
+            "focused": false
+          }
+        ],
+        "unresolved_constraints": [
+          {
+            "start": 6,
+            "end": 21
+          }
+        ],
+        "proposal_digest": "sha256:ee9227e9cc9cb07c325eb6dfb2d2d7c49037f831470009901e20faaf56603891"
+      },
+      "seed_descriptions": {},
+      "expected_error": "UNSUPPORTED_CONSTRAINT"
+    },
+    {
+      "name": "single-required-genre",
+      "raw": {
+        "liked_genres": [],
+        "disliked_genre_ids": [],
+        "liked_albums": [],
+        "mode": "explore",
+        "language": "zh",
+        "request_text": "这次只听 Jazz。",
+        "input_digest": "sha256:84633f42ae5d80a4148420330a715d6863cffc8e9299e925b5da49507334e40f"
+      },
+      "proposal": {
+        "input_digest": "sha256:84633f42ae5d80a4148420330a715d6863cffc8e9299e925b5da49507334e40f",
+        "reference_revision": "sha256:4b0665e3065a06e7e82d26564e964e98c1e21e5ce41df181ea56e15ff73beb52",
+        "parser_revision": "synthetic-v1",
+        "preferences": [],
+        "constraints": [
+          {
+            "id": "genre:jazz",
+            "kind": "require",
+            "text_span": {
+              "start": 0,
+              "end": 9
+            }
+          }
+        ],
+        "soft_preferences": [],
+        "unresolved_constraints": [],
+        "proposal_digest": "sha256:e39ea955e27429c7d87a59c8b0bf9d53c83e52b4aa154007ba12eefc3f685d51"
+      },
+      "seed_descriptions": {},
+      "expected_error": null
+    },
+    {
+      "name": "soft-avoid",
+      "raw": {
+        "liked_genres": [],
+        "disliked_genre_ids": [],
+        "liked_albums": [],
+        "mode": "explore",
+        "language": "zh",
+        "request_text": "想听氛围音乐，金属尽量少一点。",
+        "input_digest": "sha256:fc621ef3da78f848562edee9b263c037694299f2be4eb4c914a97371f3695a91"
+      },
+      "proposal": {
+        "input_digest": "sha256:fc621ef3da78f848562edee9b263c037694299f2be4eb4c914a97371f3695a91",
+        "reference_revision": "sha256:4b0665e3065a06e7e82d26564e964e98c1e21e5ce41df181ea56e15ff73beb52",
+        "parser_revision": "synthetic-v1",
+        "preferences": [
+          {
+            "id": "genre:ambient",
+            "kind": "prefer",
+            "basis": "explicit",
+            "text_span": {
+              "start": 0,
+              "end": 6
+            }
+          },
+          {
+            "id": "genre:metal",
+            "kind": "avoid",
+            "basis": "explicit",
+            "text_span": {
+              "start": 7,
+              "end": 14
+            }
+          }
+        ],
+        "constraints": [],
+        "soft_preferences": [
+          {
+            "preference_id": "text:1",
+            "description": "金属元素尽量少一点",
+            "kind": "avoid",
+            "basis": "explicit",
+            "strength": "normal",
+            "focused": false
+          }
+        ],
+        "unresolved_constraints": [],
+        "proposal_digest": "sha256:a97dd4767e06a88c79a3671ed77e22cabdfeab3aa77c945c1bc97853b3ce64ec"
+      },
+      "seed_descriptions": {},
+      "expected_error": null
+    },
+    {
+      "name": "reaffirm-prefer-normal-False",
+      "raw": {
+        "liked_genres": [
+          {
+            "genre_id": "genre:jazz",
+            "strength": "normal",
+            "focused": false
+          }
+        ],
+        "disliked_genre_ids": [],
+        "liked_albums": [],
+        "mode": "explore",
+        "language": "zh",
+        "request_text": "🎧想听爵士",
+        "input_digest": "sha256:ae6b786d2e79d688ed3502443185c4d4ce2d66a811936bca23dec85b7a8de7ef"
+      },
+      "proposal": {
+        "input_digest": "sha256:ae6b786d2e79d688ed3502443185c4d4ce2d66a811936bca23dec85b7a8de7ef",
+        "reference_revision": "sha256:4b0665e3065a06e7e82d26564e964e98c1e21e5ce41df181ea56e15ff73beb52",
+        "parser_revision": "synthetic-v1",
+        "preferences": [
+          {
+            "id": "genre:jazz",
+            "kind": "prefer",
+            "text_span": {
+              "start": 3,
+              "end": 5
+            },
+            "basis": "explicit"
+          }
+        ],
+        "constraints": [],
+        "soft_preferences": [],
+        "unresolved_constraints": [],
+        "proposal_digest": "sha256:4316ba375d607d4f0bb471db9ad9b0b1b82f14801e1d10281dae11c16f383553"
+      },
+      "seed_descriptions": {},
+      "expected_error": null,
+      "expected_tag": {
+        "id": "genre:jazz",
+        "strength": "normal",
+        "focused": false
+      }
+    },
+    {
+      "name": "reaffirm-require-normal-False",
+      "raw": {
+        "liked_genres": [
+          {
+            "genre_id": "genre:jazz",
+            "strength": "normal",
+            "focused": false
+          }
+        ],
+        "disliked_genre_ids": [],
+        "liked_albums": [],
+        "mode": "explore",
+        "language": "zh",
+        "request_text": "🎧想听爵士",
+        "input_digest": "sha256:ae6b786d2e79d688ed3502443185c4d4ce2d66a811936bca23dec85b7a8de7ef"
+      },
+      "proposal": {
+        "input_digest": "sha256:ae6b786d2e79d688ed3502443185c4d4ce2d66a811936bca23dec85b7a8de7ef",
+        "reference_revision": "sha256:4b0665e3065a06e7e82d26564e964e98c1e21e5ce41df181ea56e15ff73beb52",
+        "parser_revision": "synthetic-v1",
+        "preferences": [],
+        "constraints": [
+          {
+            "id": "genre:jazz",
+            "kind": "require",
+            "text_span": {
+              "start": 3,
+              "end": 5
+            }
+          }
+        ],
+        "soft_preferences": [],
+        "unresolved_constraints": [],
+        "proposal_digest": "sha256:edd30fe7651bae118fefa9a4ed40b94b98d26a5aaa1f635a28d2e2aecf22158f"
+      },
+      "seed_descriptions": {},
+      "expected_error": null,
+      "expected_tag": {
+        "id": "genre:jazz",
+        "strength": "normal",
+        "focused": false
+      }
+    },
+    {
+      "name": "reaffirm-prefer-normal-True",
+      "raw": {
+        "liked_genres": [
+          {
+            "genre_id": "genre:jazz",
+            "strength": "normal",
+            "focused": true
+          }
+        ],
+        "disliked_genre_ids": [],
+        "liked_albums": [],
+        "mode": "explore",
+        "language": "zh",
+        "request_text": "🎧想听爵士",
+        "input_digest": "sha256:4e4e36959b8a21dd6c608bcc09bb0b5731dbaf5a4dba1724bb279b017ebd8c58"
+      },
+      "proposal": {
+        "input_digest": "sha256:4e4e36959b8a21dd6c608bcc09bb0b5731dbaf5a4dba1724bb279b017ebd8c58",
+        "reference_revision": "sha256:4b0665e3065a06e7e82d26564e964e98c1e21e5ce41df181ea56e15ff73beb52",
+        "parser_revision": "synthetic-v1",
+        "preferences": [
+          {
+            "id": "genre:jazz",
+            "kind": "prefer",
+            "text_span": {
+              "start": 3,
+              "end": 5
+            },
+            "basis": "explicit"
+          }
+        ],
+        "constraints": [],
+        "soft_preferences": [],
+        "unresolved_constraints": [],
+        "proposal_digest": "sha256:e1544d427b55a360651bbba76ade630ce4dfcc600c214a1908468b58f7679b7b"
+      },
+      "seed_descriptions": {},
+      "expected_error": null,
+      "expected_tag": {
+        "id": "genre:jazz",
+        "strength": "normal",
+        "focused": true
+      }
+    },
+    {
+      "name": "reaffirm-require-normal-True",
+      "raw": {
+        "liked_genres": [
+          {
+            "genre_id": "genre:jazz",
+            "strength": "normal",
+            "focused": true
+          }
+        ],
+        "disliked_genre_ids": [],
+        "liked_albums": [],
+        "mode": "explore",
+        "language": "zh",
+        "request_text": "🎧想听爵士",
+        "input_digest": "sha256:4e4e36959b8a21dd6c608bcc09bb0b5731dbaf5a4dba1724bb279b017ebd8c58"
+      },
+      "proposal": {
+        "input_digest": "sha256:4e4e36959b8a21dd6c608bcc09bb0b5731dbaf5a4dba1724bb279b017ebd8c58",
+        "reference_revision": "sha256:4b0665e3065a06e7e82d26564e964e98c1e21e5ce41df181ea56e15ff73beb52",
+        "parser_revision": "synthetic-v1",
+        "preferences": [],
+        "constraints": [
+          {
+            "id": "genre:jazz",
+            "kind": "require",
+            "text_span": {
+              "start": 3,
+              "end": 5
+            }
+          }
+        ],
+        "soft_preferences": [],
+        "unresolved_constraints": [],
+        "proposal_digest": "sha256:c24be1abc5063474310df7103f1f33b0a329984e715b13aa7b6e8ff8de5c4b12"
+      },
+      "seed_descriptions": {},
+      "expected_error": null,
+      "expected_tag": {
+        "id": "genre:jazz",
+        "strength": "normal",
+        "focused": true
+      }
+    },
+    {
+      "name": "reaffirm-prefer-special-False",
+      "raw": {
+        "liked_genres": [
+          {
+            "genre_id": "genre:jazz",
+            "strength": "special",
+            "focused": false
+          }
+        ],
+        "disliked_genre_ids": [],
+        "liked_albums": [],
+        "mode": "explore",
+        "language": "zh",
+        "request_text": "🎧想听爵士",
+        "input_digest": "sha256:f709981d2e4f2c44355fe5984de1c9a385c7db342f4e7c2c47586d5a74be618a"
+      },
+      "proposal": {
+        "input_digest": "sha256:f709981d2e4f2c44355fe5984de1c9a385c7db342f4e7c2c47586d5a74be618a",
+        "reference_revision": "sha256:4b0665e3065a06e7e82d26564e964e98c1e21e5ce41df181ea56e15ff73beb52",
+        "parser_revision": "synthetic-v1",
+        "preferences": [
+          {
+            "id": "genre:jazz",
+            "kind": "prefer",
+            "text_span": {
+              "start": 3,
+              "end": 5
+            },
+            "basis": "explicit"
+          }
+        ],
+        "constraints": [],
+        "soft_preferences": [],
+        "unresolved_constraints": [],
+        "proposal_digest": "sha256:a7ca98a2995232b71ca257e271cb7e0e9e2ee1d7c53760f8af652c825bbe0e9e"
+      },
+      "seed_descriptions": {},
+      "expected_error": null,
+      "expected_tag": {
+        "id": "genre:jazz",
+        "strength": "special",
+        "focused": false
+      }
+    },
+    {
+      "name": "reaffirm-require-special-False",
+      "raw": {
+        "liked_genres": [
+          {
+            "genre_id": "genre:jazz",
+            "strength": "special",
+            "focused": false
+          }
+        ],
+        "disliked_genre_ids": [],
+        "liked_albums": [],
+        "mode": "explore",
+        "language": "zh",
+        "request_text": "🎧想听爵士",
+        "input_digest": "sha256:f709981d2e4f2c44355fe5984de1c9a385c7db342f4e7c2c47586d5a74be618a"
+      },
+      "proposal": {
+        "input_digest": "sha256:f709981d2e4f2c44355fe5984de1c9a385c7db342f4e7c2c47586d5a74be618a",
+        "reference_revision": "sha256:4b0665e3065a06e7e82d26564e964e98c1e21e5ce41df181ea56e15ff73beb52",
+        "parser_revision": "synthetic-v1",
+        "preferences": [],
+        "constraints": [
+          {
+            "id": "genre:jazz",
+            "kind": "require",
+            "text_span": {
+              "start": 3,
+              "end": 5
+            }
+          }
+        ],
+        "soft_preferences": [],
+        "unresolved_constraints": [],
+        "proposal_digest": "sha256:a401cdaacf1ef52c37c2266f33763e62a7334aea3786b2bf133cc853f5ce5529"
+      },
+      "seed_descriptions": {},
+      "expected_error": null,
+      "expected_tag": {
+        "id": "genre:jazz",
+        "strength": "special",
+        "focused": false
+      }
+    },
+    {
+      "name": "reaffirm-prefer-special-True",
+      "raw": {
+        "liked_genres": [
+          {
+            "genre_id": "genre:jazz",
+            "strength": "special",
+            "focused": true
+          }
+        ],
+        "disliked_genre_ids": [],
+        "liked_albums": [],
+        "mode": "explore",
+        "language": "zh",
+        "request_text": "🎧想听爵士",
+        "input_digest": "sha256:671290cfac6d4ef6c8288f9945b08130a14ca4a9242503d0b348998f6f9d2360"
+      },
+      "proposal": {
+        "input_digest": "sha256:671290cfac6d4ef6c8288f9945b08130a14ca4a9242503d0b348998f6f9d2360",
+        "reference_revision": "sha256:4b0665e3065a06e7e82d26564e964e98c1e21e5ce41df181ea56e15ff73beb52",
+        "parser_revision": "synthetic-v1",
+        "preferences": [
+          {
+            "id": "genre:jazz",
+            "kind": "prefer",
+            "text_span": {
+              "start": 3,
+              "end": 5
+            },
+            "basis": "explicit"
+          }
+        ],
+        "constraints": [],
+        "soft_preferences": [],
+        "unresolved_constraints": [],
+        "proposal_digest": "sha256:dd2d163d0963dc76faac9355a54aaef406733bfd5782b23d47be56d60233775c"
+      },
+      "seed_descriptions": {},
+      "expected_error": null,
+      "expected_tag": {
+        "id": "genre:jazz",
+        "strength": "special",
+        "focused": true
+      }
+    },
+    {
+      "name": "reaffirm-require-special-True",
+      "raw": {
+        "liked_genres": [
+          {
+            "genre_id": "genre:jazz",
+            "strength": "special",
+            "focused": true
+          }
+        ],
+        "disliked_genre_ids": [],
+        "liked_albums": [],
+        "mode": "explore",
+        "language": "zh",
+        "request_text": "🎧想听爵士",
+        "input_digest": "sha256:671290cfac6d4ef6c8288f9945b08130a14ca4a9242503d0b348998f6f9d2360"
+      },
+      "proposal": {
+        "input_digest": "sha256:671290cfac6d4ef6c8288f9945b08130a14ca4a9242503d0b348998f6f9d2360",
+        "reference_revision": "sha256:4b0665e3065a06e7e82d26564e964e98c1e21e5ce41df181ea56e15ff73beb52",
+        "parser_revision": "synthetic-v1",
+        "preferences": [],
+        "constraints": [
+          {
+            "id": "genre:jazz",
+            "kind": "require",
+            "text_span": {
+              "start": 3,
+              "end": 5
+            }
+          }
+        ],
+        "soft_preferences": [],
+        "unresolved_constraints": [],
+        "proposal_digest": "sha256:3afadcbca1e1d966159ff5a1b4e71406364acd4e86858f4a5ec9ad88adee2a73"
+      },
+      "seed_descriptions": {},
+      "expected_error": null,
+      "expected_tag": {
+        "id": "genre:jazz",
+        "strength": "special",
+        "focused": true
+      }
+    },
+    {
+      "name": "dislike-prefer-explicit",
+      "raw": {
+        "liked_genres": [],
+        "disliked_genre_ids": [
+          "genre:jazz"
+        ],
+        "liked_albums": [],
+        "mode": "explore",
+        "language": "zh",
+        "request_text": "爵士",
+        "input_digest": "sha256:ecafd86c983ad27119d036a6198ad0245e57e6a547a3962edbf212c97962de92"
+      },
+      "proposal": {
+        "input_digest": "sha256:ecafd86c983ad27119d036a6198ad0245e57e6a547a3962edbf212c97962de92",
+        "reference_revision": "sha256:4b0665e3065a06e7e82d26564e964e98c1e21e5ce41df181ea56e15ff73beb52",
+        "parser_revision": "synthetic-v1",
+        "preferences": [
+          {
+            "id": "genre:jazz",
+            "kind": "prefer",
+            "basis": "explicit",
+            "text_span": {
+              "start": 0,
+              "end": 2
+            }
+          }
+        ],
+        "constraints": [],
+        "soft_preferences": [],
+        "unresolved_constraints": [],
+        "proposal_digest": "sha256:9a5942157c372320b4d7f10298e97ec031c7d0e9566b3b0a15d39119c9f22cd4"
+      },
+      "seed_descriptions": {},
+      "expected_error": null
+    },
+    {
+      "name": "dislike-prefer-inferred",
+      "raw": {
+        "liked_genres": [],
+        "disliked_genre_ids": [
+          "genre:jazz"
+        ],
+        "liked_albums": [],
+        "mode": "explore",
+        "language": "zh",
+        "request_text": "爵士",
+        "input_digest": "sha256:ecafd86c983ad27119d036a6198ad0245e57e6a547a3962edbf212c97962de92"
+      },
+      "proposal": {
+        "input_digest": "sha256:ecafd86c983ad27119d036a6198ad0245e57e6a547a3962edbf212c97962de92",
+        "reference_revision": "sha256:4b0665e3065a06e7e82d26564e964e98c1e21e5ce41df181ea56e15ff73beb52",
+        "parser_revision": "synthetic-v1",
+        "preferences": [
+          {
+            "id": "genre:jazz",
+            "kind": "prefer",
+            "basis": "inferred",
+            "text_span": {
+              "start": 0,
+              "end": 2
+            }
+          }
+        ],
+        "constraints": [],
+        "soft_preferences": [],
+        "unresolved_constraints": [],
+        "proposal_digest": "sha256:fc5acb4fd657081bbf0cadaa98e2271ded379c6396e4a2ed08c9c8d3530d7e86"
+      },
+      "seed_descriptions": {},
+      "expected_error": null
+    },
+    {
+      "name": "dislike-avoid-explicit",
+      "raw": {
+        "liked_genres": [],
+        "disliked_genre_ids": [
+          "genre:jazz"
+        ],
+        "liked_albums": [],
+        "mode": "explore",
+        "language": "zh",
+        "request_text": "爵士",
+        "input_digest": "sha256:ecafd86c983ad27119d036a6198ad0245e57e6a547a3962edbf212c97962de92"
+      },
+      "proposal": {
+        "input_digest": "sha256:ecafd86c983ad27119d036a6198ad0245e57e6a547a3962edbf212c97962de92",
+        "reference_revision": "sha256:4b0665e3065a06e7e82d26564e964e98c1e21e5ce41df181ea56e15ff73beb52",
+        "parser_revision": "synthetic-v1",
+        "preferences": [
+          {
+            "id": "genre:jazz",
+            "kind": "avoid",
+            "basis": "explicit",
+            "text_span": {
+              "start": 0,
+              "end": 2
+            }
+          }
+        ],
+        "constraints": [],
+        "soft_preferences": [],
+        "unresolved_constraints": [],
+        "proposal_digest": "sha256:97e544113f541ab90cd7a1225171d378f807b765f1164a2356ec521a1c57395a"
+      },
+      "seed_descriptions": {},
+      "expected_error": null
+    },
+    {
+      "name": "dislike-avoid-inferred",
+      "raw": {
+        "liked_genres": [],
+        "disliked_genre_ids": [
+          "genre:jazz"
+        ],
+        "liked_albums": [],
+        "mode": "explore",
+        "language": "zh",
+        "request_text": "爵士",
+        "input_digest": "sha256:ecafd86c983ad27119d036a6198ad0245e57e6a547a3962edbf212c97962de92"
+      },
+      "proposal": {
+        "input_digest": "sha256:ecafd86c983ad27119d036a6198ad0245e57e6a547a3962edbf212c97962de92",
+        "reference_revision": "sha256:4b0665e3065a06e7e82d26564e964e98c1e21e5ce41df181ea56e15ff73beb52",
+        "parser_revision": "synthetic-v1",
+        "preferences": [
+          {
+            "id": "genre:jazz",
+            "kind": "avoid",
+            "basis": "inferred",
+            "text_span": {
+              "start": 0,
+              "end": 2
+            }
+          }
+        ],
+        "constraints": [],
+        "soft_preferences": [],
+        "unresolved_constraints": [],
+        "proposal_digest": "sha256:b7992c2b7b55f55caae3fb3456b016b41a3729e5c5cfbbebd2063be11274ec85"
+      },
+      "seed_descriptions": {},
+      "expected_error": null
+    },
+    {
+      "name": "opposite-explicit",
+      "raw": {
+        "liked_genres": [],
+        "disliked_genre_ids": [],
+        "liked_albums": [],
+        "mode": "explore",
+        "language": "zh",
+        "request_text": "爵士",
+        "input_digest": "sha256:41a2ce9ccd2852f1fd2ea96480a84cc8d963876ba0c1c17290ae694529ba59f8"
+      },
+      "proposal": {
+        "input_digest": "sha256:41a2ce9ccd2852f1fd2ea96480a84cc8d963876ba0c1c17290ae694529ba59f8",
+        "reference_revision": "sha256:4b0665e3065a06e7e82d26564e964e98c1e21e5ce41df181ea56e15ff73beb52",
+        "parser_revision": "synthetic-v1",
+        "preferences": [],
+        "constraints": [
+          {
+            "id": "genre:jazz",
+            "kind": "require",
+            "text_span": {
+              "start": 0,
+              "end": 2
+            }
+          },
+          {
+            "id": "genre:jazz",
+            "kind": "exclude",
+            "text_span": {
+              "start": 0,
+              "end": 2
+            }
+          }
+        ],
+        "soft_preferences": [],
+        "unresolved_constraints": [],
+        "proposal_digest": "sha256:f4e073ee710a2b5051b2bad53892592a051b5c85f39132a1da5f74c832a15e02"
+      },
+      "seed_descriptions": {},
+      "expected_error": "PREFERENCE_CONFLICT"
+    },
+    {
+      "name": "utf16-end-invalid",
+      "raw": {
+        "liked_genres": [],
+        "disliked_genre_ids": [],
+        "liked_albums": [],
+        "mode": "explore",
+        "language": "zh",
+        "request_text": "🎧爵士",
+        "input_digest": "sha256:b107a25411863c7a4cdac72b14238ff5b3dd818cd239fcd56769e1b1617d53c0"
+      },
+      "proposal": {
+        "input_digest": "sha256:b107a25411863c7a4cdac72b14238ff5b3dd818cd239fcd56769e1b1617d53c0",
+        "reference_revision": "sha256:4b0665e3065a06e7e82d26564e964e98c1e21e5ce41df181ea56e15ff73beb52",
+        "parser_revision": "synthetic-v1",
+        "preferences": [
+          {
+            "id": "genre:jazz",
+            "kind": "prefer",
+            "basis": "explicit",
+            "text_span": {
+              "start": 2,
+              "end": 4
+            }
+          }
+        ],
+        "constraints": [],
+        "soft_preferences": [],
+        "unresolved_constraints": [],
+        "proposal_digest": "sha256:2abb8db58520425de3fba08d49d63a215f4fdea3b0acf6db662269df0a197d7b"
+      },
+      "seed_descriptions": {},
+      "expected_error": "INTERPRETATION_INVALID_SPAN"
+    },
+    {
+      "name": "combining-codepoints",
+      "raw": {
+        "liked_genres": [],
+        "disliked_genre_ids": [],
+        "liked_albums": [],
+        "mode": "explore",
+        "language": "zh",
+        "request_text": "é爵士",
+        "input_digest": "sha256:923e1d6e7777c7bdb7e13b7bba33ab11d12b371f8339708fcd4972ae197d43e9"
+      },
+      "proposal": {
+        "input_digest": "sha256:923e1d6e7777c7bdb7e13b7bba33ab11d12b371f8339708fcd4972ae197d43e9",
+        "reference_revision": "sha256:4b0665e3065a06e7e82d26564e964e98c1e21e5ce41df181ea56e15ff73beb52",
+        "parser_revision": "synthetic-v1",
+        "preferences": [
+          {
+            "id": "genre:jazz",
+            "kind": "prefer",
+            "basis": "explicit",
+            "text_span": {
+              "start": 2,
+              "end": 4
+            }
+          }
+        ],
+        "constraints": [],
+        "soft_preferences": [],
+        "unresolved_constraints": [],
+        "proposal_digest": "sha256:b39a568742a04289b30df90287c61e30edb89a33fcb458247311fed62ecac235"
+      },
+      "seed_descriptions": {},
+      "expected_error": null
+    },
+    {
+      "name": "external-False",
+      "raw": {
+        "liked_genres": [],
+        "disliked_genre_ids": [],
+        "liked_albums": [
+          {
+            "release_group_id": null,
+            "external": {
+              "mb_release_group_id": "external",
+              "mapped_genre_ids": []
+            },
+            "strength": "special",
+            "focused": true
+          }
+        ],
+        "mode": "explore",
+        "language": "zh",
+        "request_text": "",
+        "input_digest": "sha256:0a196204914032fe1b8708126094592177e8ead655cf7c23b4060e54b4e75a8f"
+      },
+      "proposal": {
+        "input_digest": "sha256:0a196204914032fe1b8708126094592177e8ead655cf7c23b4060e54b4e75a8f",
+        "reference_revision": "sha256:4b0665e3065a06e7e82d26564e964e98c1e21e5ce41df181ea56e15ff73beb52",
+        "parser_revision": "synthetic-v1",
+        "preferences": [],
+        "constraints": [],
+        "soft_preferences": [],
+        "unresolved_constraints": [],
+        "proposal_digest": "sha256:c3c3d2859f6b6a24498fe29c21409b7695cb9f1851c9b0bf0301a04de7391647"
+      },
+      "seed_descriptions": {
+        "external": "艺人 / 专辑"
+      },
+      "expected_error": null
+    },
+    {
+      "name": "external-True",
+      "raw": {
+        "liked_genres": [],
+        "disliked_genre_ids": [],
+        "liked_albums": [
+          {
+            "release_group_id": null,
+            "external": {
+              "mb_release_group_id": "external",
+              "mapped_genre_ids": [
+                "genre:jazz"
+              ]
+            },
+            "strength": "special",
+            "focused": true
+          }
+        ],
+        "mode": "explore",
+        "language": "zh",
+        "request_text": "",
+        "input_digest": "sha256:333718a485fc0a9626b9123bc75b368c1220cd1dc2ebd9cfdd85b0799dfb4d70"
+      },
+      "proposal": {
+        "input_digest": "sha256:333718a485fc0a9626b9123bc75b368c1220cd1dc2ebd9cfdd85b0799dfb4d70",
+        "reference_revision": "sha256:4b0665e3065a06e7e82d26564e964e98c1e21e5ce41df181ea56e15ff73beb52",
+        "parser_revision": "synthetic-v1",
+        "preferences": [],
+        "constraints": [],
+        "soft_preferences": [],
+        "unresolved_constraints": [],
+        "proposal_digest": "sha256:2004343861c2c5ed0e3aa6e10514a73c7b88d71a387d83b563fc0ac3f27d31f9"
+      },
+      "seed_descriptions": {
+        "external": "艺人 / 专辑"
+      },
+      "expected_error": null
+    },
+    {
+      "name": "seed-flags",
+      "raw": {
+        "liked_genres": [],
+        "disliked_genre_ids": [],
+        "liked_albums": [
+          {
+            "release_group_id": "album",
+            "external": null,
+            "strength": "special",
+            "focused": true
+          }
+        ],
+        "mode": "explore",
+        "language": "zh",
+        "request_text": "",
+        "input_digest": "sha256:a7f92c602f6190de35fb074406abc362a733fd1470f8d4376015c97f769cb856"
+      },
+      "proposal": {
+        "input_digest": "sha256:a7f92c602f6190de35fb074406abc362a733fd1470f8d4376015c97f769cb856",
+        "reference_revision": "sha256:4b0665e3065a06e7e82d26564e964e98c1e21e5ce41df181ea56e15ff73beb52",
+        "parser_revision": "synthetic-v1",
+        "preferences": [],
+        "constraints": [],
+        "soft_preferences": [],
+        "unresolved_constraints": [],
+        "proposal_digest": "sha256:5c541c6c4e4c2f7d5cb2c6b3affb590db62015edfdfaf35501b272a1840eb53e"
+      },
+      "seed_descriptions": {
+        "album": "艺人 / 专辑"
+      },
+      "expected_error": null
+    },
+    {
+      "name": "missing-seed-description",
+      "raw": {
+        "liked_genres": [],
+        "disliked_genre_ids": [],
+        "liked_albums": [
+          {
+            "release_group_id": "album",
+            "external": null,
+            "strength": "special",
+            "focused": true
+          }
+        ],
+        "mode": "explore",
+        "language": "zh",
+        "request_text": "",
+        "input_digest": "sha256:a7f92c602f6190de35fb074406abc362a733fd1470f8d4376015c97f769cb856"
+      },
+      "proposal": {
+        "input_digest": "sha256:a7f92c602f6190de35fb074406abc362a733fd1470f8d4376015c97f769cb856",
+        "reference_revision": "sha256:4b0665e3065a06e7e82d26564e964e98c1e21e5ce41df181ea56e15ff73beb52",
+        "parser_revision": "synthetic-v1",
+        "preferences": [],
+        "constraints": [],
+        "soft_preferences": [],
+        "unresolved_constraints": [],
+        "proposal_digest": "sha256:5c541c6c4e4c2f7d5cb2c6b3affb590db62015edfdfaf35501b272a1840eb53e"
+      },
+      "seed_descriptions": {},
+      "expected_error": "INPUT_DESCRIPTION_UNAVAILABLE"
+    },
+    {
+      "name": "no-positive",
+      "raw": {
+        "liked_genres": [],
+        "disliked_genre_ids": [
+          "genre:jazz"
+        ],
+        "liked_albums": [],
+        "mode": "explore",
+        "language": "zh",
+        "request_text": "",
+        "input_digest": "sha256:364eb53da6b31639f637ef66a576e1b9d563e2a54e79faef8e0816e831835db5"
+      },
+      "proposal": {
+        "input_digest": "sha256:364eb53da6b31639f637ef66a576e1b9d563e2a54e79faef8e0816e831835db5",
+        "reference_revision": "sha256:4b0665e3065a06e7e82d26564e964e98c1e21e5ce41df181ea56e15ff73beb52",
+        "parser_revision": "synthetic-v1",
+        "preferences": [],
+        "constraints": [],
+        "soft_preferences": [],
+        "unresolved_constraints": [],
+        "proposal_digest": "sha256:850f97b582ccae548f0f8a66045894b74b1775b0642b6f6e5daf3d65f0f8b413"
+      },
+      "seed_descriptions": {},
+      "expected_error": null
+    },
+    {
+      "name": "mode-familiar",
+      "raw": {
+        "liked_genres": [
+          {
+            "genre_id": "genre:jazz",
+            "strength": "normal",
+            "focused": false
+          }
+        ],
+        "disliked_genre_ids": [],
+        "liked_albums": [],
+        "mode": "familiar",
+        "language": "zh",
+        "request_text": "",
+        "input_digest": "sha256:2a6b2f2879e278bb37f0455122c0e684fb64668781d8c294d59246cf33b31371"
+      },
+      "proposal": {
+        "input_digest": "sha256:2a6b2f2879e278bb37f0455122c0e684fb64668781d8c294d59246cf33b31371",
+        "reference_revision": "sha256:4b0665e3065a06e7e82d26564e964e98c1e21e5ce41df181ea56e15ff73beb52",
+        "parser_revision": "synthetic-v1",
+        "preferences": [],
+        "constraints": [],
+        "soft_preferences": [],
+        "unresolved_constraints": [],
+        "proposal_digest": "sha256:69e3af4873a4298bcb0518b9f3f9a65ea1ec9a3266a665b48bea5533998134a9"
+      },
+      "seed_descriptions": {},
+      "expected_error": null
+    },
+    {
+      "name": "mode-surprise",
+      "raw": {
+        "liked_genres": [
+          {
+            "genre_id": "genre:jazz",
+            "strength": "normal",
+            "focused": false
+          }
+        ],
+        "disliked_genre_ids": [],
+        "liked_albums": [],
+        "mode": "surprise",
+        "language": "zh",
+        "request_text": "",
+        "input_digest": "sha256:623518bdf899797d978eb28f8d73f1e5ffc571d40263a8a25fb666f2d4df102c"
+      },
+      "proposal": {
+        "input_digest": "sha256:623518bdf899797d978eb28f8d73f1e5ffc571d40263a8a25fb666f2d4df102c",
+        "reference_revision": "sha256:4b0665e3065a06e7e82d26564e964e98c1e21e5ce41df181ea56e15ff73beb52",
+        "parser_revision": "synthetic-v1",
+        "preferences": [],
+        "constraints": [],
+        "soft_preferences": [],
+        "unresolved_constraints": [],
+        "proposal_digest": "sha256:8b867d0bbdc2a426d359455c28b7d86725e8eef3ee7d7d62396b445918aaffb3"
+      },
+      "seed_descriptions": {},
+      "expected_error": null
+    },
+    {
+      "name": "unknown-id",
+      "raw": {
+        "liked_genres": [],
+        "disliked_genre_ids": [],
+        "liked_albums": [],
+        "mode": "explore",
+        "language": "zh",
+        "request_text": "未知",
+        "input_digest": "sha256:5d40973b235f01c4f86fbbf30e5ca086740c8949132114107ba1d8bd6411b252"
+      },
+      "proposal": {
+        "input_digest": "sha256:5d40973b235f01c4f86fbbf30e5ca086740c8949132114107ba1d8bd6411b252",
+        "reference_revision": "sha256:4b0665e3065a06e7e82d26564e964e98c1e21e5ce41df181ea56e15ff73beb52",
+        "parser_revision": "synthetic-v1",
+        "preferences": [
+          {
+            "id": "unknown",
+            "kind": "prefer",
+            "basis": "explicit",
+            "text_span": {
+              "start": 0,
+              "end": 2
+            }
+          }
+        ],
+        "constraints": [],
+        "soft_preferences": [],
+        "unresolved_constraints": [],
+        "proposal_digest": "sha256:0c723fc7c781c00b13d04199d3de5f6f159b40725e519356e2fa13b727ddaaa8"
+      },
+      "seed_descriptions": {},
+      "expected_error": "INPUT_DESCRIPTION_UNAVAILABLE"
+    },
+    {
+      "name": "forged-raw-digest",
+      "raw": {
+        "liked_genres": [],
+        "disliked_genre_ids": [],
+        "liked_albums": [],
+        "mode": "explore",
+        "language": "zh",
+        "request_text": "修改原文",
+        "input_digest": "sha256:20303bd4ed3f779c904e2668a9b0d993df1d6366ce5ed073e62735e1575281e5"
+      },
+      "proposal": {
+        "input_digest": "sha256:20303bd4ed3f779c904e2668a9b0d993df1d6366ce5ed073e62735e1575281e5",
+        "reference_revision": "sha256:4b0665e3065a06e7e82d26564e964e98c1e21e5ce41df181ea56e15ff73beb52",
+        "parser_revision": "synthetic-v1",
+        "preferences": [],
+        "constraints": [],
+        "soft_preferences": [],
+        "unresolved_constraints": [],
+        "proposal_digest": "sha256:a6b06aae78439426f20c2852e97e6d145635ad9932e543e4b066c0af7b00cd7a"
+      },
+      "seed_descriptions": {},
+      "expected_error": "PREFERENCE_BINDING_MISMATCH"
+    },
+    {
+      "name": "forged-proposal-digest",
+      "raw": {
+        "liked_genres": [],
+        "disliked_genre_ids": [],
+        "liked_albums": [],
+        "mode": "explore",
+        "language": "zh",
+        "request_text": "原文",
+        "input_digest": "sha256:20303bd4ed3f779c904e2668a9b0d993df1d6366ce5ed073e62735e1575281e5"
+      },
+      "proposal": {
+        "input_digest": "sha256:20303bd4ed3f779c904e2668a9b0d993df1d6366ce5ed073e62735e1575281e5",
+        "reference_revision": "sha256:4b0665e3065a06e7e82d26564e964e98c1e21e5ce41df181ea56e15ff73beb52",
+        "parser_revision": "synthetic-v1",
+        "preferences": [],
+        "constraints": [],
+        "soft_preferences": [],
+        "unresolved_constraints": [],
+        "proposal_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+      },
+      "seed_descriptions": {},
+      "expected_error": "BINDING_MISMATCH"
+    },
+    {
+      "name": "wrong-reference",
+      "raw": {
+        "liked_genres": [],
+        "disliked_genre_ids": [],
+        "liked_albums": [],
+        "mode": "explore",
+        "language": "zh",
+        "request_text": "原文",
+        "input_digest": "sha256:20303bd4ed3f779c904e2668a9b0d993df1d6366ce5ed073e62735e1575281e5"
+      },
+      "proposal": {
+        "input_digest": "sha256:20303bd4ed3f779c904e2668a9b0d993df1d6366ce5ed073e62735e1575281e5",
+        "reference_revision": "wrong",
+        "parser_revision": "synthetic-v1",
+        "preferences": [],
+        "constraints": [],
+        "soft_preferences": [],
+        "unresolved_constraints": [],
+        "proposal_digest": "sha256:b196cd40f35437610da702f8a101f8f5f271147af062193d09a321aa35a097a7"
+      },
+      "seed_descriptions": {},
+      "expected_error": "PREFERENCE_BINDING_MISMATCH"
+    },
+    {
+      "name": "duplicate-liked",
+      "raw": {
+        "liked_genres": [
+          {
+            "genre_id": "genre:jazz",
+            "strength": "normal",
+            "focused": false
+          },
+          {
+            "genre_id": "genre:jazz",
+            "strength": "normal",
+            "focused": false
+          }
+        ],
+        "disliked_genre_ids": [],
+        "liked_albums": [],
+        "mode": "explore",
+        "language": "zh",
+        "request_text": "",
+        "input_digest": "sha256:6da4471bb7d684a70a93e1f781585fa873c7f24caf484f1229fd2252d815955e"
+      },
+      "proposal": {
+        "input_digest": "sha256:6da4471bb7d684a70a93e1f781585fa873c7f24caf484f1229fd2252d815955e",
+        "reference_revision": "sha256:4b0665e3065a06e7e82d26564e964e98c1e21e5ce41df181ea56e15ff73beb52",
+        "parser_revision": "synthetic-v1",
+        "preferences": [],
+        "constraints": [],
+        "soft_preferences": [],
+        "unresolved_constraints": [],
+        "proposal_digest": "sha256:048751cffe1a7e6e65d7c203ba427e3bf2552f6a6648fc551d58e6abd7956c0c"
+      },
+      "seed_descriptions": {},
+      "expected_error": "DUPLICATE_ID"
+    },
+    {
+      "name": "explicit-child-keeps-parent-with-local-exception",
+      "raw": {
+        "liked_genres": [],
+        "disliked_genre_ids": [
+          "genre:jazz"
+        ],
+        "liked_albums": [],
+        "mode": "explore",
+        "language": "zh",
+        "request_text": "爵士",
+        "input_digest": "sha256:ecafd86c983ad27119d036a6198ad0245e57e6a547a3962edbf212c97962de92"
+      },
+      "proposal": {
+        "input_digest": "sha256:ecafd86c983ad27119d036a6198ad0245e57e6a547a3962edbf212c97962de92",
+        "reference_revision": "sha256:4b0665e3065a06e7e82d26564e964e98c1e21e5ce41df181ea56e15ff73beb52",
+        "parser_revision": "synthetic-v1",
+        "preferences": [
+          {
+            "id": "genre:cool-jazz",
+            "kind": "prefer",
+            "basis": "explicit",
+            "text_span": {
+              "start": 0,
+              "end": 2
+            }
+          }
+        ],
+        "constraints": [],
+        "soft_preferences": [],
+        "unresolved_constraints": [],
+        "proposal_digest": "sha256:71e58664a6c52b87b24ceac2b45885271f31dbe2715d69311dc16fdebcb644e4"
+      },
+      "seed_descriptions": {},
+      "expected_error": null
+    }
+  ]
+}
