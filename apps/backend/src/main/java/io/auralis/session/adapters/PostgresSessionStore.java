@@ -114,6 +114,24 @@ public class PostgresSessionStore implements SessionStore {
     }
 
     @Override
+    public Scope advanceRevision(Scope scope) {
+        lockActive(scope);
+        entities.flush();
+        if (jdbc.update(
+                        "UPDATE discovery.session SET revision=revision+1 WHERE id=? AND revision=?",
+                        scope.sessionId(),
+                        scope.revision())
+                != 1) throw new PersistenceRejected("REVISION_CONFLICT");
+        entities.clear();
+        return new Scope(
+                scope.subjectId(),
+                scope.sessionId(),
+                scope.subjectEpoch(),
+                scope.sessionEpoch(),
+                scope.revision() + 1);
+    }
+
+    @Override
     public Optional<View> status(String subject) {
         return jdbc
                 .query(

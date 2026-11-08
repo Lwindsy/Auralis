@@ -29,6 +29,8 @@ public interface SessionStore {
 
     View lockActive(Scope scope);
 
+    Scope advanceRevision(Scope scope);
+
     Optional<View> status(String subjectId);
 
     Optional<Snapshot> current(String subjectId);

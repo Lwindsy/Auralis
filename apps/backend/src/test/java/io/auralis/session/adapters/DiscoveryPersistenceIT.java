@@ -422,7 +422,11 @@ class DiscoveryPersistenceIT {
                         "be005-synthetic-service-token-12345",
                         "auralis.contract-revision",
                         "0.27"));
-        context = app.run();
+        context =
+                app.run(
+                        "--auralis.subject-secret=test-subject-secret-abcdefghijklmnopqrstuvwxyz0123456789",
+                        "--auralis.allow-insecure-cookie=true",
+                        "--auralis.session-cleanup-enabled=false");
         jdbc = context.getBean(JdbcTemplate.class);
         tx = context.getBean(ShortTransactions.class);
         sessions = context.getBean(SessionStore.class);
@@ -526,7 +530,7 @@ class DiscoveryPersistenceIT {
                             .load();
             flyway.migrate();
             flyway.validate();
-            assertEquals("7", flyway.info().current().getVersion().toString());
+            assertEquals("8", flyway.info().current().getVersion().toString());
             assertEquals(0, flyway.migrate().migrationsExecuted);
             try (var c = DriverManager.getConnection(target, "be005_migrator", PASSWORD);
                     var s = c.createStatement()) {

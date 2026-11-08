@@ -8,7 +8,15 @@ Auralis帮助你通过风格偏好、喜欢的专辑或自然语言描述发现�
 
 Python Agent 已有独立演示与内部执行服务。Java 产品接入与浏览器应用仍待完成，目前没有完整网站发布版本。
 
-Java在线底座可用上述Maven命令构建和jar命令启动；环境变量须显式提供数据库地址与运行凭据、产品同源地址、Python loopback地址、服务凭据及当前内部协议修订。使用已由离线CLI迁移的PostgreSQL 18及无DDL权限的运行账号，默认监听127.0.0.1:8080。存活与就绪探针已实现；产品会话和推荐API仍待后续任务。
+Java在线底座使用`mvn -f apps/backend/pom.xml verify`构建，再运行`java -jar apps/backend/target/auralis-core-database-0.1.0-SNAPSHOT-online.jar`；环境变量须显式提供数据库地址与运行凭据、产品同源地址、Python loopback地址、服务凭据及当前内部协议修订。使用已由离线CLI迁移的PostgreSQL 18及无DDL权限的运行账号，默认监听127.0.0.1:8080。存活与就绪探针已实现；匿名bootstrap和会话恢复已实现，推荐命令API仍待后续装配。
+
+## 匿名会话
+
+通过`AURALIS_SUBJECT_SECRET`提供独立的安全随机签名密钥，至少43位URL-safe字符；普通重启保持一致，与数据库备份分开保存。HTTPS使用Secure／HttpOnly／SameSite=Lax Cookie；本地loopback HTTP必须显式设置`AURALIS_ALLOW_INSECURE_COOKIE=true`。内部协议配置须匹配打包的Schema（当前0.27）。
+
+`POST /v1/bootstrap`只接受配置同源的空JSON对象，返回CSRF令牌和可恢复状态。`GET /v1/current-state`及`GET /v1/discovery-sessions/{session_id}`核验凭证归属，读取不续期。成功的主动操作将当前过程保留固定30天；过期凭证通过bootstrap自动得到新的空白身份。应用生命周期端口支持修改需求、已听过与删除，正式推荐命令仍待后续集成。
+
+V8增加撤销收据及publication拥有的恢复投影。删除先提交屏障，再有界分批清理；仍占槽的执行等待调度器确认物理释放。恢复旧数据库前先隔离服务，并重放备份之后的撤销记录，再开放访问。若无法补齐备份之后的删除记录，保持隔离并轮换独立签名密钥，使所有旧凭证失效、用户从空白开始，旧凭证代次进入分批清理。普通重启仍保持原密钥；完整备份恢复仍是独立部署职责。
 
 ## 持久化开发
 
