@@ -20,6 +20,7 @@ from auralis_intelligence.recall import (
     load_a_v2,
 )
 
+from .resources import drain
 from .runtime import Execution
 
 
@@ -138,16 +139,28 @@ class RecallStage:
         else:
             # SciPy CPU calls cannot be killed safely. Drain before slot release;
             # never allow a cancelled thread to keep using the next round's slot.
-            worker = asyncio.create_task(asyncio.to_thread(self._compute, request))
+            worker = asyncio.create_task(
+                execution.scheduler.cpu(self._compute, request)
+                if hasattr(execution.scheduler, "cpu")
+                else asyncio.to_thread(self._compute, request)
+            )
             try:
                 status, reason, result = await asyncio.wait_for(
                     asyncio.shield(worker),
                     execution.start["agent_policy"]["timing"]["recall_timeout_ms"] / 1000,
                 )
             except asyncio.TimeoutError:
-                await _drain_worker(worker)
+                if hasattr(execution.scheduler, "cpu"):
+                    worker.cancel()
+                    await drain([worker])
+                else:
+                    await _drain_worker(worker)
                 status, reason, result = "TIMED_OUT", "recall_timed_out", None
             except asyncio.CancelledError:
+                if hasattr(execution.scheduler, "cpu"):
+                    worker.cancel()
+                    await drain([worker])
+                    raise
                 await _drain_worker(worker, cancelled=True)
         execution.ensure_active()
         candidates = (
