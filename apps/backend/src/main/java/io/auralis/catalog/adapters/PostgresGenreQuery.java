@@ -103,6 +103,10 @@ public class PostgresGenreQuery implements GenreQuery {
     @Override
     public Set<String> descendants(long dataset, Set<String> genres) {
         var nodes = warm(dataset);
+        return closure(nodes, genres);
+    }
+
+    private static Set<String> closure(Map<String, Node> nodes, Set<String> genres) {
         if (!nodes.keySet().containsAll(genres))
             throw new IllegalArgumentException("UNKNOWN_GENRE");
         var result = new HashSet<>(genres);
@@ -113,5 +117,22 @@ public class PostgresGenreQuery implements GenreQuery {
                 if (!Collections.disjoint(node.parents(), result)) changed |= result.add(node.id());
         } while (changed);
         return Set.copyOf(result);
+    }
+
+    @Override
+    public Map<String, Set<String>> descendantGroups(long dataset, Set<String> roots) {
+        var nodes = warm(dataset);
+        var groups = new LinkedHashMap<String, Set<String>>();
+        for (String root : roots) groups.put(root, closure(nodes, Set.of(root)));
+        return Collections.unmodifiableMap(groups);
+    }
+
+    @Override
+    public Map<String, Node> nodes(long dataset, Set<String> genres) {
+        if (genres.size() > 14000) throw new IllegalArgumentException("BATCH_TOO_LARGE");
+        var all = warm(dataset);
+        var result = new LinkedHashMap<String, Node>();
+        for (String id : genres) if (all.containsKey(id)) result.put(id, all.get(id));
+        return Collections.unmodifiableMap(result);
     }
 }

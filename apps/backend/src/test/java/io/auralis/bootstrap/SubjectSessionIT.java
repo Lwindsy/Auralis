@@ -177,7 +177,7 @@ class SubjectSessionIT {
         properties.put("auralis.product-origin", "http://127.0.0.1:8080");
         properties.put("auralis.python-url", "http://127.0.0.1:1");
         properties.put("auralis.service-token", "be006-service-synthetic-token-123456789");
-        properties.put("auralis.contract-revision", "0.27");
+        properties.put("auralis.contract-revision", "0.28");
         properties.put("auralis.subject-secret", secret);
         properties.put("auralis.allow-insecure-cookie", true);
         properties.put("auralis.session-cleanup-enabled", false);

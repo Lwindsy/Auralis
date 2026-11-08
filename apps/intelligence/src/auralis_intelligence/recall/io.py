@@ -41,7 +41,13 @@ def load_request(path: Path) -> RecallRequest:
                 raw[key] = tuple(Preference(**item) for item in raw[key])
             except TypeError as exc:
                 raise ValueError(f"invalid {key} preference fields") from exc
-    for key in ("disliked_tags", "forbidden_tags", "required_tags", "excluded_ids"):
+    for key in (
+        "disliked_tags",
+        "forbidden_tags",
+        "required_tags",
+        "excluded_ids",
+        "disliked_exceptions",
+    ):
         if key in raw:
             if not isinstance(raw[key], list):
                 raise ValueError(f"{key} must be a list")

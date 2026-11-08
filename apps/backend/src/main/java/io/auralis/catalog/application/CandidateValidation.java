@@ -37,13 +37,15 @@ public final class CandidateValidation {
             Set<UUID> excluded,
             Set<String> requiredGenres,
             Set<String> forbiddenGenres,
-            Set<String> dislikedGenres) {
+            Set<String> dislikedGenres,
+            Set<String> explicitPositiveGenres) {
         public Context {
             recallBinding = recallBinding.deepCopy();
             excluded = Set.copyOf(excluded);
             requiredGenres = Set.copyOf(requiredGenres);
             forbiddenGenres = Set.copyOf(forbiddenGenres);
             dislikedGenres = Set.copyOf(dislikedGenres);
+            explicitPositiveGenres = Set.copyOf(explicitPositiveGenres);
         }
 
         @Override
@@ -97,12 +99,17 @@ public final class CandidateValidation {
                 identities.values().stream().map(CatalogQuery.Album::id).distinct().toList();
         var counts =
                 audience.audience(context.catalogDataset(), context.audienceBinding(), canonical);
-        var forbidden = genreQuery.descendants(context.catalogDataset(), context.forbiddenGenres());
-        var disliked = genreQuery.descendants(context.catalogDataset(), context.dislikedGenres());
-        var required =
-                context.requiredGenres().stream()
-                        .map(id -> genreQuery.descendants(context.catalogDataset(), Set.of(id)))
-                        .toList();
+        var roots = new HashSet<>(context.forbiddenGenres());
+        roots.addAll(context.dislikedGenres());
+        roots.addAll(context.requiredGenres());
+        roots.addAll(context.explicitPositiveGenres());
+        var groups = genreQuery.descendantGroups(context.catalogDataset(), roots);
+        var forbidden = new HashSet<String>();
+        context.forbiddenGenres().forEach(id -> forbidden.addAll(groups.get(id)));
+        var disliked =
+                GenreRestrictions.disliked(
+                        context.dislikedGenres(), context.explicitPositiveGenres(), groups);
+        var required = context.requiredGenres().stream().map(groups::get).toList();
         var accepted = JSON.createArrayNode();
         var rejected = JSON.createArrayNode();
         var seen = new HashSet<UUID>();

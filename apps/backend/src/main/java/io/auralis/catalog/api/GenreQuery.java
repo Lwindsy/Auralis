@@ -19,4 +19,10 @@ public interface GenreQuery {
     List<Node> search(long dataset, String query, String parent, int offset, int limit);
 
     Set<String> descendants(long dataset, Set<String> genres);
+
+    /** Batch lookup in the same versioned cache; absent IDs remain absent. */
+    Map<String, Node> nodes(long dataset, Set<String> genres);
+
+    /** Inclusive descendant closure per root, from a single pinned cache lookup. */
+    Map<String, Set<String>> descendantGroups(long dataset, Set<String> roots);
 }

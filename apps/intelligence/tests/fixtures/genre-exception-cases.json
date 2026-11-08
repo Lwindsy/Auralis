@@ -1,0 +1,194 @@
+{
+  "genres": [
+    "jazz",
+    "cool",
+    "west",
+    "bebop",
+    "electronic",
+    "post"
+  ],
+  "parents": [
+    [
+      "jazz",
+      "cool"
+    ],
+    [
+      "cool",
+      "west"
+    ],
+    [
+      "jazz",
+      "bebop"
+    ],
+    [
+      "cool",
+      "post"
+    ]
+  ],
+  "albums": [
+    {
+      "name": "jazz",
+      "genres": [
+        "jazz"
+      ]
+    },
+    {
+      "name": "cool",
+      "genres": [
+        "cool"
+      ]
+    },
+    {
+      "name": "west",
+      "genres": [
+        "west"
+      ]
+    },
+    {
+      "name": "jazz-cool",
+      "genres": [
+        "jazz",
+        "cool"
+      ]
+    },
+    {
+      "name": "bebop",
+      "genres": [
+        "bebop"
+      ]
+    },
+    {
+      "name": "jazz-bebop",
+      "genres": [
+        "jazz",
+        "bebop"
+      ]
+    },
+    {
+      "name": "mixed",
+      "genres": [
+        "jazz",
+        "electronic"
+      ]
+    },
+    {
+      "name": "electronic",
+      "genres": [
+        "electronic"
+      ]
+    },
+    {
+      "name": "untagged",
+      "genres": []
+    },
+    {
+      "name": "post",
+      "genres": [
+        "post"
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "name": "child-exception",
+      "disliked": [
+        "jazz"
+      ],
+      "positive": [
+        "cool"
+      ],
+      "forbidden": [],
+      "accepted": [
+        "cool",
+        "west",
+        "jazz-cool",
+        "mixed",
+        "electronic",
+        "untagged",
+        "post"
+      ]
+    },
+    {
+      "name": "no-text-exception",
+      "disliked": [
+        "jazz"
+      ],
+      "positive": [],
+      "forbidden": [],
+      "accepted": [
+        "mixed",
+        "electronic",
+        "untagged"
+      ]
+    },
+    {
+      "name": "hard-exclusion-still-wins",
+      "disliked": [
+        "jazz"
+      ],
+      "positive": [
+        "cool"
+      ],
+      "forbidden": [
+        "cool"
+      ],
+      "accepted": [
+        "mixed",
+        "electronic"
+      ]
+    },
+    {
+      "name": "narrower-preselection-kept",
+      "disliked": [
+        "jazz",
+        "post"
+      ],
+      "positive": [
+        "cool"
+      ],
+      "forbidden": [],
+      "accepted": [
+        "cool",
+        "west",
+        "jazz-cool",
+        "mixed",
+        "electronic",
+        "untagged"
+      ]
+    },
+    {
+      "name": "parent-interest-not-child-exception",
+      "disliked": [
+        "cool"
+      ],
+      "positive": [
+        "jazz"
+      ],
+      "forbidden": [],
+      "accepted": [
+        "jazz",
+        "jazz-cool",
+        "bebop",
+        "jazz-bebop",
+        "mixed",
+        "electronic",
+        "untagged"
+      ]
+    },
+    {
+      "name": "unrelated-positive-no-exception",
+      "disliked": [
+        "jazz"
+      ],
+      "positive": [
+        "electronic"
+      ],
+      "forbidden": [],
+      "accepted": [
+        "mixed",
+        "electronic",
+        "untagged"
+      ]
+    }
+  ]
+}

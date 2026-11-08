@@ -163,6 +163,7 @@ class CatalogAudienceIT {
                 Set.of(),
                 Set.of(id(101).toString()),
                 forbidden,
+                Set.of(),
                 Set.of());
     }
 

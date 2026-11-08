@@ -133,7 +133,13 @@ def validate_request(
     preferred_tags = weighted_preferences(request.tags, weights)
     if set(seeds) - albums or set(preferred_tags) - tags:
         raise ValueError("unknown seed or tag ID")
-    for name in ("disliked_tags", "forbidden_tags", "required_tags", "excluded_ids"):
+    for name in (
+        "disliked_tags",
+        "forbidden_tags",
+        "required_tags",
+        "excluded_ids",
+        "disliked_exceptions",
+    ):
         values = getattr(request, name)
         _ids(values, name)
         known = albums if name == "excluded_ids" else tags
@@ -228,6 +234,22 @@ def _descendants(data: RecallDataset, roots: tuple[str, ...]) -> set[int]:
     return {index for index, tag in enumerate(data.tag_ids) if tag in visited}
 
 
+def effective_disliked(
+    data: RecallDataset, roots: tuple[str, ...], exceptions: tuple[str, ...]
+) -> set[int]:
+    """Explicit child interests exempt only their subtree from each broader preselection."""
+    positions = {identifier: index for index, identifier in enumerate(data.tag_ids)}
+    closures = {root: _descendants(data, (root,)) for root in set(roots) | set(exceptions)}
+    result = set()
+    for root in roots:
+        blocked = set(closures[root])
+        for exception in exceptions:
+            if exception != root and positions[exception] in closures[root]:
+                blocked.difference_update(closures[exception])
+        result.update(blocked)
+    return result
+
+
 def recall(model: RecallModel, request: RecallRequest, *, eligibility_mask=None) -> RecallResult:
     """Call the actual provider, filter the full candidate pool, then select R."""
     data = getattr(model, "data", None)
@@ -252,7 +274,7 @@ def recall(model: RecallModel, request: RecallRequest, *, eligibility_mask=None)
         or np.isposinf(scores).any()
     ):
         raise ValueError("provider must return one finite or -inf score per album")
-    disliked = _descendants(data, request.disliked_tags)
+    disliked = effective_disliked(data, request.disliked_tags, request.disliked_exceptions)
     forbidden = _descendants(data, request.forbidden_tags)
     required = [_descendants(data, (tag,)) for tag in request.required_tags]
     excluded = set(request.excluded_ids) | {item.id for item in request.seeds}
