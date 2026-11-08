@@ -279,6 +279,77 @@ class SeedEvidenceIT {
     }
 
     @Test
+    void budgetConsumesActualSeedOwnershipAndRejectsForeignReads() throws Exception {
+        var first = input();
+        var c = first.context();
+        String read = UUID.randomUUID().toString();
+        var receipt = record(c, read, "https://example.com/budget-seed", "真实种子摘录");
+        authority.saveSeeds(c, update(c, receipt, "真实种子摘录").toString());
+        var other = input();
+        var foreign =
+                record(
+                        other.context(),
+                        UUID.randomUUID().toString(),
+                        "https://example.com/foreign",
+                        "其他会话");
+        var budget = app.getBean(io.auralis.budget.api.BudgetAuthority.class);
+        String run =
+                jdbc.queryForObject(
+                        "SELECT run_id FROM discovery.execution WHERE id=?",
+                        String.class,
+                        c.execution());
+        var context =
+                new io.auralis.budget.api.BudgetAuthority.Context(
+                        c,
+                        run,
+                        UUID.randomUUID().toString(),
+                        UUID.randomUUID().toString(),
+                        1000,
+                        1000,
+                        500,
+                        500,
+                        10,
+                        10,
+                        Map.of(
+                                "test-model",
+                                new io.auralis.budget.api.BudgetAuthority.Price(
+                                        "test", 1000000, 1000000, 1000000, 0, 100, 100)));
+        budget.register(context);
+        var request = JSON.createObjectNode();
+        var plan =
+                request.putArray("items")
+                        .addObject()
+                        .put("invocation_id", c.execution() + ":seed-budget")
+                        .put("attempt", 1)
+                        .put("purpose", "SELECT")
+                        .put("cost_class", "MODEL")
+                        .put("lane", "FOREGROUND")
+                        .put("run_id", run)
+                        .putNull("candidate_id")
+                        .put("model_binding_ref", "test-model")
+                        .put("max_input_tokens", 10)
+                        .put("max_output_tokens", 10)
+                        .put("input_digest", "sha256:" + "e".repeat(64));
+        plan.putArray("read_ids").add(read);
+        assertEquals(
+                "GRANTED",
+                JSON.readTree(budget.grants(context, request.toString()))
+                        .path("items")
+                        .get(0)
+                        .path("decision")
+                        .asText());
+        plan.put("invocation_id", c.execution() + ":foreign-budget");
+        plan.putArray("read_ids").add(foreign.path("read_id").asText());
+        assertEquals(
+                "READ_UNKNOWN",
+                JSON.readTree(budget.grants(context, request.toString()))
+                        .path("items")
+                        .get(0)
+                        .path("deny_reason")
+                        .asText());
+    }
+
+    @Test
     void readClaimsRedirectsAndRoundLimitDoNotDoubleSend() throws Exception {
         var i = input();
         var c = i.context();

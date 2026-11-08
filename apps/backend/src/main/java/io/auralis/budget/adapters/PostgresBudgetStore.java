@@ -122,7 +122,7 @@ public class PostgresBudgetStore implements BudgetStore {
         LockOrder.before(LockOrder.Level.INVOCATION, invocation);
         jdbc.queryForList("SELECT id FROM discovery.invocation WHERE id=? FOR UPDATE", invocation);
         jdbc.update(
-                "INSERT INTO discovery.usage_receipt VALUES (?,?,?,?,?,?,?,?) ON CONFLICT(invocation_id,receipt_id) DO NOTHING",
+                "INSERT INTO discovery.usage_receipt(invocation_id,receipt_id,payload_digest,settlement_seq,cost_microusd,input_tokens,output_tokens,outcome) VALUES (?,?,?,?,?,?,?,?) ON CONFLICT(invocation_id,receipt_id) DO NOTHING",
                 invocation,
                 receipt,
                 digest,
