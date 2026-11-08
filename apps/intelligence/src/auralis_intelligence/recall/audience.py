@@ -89,7 +89,7 @@ def check_engine(snapshot: Path, actual: dict, weights: WeightConfig) -> dict:
         if row is not None:
             selected[row["release_group_id"]] = row["listeners"]
     engine = load_a_v2(snapshot, weights=weights)
-    observed = engine.audience([*selected, "data-031-unknown-id"])
+    observed = engine.training_audience([*selected, "data-031-unknown-id"])
     expected = {
         "dataset_id": actual["dataset_id"],
         "window": actual["window"],

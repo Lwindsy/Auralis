@@ -28,7 +28,7 @@ class OnlineBootstrapTest {
                                             "schema_version",
                                             "intel.v1",
                                             "contract_revision",
-                                            "0.26",
+                                            "0.27",
                                             "request_id",
                                             "probe",
                                             "trace_context",
@@ -81,13 +81,13 @@ class OnlineBootstrapTest {
         p.setProductOrigin("http://127.0.0.1:8080");
         p.setPythonUrl("http://127.0.0.1:1");
         p.setServiceToken(TOKEN);
-        p.setContractRevision("0.26");
+        p.setContractRevision("0.27");
         return p;
     }
 
     @Test
     void configurationRejectsMissingSecretsForeignAddressesAndVersionsWithoutEchoing() {
-        properties().validate("0.26");
+        properties().validate("0.27");
         for (var field :
                 java.util.List.of(
                         "password", "token", "python", "origin", "database", "revision")) {
@@ -102,7 +102,7 @@ class OnlineBootstrapTest {
             }
             assertEquals(
                     "INVALID_ONLINE_CONFIGURATION",
-                    assertThrows(IllegalArgumentException.class, () -> p.validate("0.26"))
+                    assertThrows(IllegalArgumentException.class, () -> p.validate("0.27"))
                             .getMessage());
         }
     }

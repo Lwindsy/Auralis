@@ -80,6 +80,11 @@ def serve(args):
         raise ValueError("UNKNOWN_EVIDENCE_MODE")
     prepared = PreparedEvidence(relative("prepared_evidence")) if mode == "prepared" else None
     engine = load_a_v2(relative("recall_snapshot"), weights=WeightConfig())
+    from auralis_intelligence.recall.full_audience import FullAudience
+
+    engine.bind_full_audience(
+        FullAudience(relative("audience_snapshot"), config["audience_binding"])
+    )
     engine.audience([])
     long_tools = ToolGateway(search_adapter=adapter, model_gateway=model)
 

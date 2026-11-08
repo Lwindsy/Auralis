@@ -207,9 +207,15 @@ class Execution:
                 item["release_group_id"]: item["recall_rank"] for item in payload["candidates"]
             }
             identifiers = [item["release_group_id"] for item in result["accepted"]]
-            if len(identifiers) != len(set(identifiers)) or any(
-                proposed.get(item["release_group_id"]) != item["recall_rank"]
-                for item in result["accepted"]
+            ranks = [item["recall_rank"] for item in result["accepted"]]
+            if (
+                ranks != sorted(set(ranks))
+                or len(identifiers) != len(set(identifiers))
+                or any(
+                    proposed.get(item.get("proposed_release_group_id", item["release_group_id"]))
+                    != item["recall_rank"]
+                    for item in result["accepted"]
+                )
             ):
                 raise ContractError("BINDING_MISMATCH")
             self.binding = deepcopy(result["binding"])

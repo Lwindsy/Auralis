@@ -421,7 +421,7 @@ class DiscoveryPersistenceIT {
                         "auralis.service-token",
                         "be005-synthetic-service-token-12345",
                         "auralis.contract-revision",
-                        "0.26"));
+                        "0.27"));
         context = app.run();
         jdbc = context.getBean(JdbcTemplate.class);
         tx = context.getBean(ShortTransactions.class);
