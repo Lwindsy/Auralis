@@ -38,7 +38,8 @@ public final class HttpBoundary extends OncePerRequestFilter {
         response.setHeader("X-Content-Type-Options", "nosniff");
         response.setHeader("X-Frame-Options", "DENY");
         String path = request.getRequestURI();
-        if (path.contains("%")
+        String checkedPath = path.startsWith("/internal/") ? path.replaceAll("(?i)%3a", ":") : path;
+        if (checkedPath.contains("%")
                 || path.contains(";")
                 || path.contains("//")
                 || path.contains("/../")) {

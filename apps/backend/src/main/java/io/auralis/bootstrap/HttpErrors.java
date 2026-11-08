@@ -28,6 +28,8 @@ public final class HttpErrors implements ErrorController {
         response.setContentType("application/json");
         response.setHeader("Cache-Control", "no-store");
         String id = UUID.randomUUID().toString();
+        if (request.getAttribute("auralis.internal.request_id") instanceof String requestId)
+            id = requestId;
         Map<String, Object> body = new LinkedHashMap<>();
         Object original = request.getAttribute("jakarta.servlet.error.request_uri");
         String path = original instanceof String uri ? uri : request.getRequestURI();
@@ -35,7 +37,9 @@ public final class HttpErrors implements ErrorController {
             body.put("schema_version", "intel.v1");
             body.put("contract_revision", protocol.revision());
             body.put("request_id", id);
-            body.put("trace_context", Map.of("trace_id", id, "span_id", id.substring(0, 16)));
+            body.put(
+                    "trace_context",
+                    Map.of("trace_id", id, "span_id", id.substring(0, Math.min(16, id.length()))));
             body.put("message_type", "Error");
             body.put("payload", Map.of("code", code, "retry_disposition", "STOP", "reason", code));
         } else {
