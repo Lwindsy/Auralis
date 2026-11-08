@@ -75,7 +75,7 @@ class OnlinePostgresTest {
         properties.put("auralis.product-origin", "http://127.0.0.1:8080");
         properties.put("auralis.python-url", "http://127.0.0.1:1");
         properties.put("auralis.service-token", OnlineBootstrapTest.TOKEN);
-        properties.put("auralis.contract-revision", "0.29");
+        properties.put("auralis.contract-revision", "0.30");
         properties.put(
                 "auralis.subject-secret",
                 "test-subject-secret-abcdefghijklmnopqrstuvwxyz0123456789");
