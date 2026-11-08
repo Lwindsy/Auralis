@@ -7,5 +7,30 @@
   "control_token_env": "AURALIS_CONTROL_TOKEN",
   "provider_key_env": "AURALIS_PRODUCT_TEST_API_KEY",
   "receipt_timeout_seconds": 1.0,
-  "evidence_mode": "live"
+  "evidence_mode": "live",
+  "service_resources": {
+    "model": 6,
+    "search": 12,
+    "read": 18,
+    "cpu": 2,
+    "per_host": 2,
+    "background": 3,
+    "pending": 64,
+    "quota_groups": {
+      "astra_sol_terra": {
+        "rpm": 5000,
+        "tpm": 1000000
+      },
+      "luna": {
+        "rpm": 5000,
+        "tpm": 2000000
+      }
+    },
+    "model_groups": {
+      "gpt-6-astra": "astra_sol_terra",
+      "gpt-6.1-sol": "astra_sol_terra",
+      "gpt-6.1-terra": "astra_sol_terra",
+      "gpt-6-luna": "luna"
+    }
+  }
 }

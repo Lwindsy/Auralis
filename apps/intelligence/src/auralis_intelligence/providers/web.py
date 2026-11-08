@@ -281,7 +281,13 @@ class ToolGateway:
                         raise FetchFailure("READ_HTTP_ERROR")
                     if len(response.body) > guards["max_bytes"]:
                         raise FetchFailure("BODY_TOO_LARGE")
-                    text = extract_text(response.body, response.headers.get("content-type", ""))
+                    text = (
+                        await execution.scheduler.cpu(
+                            extract_text, response.body, response.headers.get("content-type", "")
+                        )
+                        if hasattr(execution.scheduler, "cpu")
+                        else extract_text(response.body, response.headers.get("content-type", ""))
+                    )
                     if not text:
                         raise FetchFailure("EMPTY_BODY")
 

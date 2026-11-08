@@ -18,6 +18,7 @@ from auralis_intelligence.contracts import (
 
 from .clock import AgentClock
 from .ports import CallDenied, CallResult, ControlPort, ControlUnavailable, DeliveryPending, Stage
+from .resources import ServiceResources
 from .scheduler import BoundedScheduler
 
 
@@ -276,6 +277,10 @@ class Execution:
             self.ensure_active()
             try:
                 response = await self.control_request("invocation-grants", {"items": [plan]})
+            except asyncio.CancelledError:
+                self.uncertain.add(plan["invocation_id"])
+                self.event("CALL_UNCERTAIN", plan["invocation_id"])
+                raise
             except ControlUnavailable as error:
                 self.lanes = self.budget_state = None
                 self.uncertain.add(plan["invocation_id"])
@@ -340,12 +345,21 @@ class Execution:
             return replace(reply, invocation_id=plan["invocation_id"])
 
         priority = min(priority, self.priorities.get(plan["candidate_id"], priority))
+        quota = (
+            {
+                "tokens": plan["max_input_tokens"] + plan["max_output_tokens"],
+                "quota_group": self.scheduler.service.group_for_binding(plan["model_binding_ref"]),
+            }
+            if hasattr(self.scheduler, "service")
+            else {}
+        )
         return await self.scheduler.run(
             resource,
             perform,
             priority=priority,
             background=plan["lane"] == "BACKGROUND",
             key=plan["candidate_id"],
+            **quota,
         )
 
     async def flush_usage(self, *, force: bool = False) -> None:
@@ -514,11 +528,13 @@ class RoundSupervisor:
         *,
         boot_id: str | None = None,
         max_records: int = 256,
+        resources: ServiceResources | None = None,
         receipt_timeout_seconds: float = 1.0,
     ) -> None:
         self.boot_id = boot_id or str(uuid4())
         self.max_records = max_records
         self.receipt_timeout_seconds = receipt_timeout_seconds
+        self.resources = resources or ServiceResources()
         self.execution_capacity = 3
         self.active: dict[str, Execution] = {}
         self.records: dict[str, tuple[str, Execution, asyncio.Task]] = {}
@@ -595,6 +611,20 @@ class RoundSupervisor:
                 raise CallDenied("EXECUTION_RECORD_CAPACITY")
             execution = Execution(
                 start, control, receipt_timeout_seconds=self.receipt_timeout_seconds
+            )
+            execution.scheduler = self.resources.scope(
+                execution.id,
+                start["session_id"],
+                {
+                    kind: start["agent_policy"]["concurrency"][kind + "_max_in_flight"]
+                    for kind in ("model", "search", "read")
+                }
+                | {
+                    "background": start["agent_policy"]["concurrency"][
+                        "background_model_max_in_flight"
+                    ],
+                    "per_host": start["agent_policy"]["concurrency"]["read_max_per_host"],
+                },
             )
             self.active[execution.id] = execution
             execution.event("ACCEPTED")

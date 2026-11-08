@@ -16,6 +16,7 @@ from .background import RoundPipeline
 from .demo import DemoHarness
 from .http import ControlHTTPClient, create_execution_app
 from .recall_stage import RecallStage
+from .resources import ServiceResources
 from .runtime import RoundSupervisor
 
 
@@ -47,6 +48,18 @@ def serve(args):
     )
     adapter = OpenAIResponsesAdapter(os.environ.get(config["provider_key_env"], ""))
     configured_bindings = load_bindings(relative("model_bindings"))
+    resource_config = dict(config["service_resources"])
+    model_groups = resource_config.pop("model_groups")
+    if not resource_config.get("quota_groups"):
+        raise ValueError("PROVIDER_QUOTA_REQUIRED")
+    if any(binding.model not in model_groups for binding in configured_bindings.values()):
+        raise ValueError("MODEL_QUOTA_NOT_CONFIGURED")
+    resources = ServiceResources(
+        **resource_config,
+        binding_groups={
+            ref: model_groups[binding.model] for ref, binding in configured_bindings.items()
+        },
+    )
     configured_roles = json.loads(relative("model_bindings").read_text(encoding="utf-8"))
     if "long_write" not in configured_roles:
         raise ValueError("LONG_WRITE_MODEL_BINDING_REQUIRED")
@@ -108,13 +121,16 @@ def serve(args):
         return SeededPipeline(pipeline, seeds)
 
     app = create_execution_app(
-        RoundSupervisor(receipt_timeout_seconds=config.get("receipt_timeout_seconds", 1.0)),
+        RoundSupervisor(
+            resources=resources, receipt_timeout_seconds=config.get("receipt_timeout_seconds", 1.0)
+        ),
         control,
         factory,
         token=service_token,
     )
 
     async def cleanup(app):
+        await resources.close()
         await control.close()
         await adapter.close()
 

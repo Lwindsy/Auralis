@@ -290,6 +290,8 @@ def create_execution_app(
             )
         )
 
+        await supervisor.resources.close()
+
     app.on_shutdown.append(shutdown)
     app.add_routes(
         [
