@@ -33,7 +33,8 @@ public class PostgresSubjectRepository implements SubjectRepository {
                 r.getLong("revision"),
                 r.getTimestamp("expires_at").toInstant(),
                 r.getString("current_session_id"),
-                r.getString("lifecycle"));
+                r.getString("lifecycle"),
+                r.getString("auth_generation"));
     }
 
     private Session session(ResultSet r, int n) throws SQLException {
@@ -256,11 +257,12 @@ public class PostgresSubjectRepository implements SubjectRepository {
     }
 
     @Override
-    public List<String> expiredSubjects(Instant now, int limit) {
+    public List<String> expiredSubjects(Instant now, String generation, int limit) {
         return jdbc.queryForList(
-                "SELECT id FROM discovery.subject WHERE lifecycle='ACTIVE' AND expires_at<=? ORDER BY expires_at,id LIMIT ?",
+                "SELECT id FROM discovery.subject WHERE lifecycle='ACTIVE' AND (expires_at<=? OR auth_generation IS DISTINCT FROM ?) ORDER BY expires_at,id LIMIT ?",
                 String.class,
                 Timestamp.from(now),
+                generation,
                 limit);
     }
 

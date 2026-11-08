@@ -560,6 +560,13 @@ class SubjectSessionIT {
             start("rotated-subject-secret-abcdefghijklmnopqrstuvwxyz0123456789");
             assertEquals(
                     400, browser.call("GET", "/v1/current-state", null, null, null).statusCode());
+            service.cleanup(100);
+            assertEquals(
+                    0,
+                    jdbc.queryForObject(
+                            "SELECT count(*) FROM discovery.subject WHERE id=?",
+                            Integer.class,
+                            created.scope().subjectId()));
             var newState = browser.bootstrap();
             assertTrue(newState.path("state").path("session_id").isNull());
             assertNotEquals(original, browser.token());

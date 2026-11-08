@@ -13,7 +13,8 @@ public interface SubjectRepository {
             long revision,
             Instant expiresAt,
             String currentSession,
-            String lifecycle) {}
+            String lifecycle,
+            String generation) {}
 
     record Session(
             String id,
@@ -62,7 +63,7 @@ public interface SubjectRepository {
 
     void enqueueSession(Session session, Instant at);
 
-    List<String> expiredSubjects(Instant now, int limit);
+    List<String> expiredSubjects(Instant now, String generation, int limit);
 
     List<Session> expiredSessions(Instant now, int limit);
 

@@ -373,14 +373,16 @@ public class SubjectSessions implements SubjectSession {
     public int cleanup(int limit) {
         if (limit < 1 || limit > 100) throw new IllegalArgumentException("INVALID_BATCH_LIMIT");
         Instant now = clock.instant();
-        for (String id : subjects.expiredSubjects(now, limit))
+        for (String id : subjects.expiredSubjects(now, credentials.generation(), limit))
             tx.write(
                     () -> {
                         discovery.lockRuntime();
                         var s = subjects.lockSubject(id);
                         if (s.isPresent()
                                 && s.get().lifecycle().equals("ACTIVE")
-                                && !s.get().expiresAt().isAfter(now)) barrier(s.get(), "EXPIRED");
+                                && (!s.get().expiresAt().isAfter(now)
+                                        || !credentials.generation().equals(s.get().generation())))
+                            barrier(s.get(), "EXPIRED");
                         return null;
                     });
         for (var candidate : subjects.expiredSessions(now, limit))
