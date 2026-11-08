@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:auralis:intelligence:0.28",
+  "$id": "urn:auralis:intelligence:0.29",
   "title": "Auralis internal agent messages",
   "$ref": "#/$defs/Envelope",
   "$defs": {
@@ -640,7 +640,7 @@
         "title": {
           "type": "string",
           "minLength": 1,
-          "maxLength": 1000
+          "maxLength": 1024
         },
         "artist_credit": {
           "type": "string",
@@ -4965,7 +4965,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.28"
+              "const": "0.29"
             },
             "request_id": {
               "type": "string",
@@ -5016,7 +5016,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.28"
+              "const": "0.29"
             },
             "request_id": {
               "type": "string",
@@ -5067,7 +5067,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.28"
+              "const": "0.29"
             },
             "request_id": {
               "type": "string",
@@ -5118,7 +5118,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.28"
+              "const": "0.29"
             },
             "request_id": {
               "type": "string",
@@ -5169,7 +5169,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.28"
+              "const": "0.29"
             },
             "request_id": {
               "type": "string",
@@ -5220,7 +5220,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.28"
+              "const": "0.29"
             },
             "request_id": {
               "type": "string",
@@ -5271,7 +5271,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.28"
+              "const": "0.29"
             },
             "request_id": {
               "type": "string",
@@ -5322,7 +5322,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.28"
+              "const": "0.29"
             },
             "request_id": {
               "type": "string",
@@ -5373,7 +5373,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.28"
+              "const": "0.29"
             },
             "request_id": {
               "type": "string",
@@ -5424,7 +5424,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.28"
+              "const": "0.29"
             },
             "request_id": {
               "type": "string",
@@ -5475,7 +5475,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.28"
+              "const": "0.29"
             },
             "request_id": {
               "type": "string",
@@ -5526,7 +5526,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.28"
+              "const": "0.29"
             },
             "request_id": {
               "type": "string",
@@ -5577,7 +5577,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.28"
+              "const": "0.29"
             },
             "request_id": {
               "type": "string",
@@ -5628,7 +5628,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.28"
+              "const": "0.29"
             },
             "request_id": {
               "type": "string",
@@ -5679,7 +5679,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.28"
+              "const": "0.29"
             },
             "request_id": {
               "type": "string",
@@ -5730,7 +5730,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.28"
+              "const": "0.29"
             },
             "request_id": {
               "type": "string",
@@ -5781,7 +5781,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.28"
+              "const": "0.29"
             },
             "request_id": {
               "type": "string",
@@ -5832,7 +5832,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.28"
+              "const": "0.29"
             },
             "request_id": {
               "type": "string",
@@ -5883,7 +5883,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.28"
+              "const": "0.29"
             },
             "request_id": {
               "type": "string",
@@ -5934,7 +5934,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.28"
+              "const": "0.29"
             },
             "request_id": {
               "type": "string",
@@ -5985,7 +5985,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.28"
+              "const": "0.29"
             },
             "request_id": {
               "type": "string",
@@ -6036,7 +6036,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.28"
+              "const": "0.29"
             },
             "request_id": {
               "type": "string",
@@ -6087,7 +6087,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.28"
+              "const": "0.29"
             },
             "request_id": {
               "type": "string",
@@ -6138,7 +6138,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.28"
+              "const": "0.29"
             },
             "request_id": {
               "type": "string",
@@ -6189,7 +6189,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.28"
+              "const": "0.29"
             },
             "request_id": {
               "type": "string",
@@ -6240,7 +6240,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.28"
+              "const": "0.29"
             },
             "request_id": {
               "type": "string",
@@ -7890,6 +7890,111 @@
       ],
       "additionalProperties": false,
       "description": "Full admitted catalog population for one window, independent of recall training/test splits. Sorted complete catalog counts including zeros; RFC8785 digest excludes digest. Java independently reconciles against admitted core aggregates before activation."
+    },
+    "CatalogIndexRow": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "title": {
+          "$ref": "#/$defs/Identity/properties/title"
+        },
+        "artist": {
+          "$ref": "#/$defs/Identity/properties/artist_credit"
+        },
+        "year": {
+          "$ref": "#/$defs/Identity/properties/first_release_year"
+        },
+        "type": {
+          "$ref": "#/$defs/Identity/properties/release_type"
+        },
+        "genres": {
+          "$ref": "#/$defs/Identity/properties/primary_genres"
+        },
+        "aliases": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 10000
+        },
+        "redirects": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "maxItems": 10000,
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "artist",
+        "year",
+        "type",
+        "genres",
+        "aliases",
+        "redirects"
+      ],
+      "additionalProperties": false
+    },
+    "CatalogIndexManifest": {
+      "type": "object",
+      "properties": {
+        "format_version": {
+          "const": 1
+        },
+        "scope": {
+          "const": "ALL_MUSICBRAINZ_RELEASE_GROUPS"
+        },
+        "source_receipt_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "source_tables": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "rows": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "sha256": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              }
+            },
+            "required": [
+              "rows",
+              "sha256"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "rows": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "albums_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      },
+      "required": [
+        "format_version",
+        "scope",
+        "source_receipt_sha256",
+        "source_tables",
+        "rows",
+        "albums_sha256"
+      ],
+      "additionalProperties": false
     }
   }
 }
