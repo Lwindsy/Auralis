@@ -10,6 +10,12 @@ Python Agent 已有独立演示与内部执行服务。Java 产品接入与浏�
 
 Java在线底座可用上述Maven命令构建和jar命令启动；环境变量须显式提供数据库地址与运行凭据、产品同源地址、Python loopback地址、服务凭据及当前内部协议修订。使用已由离线CLI迁移的PostgreSQL 18及无DDL权限的运行账号，默认监听127.0.0.1:8080。存活与就绪探针已实现；产品会话和推荐API仍待后续任务。
 
+## 持久化开发
+
+后端包含V7在线状态迁移，以及会话、执行、预算、证据、发布、偏好和听众计数各模块拥有的存储端口。先用离线迁移身份应用迁移，再启动在线应用；运行身份只校验结构并使用显式授予的表权限。此底座尚未实现产品API或业务调度策略。不要修改已应用迁移，也不要通过删表把V7数据库回退到旧版本。
+
+`mvn -f apps/backend/pom.xml verify`执行格式、单元／契约和数据库集成测试。数据库测试须显式提供`AURALIS_TEST_POSTGRES_URL=jdbc:postgresql://127.0.0.1:<端口>/auralis_core_verify`及`AURALIS_TEST_POSTGRES_ADMIN_PASSWORD`，并使用**新建的一次性PostgreSQL 18实例**。测试会创建合成数据库与角色、验证迁移校验和拒绝；每轮结束销毁该实例。缺少变量时数据库测试会跳过。独立worktree可用`AURALIS_RECALL_PYTHON`指定已有Python智能服务环境。测试不调用付费模型。
+
 ## Agent 开发
 
 在 Python 3.10+ 环境安装应用清单中的依赖后，从仓库根运行。演示使用合成模型与网页、真实本地 A-V2 代码，不产生付费请求。

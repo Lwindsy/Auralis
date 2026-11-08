@@ -24,6 +24,8 @@ public class PersistenceConfiguration {
         config.addDataSourceProperty("connectTimeout", "2");
         config.addDataSourceProperty("socketTimeout", "5");
         config.setPoolName("auralis-online");
+        config.setConnectionInitSql(
+                "SET statement_timeout='3s'; SET lock_timeout='1s'; SET idle_in_transaction_session_timeout='5s'");
         var pool = new HikariDataSource(config);
         try (var connection = pool.getConnection();
                 var statement = connection.createStatement();
@@ -33,6 +35,7 @@ public class PersistenceConfiguration {
                                         + "rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls "
                                         + "OR has_database_privilege(current_user,current_database(),'CREATE') "
                                         + "OR has_schema_privilege(current_user,'public','CREATE') "
+                                        + "OR coalesce(has_schema_privilege(current_user,to_regnamespace('discovery'),'CREATE'),false) "
                                         + "FROM pg_roles WHERE rolname=current_user")) {
             if (!row.next() || row.getInt(1) / 10000 != 18 || row.getBoolean(2))
                 throw new IllegalStateException("DATABASE_IDENTITY_REJECTED");
