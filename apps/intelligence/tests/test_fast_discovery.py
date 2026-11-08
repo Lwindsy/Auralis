@@ -103,32 +103,29 @@ def test_batch_one_call_and_audience_verified_at_publication(tmp_path, backgroun
                 harness.request, pipeline, harness.control
             )
             if background:
-                from test_background import command, until
-
-                await until(
-                    lambda: (
-                        execution.work is not None
-                        and execution.work.first_payload is not None
-                        and not execution.foreground
-                    )
-                )
+                await harness.supervisor.wait(execution.id)
                 entry = harness.control.executions[execution.id]
                 first_ids = set(entry["display"]["shown_candidate_ids"])
                 assert seen == ["batch_v3"]
-                await command(
-                    harness,
-                    execution,
-                    "DISPLAY_STATE",
-                    {
-                        "display_seq": entry["display"]["display_seq"] + 1,
-                        "shown_candidate_ids": list(first_ids),
-                        "heard_candidate_ids": [],
-                        "ready_unshown_ids": [],
-                        "user_waiting": True,
-                        "run_id": "fast-supply-run",
-                    },
-                    publish_count=3,
+                request = harness.control.continuation(
+                    execution.id,
+                    new_execution_id="fast-continue",
+                    python_boot_id=harness.supervisor.boot_id,
+                    run_id="fast-supply-run",
                 )
+                harness.control.register(request)
+                batch = BatchResearchStage(
+                    harness.model, harness.tools, evidence, genre_names={"jazz": "爵士"}
+                )
+                pipeline = RoundPipeline(
+                    base.preferences,
+                    base.recall,
+                    batch,
+                    BatchWriteStage(harness.model, harness.tools, batch=batch),
+                    BatchSelectStage(harness.model, batch=batch),
+                    generate_long_reviews=False,
+                )
+                _, execution = await harness.supervisor.accept(request, pipeline, harness.control)
             await harness.supervisor.wait(execution.id)
             if background:
                 supply = next(

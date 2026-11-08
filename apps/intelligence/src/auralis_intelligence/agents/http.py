@@ -1,5 +1,6 @@
 """Loopback HTTP transport for execution and Java control ports."""
 
+import asyncio
 import hmac
 import ipaddress
 import json
@@ -259,14 +260,13 @@ def create_execution_app(
         return response("ExecutionView", result, request)
 
     async def runtime(request):
-        active = supervisor.active
         return response(
             "RuntimeView",
             {
                 "boot_id": supervisor.boot_id,
                 "status": "MAINTENANCE" if supervisor.maintenance else "READY",
-                "execution_capacity": 1,
-                "active": [active.view()] if active and not active.slot_released else [],
+                "execution_capacity": supervisor.execution_capacity,
+                "active": [execution.view() for execution in supervisor.active.values()],
             },
             request,
         )
@@ -282,9 +282,13 @@ def create_execution_app(
         return response("Acknowledgement", {"accepted": True}, request)
 
     async def shutdown(app):
-        if supervisor.active is not None:
-            execution = supervisor.active
-            await supervisor.cancel(execution.id, execution.start["boot"], "USER_CANCELLED")
+        supervisor.maintenance = True
+        await asyncio.gather(
+            *(
+                supervisor.cancel(execution.id, execution.start["boot"], "USER_CANCELLED")
+                for execution in list(supervisor.active.values())
+            )
+        )
 
     app.on_shutdown.append(shutdown)
     app.add_routes(

@@ -170,7 +170,7 @@ def test_fake_stage_admission_grant_delivery_close_and_clean_memory():
         await supervisor.wait(execution.id)
         assert execution.status == "CLOSED", execution.error_code
         assert execution.status == "CLOSED" and execution.slot_released
-        assert supervisor.active is None and not execution.dossiers and not execution.buffer
+        assert not supervisor.active and not execution.dossiers and not execution.buffer
         assert execution.final_timing is not None and "agent_wait_ms" in execution.final_timing
         assert execution.start["input"]["raw"] is None
         assert control.sessions[request["budget"]["session_budget_scope_id"]].settled == 10
@@ -192,8 +192,10 @@ def test_foreground_busy_old_boot_and_changed_duplicate_rejected():
             await waiting.wait()
 
         _, execution = await supervisor.accept(request, stage, control)
+        for identifier in ("execution-2", "execution-3"):
+            await supervisor.accept(start(identifier), stage, control)
         with pytest.raises(ContractError, match="EXECUTOR_BUSY"):
-            await supervisor.accept(start("execution-2"), stage, control)
+            await supervisor.accept(start("execution-4"), stage, control)
         changed = deepcopy(request)
         changed["run_id"] = "different"
         changed["payload_digest"] = content_digest(changed)
@@ -238,9 +240,15 @@ def test_cancellation_waits_for_physical_stop_and_propagates_to_provider():
             supervisor.cancel(execution.id, request["boot"], "PREEMPTED")
         )
         await stopping.wait()
-        assert not execution.slot_released and supervisor.active is execution
+        assert not execution.slot_released and supervisor.active.get(execution.id) is execution
+
+        async def waiting(execution):
+            await stopped.wait()
+
+        for identifier in ("other-1", "other-2"):
+            await supervisor.accept(start(identifier), waiting, control)
         with pytest.raises(ContractError, match="EXECUTOR_BUSY"):
-            await supervisor.accept(start("next"), stage, control)
+            await supervisor.accept(start("next"), waiting, control)
         stopped.set()
         view = await cancellation
         assert view["slot_released"] and view["status"] == "CANCELLED"
@@ -578,7 +586,7 @@ def test_immediate_cancel_and_duplicate_cancel_release_once():
         )
         assert all(view["slot_released"] for view in views)
         assert all(view["status"] == "CANCELLED" for view in views)
-        assert supervisor.active is None
+        assert not supervisor.active
         assert sum(event["kind"] == "CANCEL_REQUESTED" for event in execution.events) == 1
 
     asyncio.run(run())

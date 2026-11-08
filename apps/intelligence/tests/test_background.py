@@ -64,10 +64,10 @@ async def command(harness, execution, kind, payload, *, identifier=None, publish
 
 def test_idle_close_keeps_remaining_candidates_and_round_report(tmp_path):
     async def run():
-        harness = make(tmp_path)
+        harness = make(tmp_path, idle=60000)
         try:
             execution, pipeline = await start(harness)
-            await harness.supervisor.wait(execution.id)
+            await asyncio.wait_for(harness.supervisor.wait(execution.id), 2)
             assert execution.status == "CLOSED" and execution.slot_released
             assert execution.final_report["close_reason"] == "IDLE"
             assert execution.final_report["counts"]["unresearched"] == 0
@@ -214,8 +214,17 @@ def test_cancellation_preserves_reason_and_waits_for_physical_stop(reason, tmp_p
             another = deepcopy(harness.request)
             another["execution_id"] = "another-execution"
             another["payload_digest"] = content_digest(another)
+
+            async def waiting(other):
+                await release.wait()
+
+            for identifier in ("other-1", "other-2"):
+                other = deepcopy(another)
+                other["execution_id"] = identifier
+                other["payload_digest"] = content_digest(other)
+                await harness.supervisor.accept(other, waiting, harness.control)
             with pytest.raises(ContractError, match="EXECUTOR_BUSY"):
-                await harness.supervisor.accept(another, harness.pipeline(another), harness.control)
+                await harness.supervisor.accept(another, waiting, harness.control)
             release.set()
             result = await cancellation
             assert result["slot_released"] and result["status"] == "CANCELLED"
@@ -429,7 +438,6 @@ def test_long_review_completes_and_settles_without_source_license(tmp_path):
                     item["status"] == "READY" for item in harness.control.long_reviews.values()
                 )
             )
-            await command(harness, execution, "CLOSE", {"reason": "TEST_COMPLETE"})
             await harness.supervisor.wait(execution.id)
             assert account.settled > before
         finally:
@@ -552,23 +560,27 @@ def test_background_exhaustion_waits_for_explicit_budget_and_regeneration(tmp_pa
                 ]
             )
             assert before == 0
-            update = await command(
-                harness,
-                execution,
-                "BUDGET_UPDATE",
-                {"FOREGROUND": 0, "BACKGROUND": 10000},
-                identifier="money-once",
-            )
-            harness.control.issue_command(execution.id, update)
-            await harness.supervisor.command(execution.id, update)
-            await command(harness, execution, "REGENERATE_LONG_REVIEW", {"candidate_id": target})
-            await until(
-                lambda: (
-                    harness.control.long_states[(execution.start["round_id"], target)] == "READY"
-                )
-            )
-            await command(harness, execution, "CLOSE", {"reason": "TEST_COMPLETE"})
             await harness.supervisor.wait(execution.id)
+            update = {
+                "command_id": "money-once",
+                "kind": "BUDGET_UPDATE",
+                "boot": execution.start["boot"],
+                "payload": {"FOREGROUND": 0, "BACKGROUND": 10000},
+                "payload_digest": digest({"FOREGROUND": 0, "BACKGROUND": 10000}),
+            }
+            harness.control.issue_command(execution.id, update)
+            harness.control.issue_command(execution.id, update)
+            with pytest.raises(ContractError, match="EXECUTION_GONE"):
+                await harness.supervisor.command(execution.id, update)
+            request = harness.control.continuation(
+                execution.id,
+                new_execution_id="budget-resume",
+                python_boot_id=harness.supervisor.boot_id,
+                regenerate=(target,),
+            )
+            resumed, _ = await start(harness, request)
+            await harness.supervisor.wait(resumed.id)
+            assert harness.control.long_states[(request["round_id"], target)] == "READY"
             budget = harness.control.rounds[harness.request["budget"]["round_budget_scope_id"]]
             assert budget.lanes["BACKGROUND"].cap == 10001
             assert sum(account.cap for account in budget.lanes.values()) == 60000
@@ -686,6 +698,14 @@ def test_round_deadline_releases_slot_and_records_lifetime_reason(tmp_path):
     async def run():
         harness = make(tmp_path, idle=10000)
         try:
+            original = harness.adapter.complete
+
+            async def delayed(binding, request):
+                if request.schema_name.startswith("long_review_v1"):
+                    await asyncio.Event().wait()
+                return await original(binding, request)
+
+            harness.adapter.complete = delayed
             harness.request["deadlines"]["round_deadline_at"] = (
                 (datetime.now(timezone.utc) + timedelta(seconds=0.4))
                 .isoformat()
@@ -751,7 +771,6 @@ def test_rescreen_deadline_is_bounded_and_reports_basic_timeout(tmp_path):
             assert (
                 update["analysis_mode"] == "BASIC" and update["selection"]["status"] == "TIMED_OUT"
             )
-            await command(harness, execution, "CLOSE", {"reason": "TEST_COMPLETE"})
             await harness.supervisor.wait(execution.id)
         finally:
             harness.close()
@@ -848,7 +867,6 @@ def test_dossier_and_long_review_remain_usable_without_source_policy(tmp_path):
                     item["status"] == "READY" for item in harness.control.long_reviews.values()
                 )
             )
-            await command(harness, execution, "CLOSE", {"reason": "TEST_COMPLETE"})
             await harness.supervisor.wait(execution.id)
             assert execution.slot_released
         finally:
@@ -933,13 +951,19 @@ def test_actual_http_background_command_and_erasure(tmp_path):
                         ).status_code == 201
                         await until(
                             lambda: (
-                                harness.supervisor.active is not None
-                                and harness.supervisor.active.work is not None
-                                and harness.supervisor.active.work.first_payload is not None
-                                and not harness.supervisor.active.foreground
+                                bool(harness.supervisor.active)
+                                and harness.supervisor.active[harness.request["execution_id"]].work
+                                is not None
+                                and harness.supervisor.active[
+                                    harness.request["execution_id"]
+                                ].work.first_payload
+                                is not None
+                                and not harness.supervisor.active[
+                                    harness.request["execution_id"]
+                                ].foreground
                             )
                         )
-                        execution = harness.supervisor.active
+                        execution = harness.supervisor.active[harness.request["execution_id"]]
                         payload = {"reason": "MAINTENANCE"}
                         value = {
                             "command_id": "close-http",
