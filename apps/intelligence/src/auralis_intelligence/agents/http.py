@@ -52,7 +52,6 @@ CONTROL_ROUTES = {
         "ReadReceipts",
         "ReadRegistrationResult",
     ),
-    "source-policy": ("GET", "/executions/{execution_id}/source-policy", None, "SourcePolicy"),
     "budget-state": ("GET", "/executions/{execution_id}/budget-state", None, "BudgetState"),
     "delivery": (
         "PUT",

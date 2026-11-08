@@ -85,7 +85,7 @@ def test_idle_close_keeps_remaining_candidates_and_round_report(tmp_path):
             del pipeline
             gc.collect()
             assert reference() is None
-            assert execution.report_builder is execution.policy_handler is None
+            assert execution.report_builder is None
         finally:
             harness.close()
 
@@ -399,7 +399,7 @@ def test_java_restart_preserves_budget_and_old_execution_cannot_publish(tmp_path
     asyncio.run(run())
 
 
-def test_revocation_push_loss_rejects_late_long_but_settles_usage(tmp_path):
+def test_long_review_completes_and_settles_without_source_license(tmp_path):
     async def run():
         harness = make(tmp_path, idle=1000)
         try:
@@ -423,21 +423,15 @@ def test_revocation_push_loss_rejects_late_long_but_settles_usage(tmp_path):
             )
             account = harness.control.sessions[harness.request["budget"]["session_budget_scope_id"]]
             before = account.settled
-            harness.control.policy["rules"][0]["decision"] = "DENY"
-            harness.control.policy["policy_epoch"] += 1  # Deliberately omit the push.
-            await command(harness, execution, "CLOSE", {"reason": "MAINTENANCE"})
             release.set()
+            await until(
+                lambda: any(
+                    item["status"] == "READY" for item in harness.control.long_reviews.values()
+                )
+            )
+            await command(harness, execution, "CLOSE", {"reason": "TEST_COMPLETE"})
             await harness.supervisor.wait(execution.id)
             assert account.settled > before
-            assert not any(
-                item["status"] == "READY" for item in harness.control.long_reviews.values()
-            )
-            rejected = [
-                item
-                for item in harness.control.deliveries.values()
-                if item["kind"] == "LONG_REVIEW"
-            ]
-            assert rejected and all(item["payload"]["sections"] is None for item in rejected)
         finally:
             harness.close()
 
@@ -661,13 +655,12 @@ def test_stale_display_is_ignored_without_foreground_or_repeat_work(tmp_path):
     asyncio.run(run())
 
 
-def test_expired_source_snapshot_prevents_resume_model_and_read_use(tmp_path):
+def test_resume_does_not_require_source_license_snapshot(tmp_path):
     async def run():
         harness = make(tmp_path)
         try:
             first, _ = await start(harness)
             await harness.supervisor.wait(first.id)
-            harness.control.policy["valid_until"] = "2000-01-01T00:00:00Z"
             before_calls, before_reads = len(harness.adapter.requests), len(harness.control.reads)
             request = harness.control.continuation(
                 first.id,
@@ -679,11 +672,10 @@ def test_expired_source_snapshot_prevents_resume_model_and_read_use(tmp_path):
             harness.supervisor = RoundSupervisor(boot_id="next-python")
             second, _ = await start(harness, request)
             await harness.supervisor.wait(second.id)
-            assert (
-                len(harness.adapter.requests) == before_calls
-                and len(harness.control.reads) == before_reads
-            )
-            assert harness.control.executions[second.id]["display"]["ready_unshown_ids"] == []
+            assert second.status == "CLOSED", second.error_code
+            assert len(harness.adapter.requests) >= before_calls
+            assert len(harness.control.reads) >= before_reads
+            assert all(operation != "source-policy" for _, operation in harness.control.events)
         finally:
             harness.close()
 
@@ -824,7 +816,7 @@ def test_slow_usage_control_does_not_hold_physical_resources_forever(tmp_path):
     asyncio.run(run())
 
 
-def test_policy_push_purges_dossier_excerpts_before_late_output(tmp_path):
+def test_dossier_and_long_review_remain_usable_without_source_policy(tmp_path):
     async def run():
         harness = make(tmp_path, idle=1000)
         try:
@@ -845,22 +837,20 @@ def test_policy_push_purges_dossier_excerpts_before_late_output(tmp_path):
                     and not execution.foreground
                 )
             )
-            policy = deepcopy(harness.control.policy)
-            policy["policy_epoch"] += 1
-            policy["rules"][0]["decision"] = "DENY"
-            await command(harness, execution, "SOURCE_POLICY_UPDATE", policy)
-            assert all(
-                not record.excerpt
+            assert any(
+                record.excerpt
                 for dossier in execution.dossiers.values()
                 for record in dossier.reads
-                if record.result.receipt["publisher_key"] == "one.example"
             )
             release.set()
+            await until(
+                lambda: any(
+                    item["status"] == "READY" for item in harness.control.long_reviews.values()
+                )
+            )
             await command(harness, execution, "CLOSE", {"reason": "TEST_COMPLETE"})
             await harness.supervisor.wait(execution.id)
-            assert not any(
-                item["status"] == "READY" for item in harness.control.long_reviews.values()
-            )
+            assert execution.slot_released
         finally:
             harness.close()
 

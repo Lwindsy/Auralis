@@ -36,15 +36,6 @@ def start(execution_id="execution-1"):
         role: {**binding, "ref": role, "max_input_tokens": 100, "max_output_tokens": 100}
         for role, binding in result["model_bindings"].items()
     }
-    result["source_policy"]["rules"] = [
-        {
-            "match": {"domain_suffix": domain},
-            "decision": "ALLOW",
-            "uses": ["READ", "AI_PROCESS", "STORE_LOCATOR"],
-            "reason": "synthetic-test",
-        }
-        for domain in ("one.example", "two.example")
-    ]
     result["payload_digest"] = content_digest(result)
     return result
 
@@ -388,7 +379,7 @@ def test_budget_denial_and_usage_receipt_loss_do_not_duplicate_charge():
     asyncio.run(run())
 
 
-def test_source_revocation_is_checked_even_without_push():
+def test_reads_and_model_grants_require_no_source_license():
     async def run():
         request = start()
         _, control = setup(request)
@@ -397,7 +388,6 @@ def test_source_revocation_is_checked_even_without_push():
             "candidate_id": "album-1",
             "url": "https://one.example/review",
             "purpose": "SCREEN_RESEARCH",
-            "policy_epoch": 0,
         }
         assert (await control.request("execution-1", "read-authorization", authorization))[
             "decision"
@@ -416,17 +406,14 @@ def test_source_revocation_is_checked_even_without_push():
             "text_chars": 1000,
             "near_duplicate_of": None,
             "checks": {"mentions_title": True, "mentions_artist": True},
-            "source_policy_epoch": 0,
         }
         assert (await control.request("execution-1", "read-receipts", {"items": [receipt]}))[
             "accepted_read_ids"
         ] == ["r1"]
-        control.policy["rules"][0]["decision"] = "DENY"
-        control.policy["policy_epoch"] += 1
         authorization["read_id"] = "r2"
         assert (await control.request("execution-1", "read-authorization", authorization))[
             "decision"
-        ] == "DENIED"
+        ] == "GRANTED"
         plan = {
             "invocation_id": "execution-1:inv:1",
             "attempt": 1,
@@ -444,7 +431,7 @@ def test_source_revocation_is_checked_even_without_push():
         result = (await control.request("execution-1", "invocation-grants", {"items": [plan]}))[
             "items"
         ][0]
-        assert result["deny_reason"] == "SOURCE_NOT_PERMITTED"
+        assert result["deny_reason"] is None
 
     asyncio.run(run())
 

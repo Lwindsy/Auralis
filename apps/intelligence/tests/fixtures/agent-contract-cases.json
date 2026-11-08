@@ -3,7 +3,7 @@
     "name": "first-round-natural-language",
     "message": {
       "schema_version": "intel.v1",
-      "contract_revision": "0.23",
+      "contract_revision": "0.24",
       "request_id": "request-start",
       "trace_context": {
         "trace_id": "local",
@@ -156,20 +156,6 @@
           "weights_digest": "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
           "window": "synthetic-window"
         },
-        "source_policy": {
-          "policy_epoch": 0,
-          "valid_until": "2099-01-01T00:00:00Z",
-          "rules": [],
-          "default_decision": "DENY",
-          "guards": {
-            "https_only": true,
-            "deny_ip_literals": true,
-            "deny_private_networks": true,
-            "max_redirects": 0,
-            "max_bytes": 1,
-            "read_timeout_ms": 1
-          }
-        },
         "input": {
           "raw": {
             "liked_genres": [
@@ -193,7 +179,15 @@
         "capabilities": [],
         "continuation": null,
         "curated_candidates": null,
-        "payload_digest": "sha256:eca934a1128f9aa2d8100137b05cf262c9e47e9579eccb716a51d91b8e5bde4f"
+        "payload_digest": "sha256:3b0816036f93740d4d10f85866cb31221fcb0d2b63d088d306d523c489f88352",
+        "web_guards": {
+          "https_only": true,
+          "deny_ip_literals": true,
+          "deny_private_networks": true,
+          "max_redirects": 0,
+          "max_bytes": 1,
+          "read_timeout_ms": 1
+        }
       }
     },
     "structural_valid": true,
@@ -203,7 +197,7 @@
     "name": "missing-boot",
     "message": {
       "schema_version": "intel.v1",
-      "contract_revision": "0.23",
+      "contract_revision": "0.24",
       "request_id": "request-start",
       "trace_context": {
         "trace_id": "local",
@@ -352,20 +346,6 @@
           "weights_digest": "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
           "window": "synthetic-window"
         },
-        "source_policy": {
-          "policy_epoch": 0,
-          "valid_until": "2099-01-01T00:00:00Z",
-          "rules": [],
-          "default_decision": "DENY",
-          "guards": {
-            "https_only": true,
-            "deny_ip_literals": true,
-            "deny_private_networks": true,
-            "max_redirects": 0,
-            "max_bytes": 1,
-            "read_timeout_ms": 1
-          }
-        },
         "input": {
           "raw": {
             "liked_genres": [
@@ -389,7 +369,15 @@
         "capabilities": [],
         "continuation": null,
         "curated_candidates": null,
-        "payload_digest": "sha256:9327c3706f186b6c021bbb4ad677a1fb9c2a650cd8b6180e9516734b6f56f540"
+        "payload_digest": "sha256:ab2bb57f8eefd6c2ba35851dc2c371427f37670d529b9334c6b90b91819771ce",
+        "web_guards": {
+          "https_only": true,
+          "deny_ip_literals": true,
+          "deny_private_networks": true,
+          "max_redirects": 0,
+          "max_bytes": 1,
+          "read_timeout_ms": 1
+        }
       }
     },
     "structural_valid": false,
@@ -399,7 +387,7 @@
     "name": "unknown-operation",
     "message": {
       "schema_version": "intel.v1",
-      "contract_revision": "0.23",
+      "contract_revision": "0.24",
       "request_id": "request-start",
       "trace_context": {
         "trace_id": "local",
@@ -552,20 +540,6 @@
           "weights_digest": "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
           "window": "synthetic-window"
         },
-        "source_policy": {
-          "policy_epoch": 0,
-          "valid_until": "2099-01-01T00:00:00Z",
-          "rules": [],
-          "default_decision": "DENY",
-          "guards": {
-            "https_only": true,
-            "deny_ip_literals": true,
-            "deny_private_networks": true,
-            "max_redirects": 0,
-            "max_bytes": 1,
-            "read_timeout_ms": 1
-          }
-        },
         "input": {
           "raw": {
             "liked_genres": [
@@ -589,7 +563,15 @@
         "capabilities": [],
         "continuation": null,
         "curated_candidates": null,
-        "payload_digest": "sha256:9327c3706f186b6c021bbb4ad677a1fb9c2a650cd8b6180e9516734b6f56f540"
+        "payload_digest": "sha256:62d4c2a8aebfbb1127335640c55495de022cc0174f40f5dd88e8363d044a8b67",
+        "web_guards": {
+          "https_only": true,
+          "deny_ip_literals": true,
+          "deny_private_networks": true,
+          "max_redirects": 0,
+          "max_bytes": 1,
+          "read_timeout_ms": 1
+        }
       }
     },
     "structural_valid": false,
@@ -599,7 +581,7 @@
     "name": "unknown-capability",
     "message": {
       "schema_version": "intel.v1",
-      "contract_revision": "0.23",
+      "contract_revision": "0.24",
       "request_id": "request-start",
       "trace_context": {
         "trace_id": "local",
@@ -751,20 +733,6 @@
           "data_snapshot_id": "fixture",
           "weights_digest": "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
           "window": "synthetic-window"
-        },
-        "source_policy": {
-          "policy_epoch": 0,
-          "valid_until": "2099-01-01T00:00:00Z",
-          "rules": [],
-          "default_decision": "DENY",
-          "guards": {
-            "https_only": true,
-            "deny_ip_literals": true,
-            "deny_private_networks": true,
-            "max_redirects": 0,
-            "max_bytes": 1,
-            "read_timeout_ms": 1
-          }
         },
         "input": {
           "raw": {
@@ -791,7 +759,15 @@
         ],
         "continuation": null,
         "curated_candidates": null,
-        "payload_digest": "sha256:9327c3706f186b6c021bbb4ad677a1fb9c2a650cd8b6180e9516734b6f56f540"
+        "payload_digest": "sha256:9f6aff2cbe83db643bcb017459a3d65b2e65b98bbb179dc5cd71f96d17fc725d",
+        "web_guards": {
+          "https_only": true,
+          "deny_ip_literals": true,
+          "deny_private_networks": true,
+          "max_redirects": 0,
+          "max_bytes": 1,
+          "read_timeout_ms": 1
+        }
       }
     },
     "structural_valid": false,
@@ -801,7 +777,7 @@
     "name": "forged-digest",
     "message": {
       "schema_version": "intel.v1",
-      "contract_revision": "0.23",
+      "contract_revision": "0.24",
       "request_id": "request-start",
       "trace_context": {
         "trace_id": "local",
@@ -954,20 +930,6 @@
           "weights_digest": "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
           "window": "synthetic-window"
         },
-        "source_policy": {
-          "policy_epoch": 0,
-          "valid_until": "2099-01-01T00:00:00Z",
-          "rules": [],
-          "default_decision": "DENY",
-          "guards": {
-            "https_only": true,
-            "deny_ip_literals": true,
-            "deny_private_networks": true,
-            "max_redirects": 0,
-            "max_bytes": 1,
-            "read_timeout_ms": 1
-          }
-        },
         "input": {
           "raw": {
             "liked_genres": [
@@ -991,7 +953,15 @@
         "capabilities": [],
         "continuation": null,
         "curated_candidates": null,
-        "payload_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+        "payload_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+        "web_guards": {
+          "https_only": true,
+          "deny_ip_literals": true,
+          "deny_private_networks": true,
+          "max_redirects": 0,
+          "max_bytes": 1,
+          "read_timeout_ms": 1
+        }
       }
     },
     "structural_valid": true,
@@ -1001,7 +971,7 @@
     "name": "forged-count-binding",
     "message": {
       "schema_version": "intel.v1",
-      "contract_revision": "0.23",
+      "contract_revision": "0.24",
       "request_id": "request-start",
       "trace_context": {
         "trace_id": "local",
@@ -1154,20 +1124,6 @@
           "weights_digest": "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
           "window": "synthetic-window"
         },
-        "source_policy": {
-          "policy_epoch": 0,
-          "valid_until": "2099-01-01T00:00:00Z",
-          "rules": [],
-          "default_decision": "DENY",
-          "guards": {
-            "https_only": true,
-            "deny_ip_literals": true,
-            "deny_private_networks": true,
-            "max_redirects": 0,
-            "max_bytes": 1,
-            "read_timeout_ms": 1
-          }
-        },
         "input": {
           "raw": {
             "liked_genres": [
@@ -1191,7 +1147,15 @@
         "capabilities": [],
         "continuation": null,
         "curated_candidates": null,
-        "payload_digest": "sha256:9327c3706f186b6c021bbb4ad677a1fb9c2a650cd8b6180e9516734b6f56f540"
+        "payload_digest": "sha256:905fc3ebda62a396974708da774838ed95175b99b6e0290e7d9f9b4aa4eb0a6e",
+        "web_guards": {
+          "https_only": true,
+          "deny_ip_literals": true,
+          "deny_private_networks": true,
+          "max_redirects": 0,
+          "max_bytes": 1,
+          "read_timeout_ms": 1
+        }
       }
     },
     "structural_valid": true,
@@ -1201,7 +1165,7 @@
     "name": "raw-text-in-continuation",
     "message": {
       "schema_version": "intel.v1",
-      "contract_revision": "0.23",
+      "contract_revision": "0.24",
       "request_id": "request-start",
       "trace_context": {
         "trace_id": "local",
@@ -1354,20 +1318,6 @@
           "weights_digest": "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
           "window": "synthetic-window"
         },
-        "source_policy": {
-          "policy_epoch": 0,
-          "valid_until": "2099-01-01T00:00:00Z",
-          "rules": [],
-          "default_decision": "DENY",
-          "guards": {
-            "https_only": true,
-            "deny_ip_literals": true,
-            "deny_private_networks": true,
-            "max_redirects": 0,
-            "max_bytes": 1,
-            "read_timeout_ms": 1
-          }
-        },
         "input": {
           "raw": {
             "liked_genres": [
@@ -1391,7 +1341,15 @@
         "capabilities": [],
         "continuation": null,
         "curated_candidates": null,
-        "payload_digest": "sha256:9327c3706f186b6c021bbb4ad677a1fb9c2a650cd8b6180e9516734b6f56f540"
+        "payload_digest": "sha256:616d070967f4e181c27c2dda1f9e171d6bb0a794a67d05695b599bded80c77da",
+        "web_guards": {
+          "https_only": true,
+          "deny_ip_literals": true,
+          "deny_private_networks": true,
+          "max_redirects": 0,
+          "max_bytes": 1,
+          "read_timeout_ms": 1
+        }
       }
     },
     "structural_valid": true,
@@ -1554,20 +1512,6 @@
           "weights_digest": "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
           "window": "synthetic-window"
         },
-        "source_policy": {
-          "policy_epoch": 0,
-          "valid_until": "2099-01-01T00:00:00Z",
-          "rules": [],
-          "default_decision": "DENY",
-          "guards": {
-            "https_only": true,
-            "deny_ip_literals": true,
-            "deny_private_networks": true,
-            "max_redirects": 0,
-            "max_bytes": 1,
-            "read_timeout_ms": 1
-          }
-        },
         "input": {
           "raw": {
             "liked_genres": [
@@ -1591,7 +1535,15 @@
         "capabilities": [],
         "continuation": null,
         "curated_candidates": null,
-        "payload_digest": "sha256:9327c3706f186b6c021bbb4ad677a1fb9c2a650cd8b6180e9516734b6f56f540"
+        "payload_digest": "sha256:3b0816036f93740d4d10f85866cb31221fcb0d2b63d088d306d523c489f88352",
+        "web_guards": {
+          "https_only": true,
+          "deny_ip_literals": true,
+          "deny_private_networks": true,
+          "max_redirects": 0,
+          "max_bytes": 1,
+          "read_timeout_ms": 1
+        }
       }
     },
     "structural_valid": false,
@@ -1601,7 +1553,7 @@
     "name": "extra-sensitive-property",
     "message": {
       "schema_version": "intel.v1",
-      "contract_revision": "0.23",
+      "contract_revision": "0.24",
       "request_id": "request-start",
       "trace_context": {
         "trace_id": "local",
@@ -1754,20 +1706,6 @@
           "weights_digest": "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
           "window": "synthetic-window"
         },
-        "source_policy": {
-          "policy_epoch": 0,
-          "valid_until": "2099-01-01T00:00:00Z",
-          "rules": [],
-          "default_decision": "DENY",
-          "guards": {
-            "https_only": true,
-            "deny_ip_literals": true,
-            "deny_private_networks": true,
-            "max_redirects": 0,
-            "max_bytes": 1,
-            "read_timeout_ms": 1
-          }
-        },
         "input": {
           "raw": {
             "liked_genres": [
@@ -1791,8 +1729,16 @@
         "capabilities": [],
         "continuation": null,
         "curated_candidates": null,
-        "payload_digest": "sha256:9327c3706f186b6c021bbb4ad677a1fb9c2a650cd8b6180e9516734b6f56f540",
-        "api_key": "synthetic-not-a-key"
+        "payload_digest": "sha256:cb4aaca9a6e7c004488213cc9c73b3e50f7970dd860b43aa8a4792c80e586a37",
+        "api_key": "synthetic-not-a-key",
+        "web_guards": {
+          "https_only": true,
+          "deny_ip_literals": true,
+          "deny_private_networks": true,
+          "max_redirects": 0,
+          "max_bytes": 1,
+          "read_timeout_ms": 1
+        }
       }
     },
     "structural_valid": false,
@@ -1802,7 +1748,7 @@
     "name": "RuntimeView",
     "message": {
       "schema_version": "intel.v1",
-      "contract_revision": "0.23",
+      "contract_revision": "0.24",
       "request_id": "request-RuntimeView",
       "trace_context": {
         "trace_id": "local",
@@ -1823,7 +1769,7 @@
     "name": "Error",
     "message": {
       "schema_version": "intel.v1",
-      "contract_revision": "0.23",
+      "contract_revision": "0.24",
       "request_id": "request-Error",
       "trace_context": {
         "trace_id": "local",
@@ -1843,7 +1789,7 @@
     "name": "UsageReceipt",
     "message": {
       "schema_version": "intel.v1",
-      "contract_revision": "0.23",
+      "contract_revision": "0.24",
       "request_id": "request-UsageReceipt",
       "trace_context": {
         "trace_id": "local",
@@ -1868,7 +1814,7 @@
     "name": "ReadAuthorization",
     "message": {
       "schema_version": "intel.v1",
-      "contract_revision": "0.23",
+      "contract_revision": "0.24",
       "request_id": "request-ReadAuthorization",
       "trace_context": {
         "trace_id": "local",
@@ -1879,8 +1825,7 @@
         "read_id": "fixture",
         "candidate_id": "fixture",
         "url": "https://reviews.example/album",
-        "purpose": "SCREEN_RESEARCH",
-        "policy_epoch": 0
+        "purpose": "SCREEN_RESEARCH"
       }
     },
     "structural_valid": true,
@@ -1890,7 +1835,7 @@
     "name": "ReadAuthorizationResult",
     "message": {
       "schema_version": "intel.v1",
-      "contract_revision": "0.23",
+      "contract_revision": "0.24",
       "request_id": "request-ReadAuthorizationResult",
       "trace_context": {
         "trace_id": "local",
@@ -1900,7 +1845,6 @@
       "payload": {
         "read_id": "fixture",
         "decision": "GRANTED",
-        "policy_epoch": 0,
         "reason": null
       }
     },
@@ -1911,7 +1855,7 @@
     "name": "SourcePolicy",
     "message": {
       "schema_version": "intel.v1",
-      "contract_revision": "0.23",
+      "contract_revision": "0.24",
       "request_id": "request-SourcePolicy",
       "trace_context": {
         "trace_id": "local",
@@ -1919,7 +1863,6 @@
       },
       "message_type": "SourcePolicy",
       "payload": {
-        "policy_epoch": 0,
         "valid_until": "2099-01-01T00:00:00Z",
         "rules": [],
         "default_decision": "DENY",
@@ -1933,14 +1876,14 @@
         }
       }
     },
-    "structural_valid": true,
-    "semantic_valid": true
+    "structural_valid": false,
+    "semantic_valid": false
   },
   {
     "name": "Acknowledgement",
     "message": {
       "schema_version": "intel.v1",
-      "contract_revision": "0.23",
+      "contract_revision": "0.24",
       "request_id": "request-Acknowledgement",
       "trace_context": {
         "trace_id": "local",
@@ -1958,7 +1901,7 @@
     "name": "registered-reading",
     "message": {
       "schema_version": "intel.v1",
-      "contract_revision": "0.23",
+      "contract_revision": "0.24",
       "request_id": "request-read",
       "trace_context": {
         "trace_id": "local",
@@ -1983,8 +1926,7 @@
             "checks": {
               "mentions_title": false,
               "mentions_artist": false
-            },
-            "source_policy_epoch": 0
+            }
           }
         ]
       }
@@ -1996,7 +1938,7 @@
     "name": "continuation-snapshot",
     "message": {
       "schema_version": "intel.v1",
-      "contract_revision": "0.23",
+      "contract_revision": "0.24",
       "request_id": "request-continuation",
       "trace_context": {
         "trace_id": "local",
@@ -2148,45 +2090,6 @@
           "data_snapshot_id": "synthetic-agent-demo-v1",
           "window": "synthetic",
           "weights_digest": "sha256:9f059f5ea84840e08a5f08bbd571ad92c63e13113339b72e343be68c9cfea0e9"
-        },
-        "source_policy": {
-          "policy_epoch": 1,
-          "valid_until": "2099-01-01T00:00:00Z",
-          "rules": [
-            {
-              "match": {
-                "domain_suffix": "one.example"
-              },
-              "decision": "ALLOW",
-              "uses": [
-                "READ",
-                "AI_PROCESS",
-                "STORE_LOCATOR"
-              ],
-              "reason": "synthetic-only"
-            },
-            {
-              "match": {
-                "domain_suffix": "two.example"
-              },
-              "decision": "ALLOW",
-              "uses": [
-                "READ",
-                "AI_PROCESS",
-                "STORE_LOCATOR"
-              ],
-              "reason": "synthetic-only"
-            }
-          ],
-          "default_decision": "DENY",
-          "guards": {
-            "https_only": true,
-            "deny_ip_literals": true,
-            "deny_private_networks": true,
-            "max_redirects": 2,
-            "max_bytes": 20000,
-            "read_timeout_ms": 1000
-          }
         },
         "input": {
           "raw": null,
@@ -2593,7 +2496,15 @@
           }
         },
         "curated_candidates": null,
-        "payload_digest": "sha256:c70d2a9d2bea83e5651fcb61e94776e00565cfa1bb454157c28c64674b416371"
+        "payload_digest": "sha256:b2d063fd04e570b84e82a03a34b6df74313bb735e2d5550159df2895793d3d28",
+        "web_guards": {
+          "https_only": true,
+          "deny_ip_literals": true,
+          "deny_private_networks": true,
+          "max_redirects": 2,
+          "max_bytes": 20000,
+          "read_timeout_ms": 1000
+        }
       }
     },
     "structural_valid": true,
@@ -2603,7 +2514,7 @@
     "name": "continuation-forged-window",
     "message": {
       "schema_version": "intel.v1",
-      "contract_revision": "0.23",
+      "contract_revision": "0.24",
       "request_id": "request-continuation",
       "trace_context": {
         "trace_id": "local",
@@ -2755,45 +2666,6 @@
           "data_snapshot_id": "synthetic-agent-demo-v1",
           "window": "synthetic",
           "weights_digest": "sha256:9f059f5ea84840e08a5f08bbd571ad92c63e13113339b72e343be68c9cfea0e9"
-        },
-        "source_policy": {
-          "policy_epoch": 1,
-          "valid_until": "2099-01-01T00:00:00Z",
-          "rules": [
-            {
-              "match": {
-                "domain_suffix": "one.example"
-              },
-              "decision": "ALLOW",
-              "uses": [
-                "READ",
-                "AI_PROCESS",
-                "STORE_LOCATOR"
-              ],
-              "reason": "synthetic-only"
-            },
-            {
-              "match": {
-                "domain_suffix": "two.example"
-              },
-              "decision": "ALLOW",
-              "uses": [
-                "READ",
-                "AI_PROCESS",
-                "STORE_LOCATOR"
-              ],
-              "reason": "synthetic-only"
-            }
-          ],
-          "default_decision": "DENY",
-          "guards": {
-            "https_only": true,
-            "deny_ip_literals": true,
-            "deny_private_networks": true,
-            "max_redirects": 2,
-            "max_bytes": 20000,
-            "read_timeout_ms": 1000
-          }
         },
         "input": {
           "raw": null,
@@ -3200,7 +3072,15 @@
           }
         },
         "curated_candidates": null,
-        "payload_digest": "sha256:dc5d61a32bf67f13ff8857033e4bd96d0e067d59225ed8506e3428302bd11885"
+        "payload_digest": "sha256:6bdcf4784b04c8754b8508c55bb39dff804b29106f3873d84c6209e2fcb6d22a",
+        "web_guards": {
+          "https_only": true,
+          "deny_ip_literals": true,
+          "deny_private_networks": true,
+          "max_redirects": 2,
+          "max_bytes": 20000,
+          "read_timeout_ms": 1000
+        }
       }
     },
     "structural_valid": true,

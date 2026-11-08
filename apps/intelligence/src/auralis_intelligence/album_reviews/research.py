@@ -402,11 +402,8 @@ class ResearchStage:
             error_code
             if error_code
             in {
-                "SOURCE_NOT_PERMITTED",
+                "READ_UNKNOWN",
                 "READ_NOT_PERMITTED",
-                "SOURCE_POLICY_EXPIRED",
-                "STALE_SOURCE_POLICY",
-                "SOURCE_POLICY_CHANGED",
                 "READ_AUTHORIZATION_MISMATCH",
                 "CONTROL_UNAVAILABLE",
             }

@@ -86,9 +86,7 @@ async def environment(
 ):
     request = start()
     request["capabilities"] = ["web_search.v1", "web_read.v1"]
-    request["source_policy"]["guards"].update(
-        max_bytes=10000, read_timeout_ms=1000, max_redirects=2
-    )
+    request["web_guards"].update(max_bytes=10000, read_timeout_ms=1000, max_redirects=2)
     request["agent_policy"]["screening"].update(
         shortlist_min_score=threshold, min_review_chars=200, excerpt_token_cap=2000
     )

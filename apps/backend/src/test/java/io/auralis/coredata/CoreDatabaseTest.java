@@ -45,4 +45,14 @@ class CoreDatabaseTest {
         assertThrows(
                 IllegalArgumentException.class, () -> CoreDatabase.admission(manifest, policy));
     }
+
+    @Test
+    void sourceIdentityCheckDoesNotRequireLicenseFlags() throws Exception {
+        Path source = directory.resolve("source.json");
+        Files.writeString(source, "{\"musicbrainz\":{},\"listenbrainz\":{}}");
+        var manifest =
+                CoreDatabase.JSON.readTree(
+                        "{\"sources\":{\"musicbrainz\":{},\"listenbrainz\":{\"members\":{}}}}");
+        assertNotNull(CoreDatabase.admission(manifest, source));
+    }
 }

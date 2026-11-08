@@ -76,7 +76,6 @@ class Execution:
         self.work: Any = None
         self.final_report: dict[str, Any] | None = None
         self.report_builder: Callable | None = None
-        self.policy_handler: Callable | None = None
         self.first_outcome: str | None = None
         self.first_reason: str | None = None
         self.priorities: dict[str, int] = {}
@@ -295,11 +294,6 @@ class Execution:
             cancelled = False
             try:
                 self.ensure_active()
-                if (
-                    plan["read_ids"]
-                    and result["policy_epoch"] < self.start["source_policy"]["policy_epoch"]
-                ):
-                    raise CallDenied("STALE_SOURCE_POLICY")
                 call["sent_at"] = self.clock.now()
                 reply = CallResult(outcome="UNCERTAIN", finish="ERROR")
                 with self.clock.measure(resource):
@@ -463,8 +457,6 @@ class Execution:
             "counters": dict(self.counters),
             "uncertain_invocations": sorted(self.uncertain),
             "lanes": deepcopy(self.lanes),
-            "policy_epoch": self.start["source_policy"]["policy_epoch"],
-            "valid_until": self.start["source_policy"]["valid_until"],
             "updated_seq": self.updated_seq,
         }
         validate_definition("ExecutionView", result)
@@ -486,7 +478,6 @@ class Execution:
                 self.lanes = self.budget_state = None
             self.final_report = self.report_builder(self)
         self.report_builder = None
-        self.policy_handler = None
         self.start["input"]["raw"] = None
         self.start["input"]["accepted_preferences"] = None
         self.start["continuation"] = None
@@ -668,13 +659,6 @@ class RoundSupervisor:
             execution.status = "CLOSING"
         elif kind == "PRIORITIZE_LONG_REVIEW":
             execution.prioritize_long(payload["candidate_id"])
-        elif (
-            kind == "SOURCE_POLICY_UPDATE"
-            and payload["policy_epoch"] > execution.start["source_policy"]["policy_epoch"]
-        ):
-            execution.start["source_policy"] = deepcopy(payload)
-            if execution.policy_handler:
-                execution.policy_handler(execution, payload)
         elif kind == "RESCREEN" or kind == "DISPLAY_STATE" and payload["user_waiting"]:
             execution.foreground = True
         execution.commands.record(command["command_id"], command, result)

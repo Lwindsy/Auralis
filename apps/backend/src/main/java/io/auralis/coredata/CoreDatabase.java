@@ -172,9 +172,6 @@ public final class CoreDatabase {
         if (Files.size(policyPath) > 2_000_000) fail("POLICY_TOO_LARGE");
         byte[] bytes = Files.readAllBytes(policyPath);
         var policy = JSON.readTree(bytes);
-        if (!policy.path("enabled").asBoolean(false)
-                || !policy.path("purpose").asText().equals("private-development"))
-            fail("PURPOSE_NOT_ADMITTED");
         if (!policy.path("musicbrainz").equals(manifest.path("sources").path("musicbrainz")))
             fail("MB_SOURCE_NOT_ADMITTED");
         var members = manifest.path("sources").path("listenbrainz").path("members");
