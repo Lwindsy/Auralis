@@ -33,7 +33,7 @@ public class CatalogHttpController {
         }
     }
 
-    @GetMapping("/v1/genres")
+    @GetMapping("/v1/catalog/genres")
     public JsonNode genres(
             @RequestParam(required = false) String query,
             @RequestParam(name = "parent_id", required = false) String parent,

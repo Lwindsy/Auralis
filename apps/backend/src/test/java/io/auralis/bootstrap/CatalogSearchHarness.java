@@ -79,7 +79,9 @@ public final class CatalogSearchHarness implements AutoCloseable {
         app.setDefaultProperties(p);
         context = (ServletWebServerApplicationContext) app.run("--server.port=0");
         base = "http://127.0.0.1:" + context.getWebServer().getPort();
-        context.getBean(OnlineProperties.class).setProductOrigin(base);
+        context.getBean(OnlineProperties.class)
+                .setProductOrigin(
+                        System.getenv().getOrDefault("AURALIS_SEARCH_BROWSER_ORIGIN", base));
     }
 
     public void close() {

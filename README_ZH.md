@@ -6,11 +6,28 @@ Auralis帮助你通过风格偏好、喜欢的专辑或自然语言描述发现�
 
 ## 当前状态
 
-Python Agent 已有独立演示与内部执行服务。Java 产品接入与浏览器应用仍待完成，目前没有完整网站发布版本。
+Python Agent 已有独立演示与内部执行服务。浏览器应用已有按契约实现的推荐交互，并通过真实 Java 身份与目录接口验证；推荐命令仍待后端接入，目前没有完整网站发布版本。
 
 Java在线底座使用`mvn -f apps/backend/pom.xml verify`构建，再运行`java -jar apps/backend/target/auralis-core-database-0.1.0-SNAPSHOT-online.jar`；环境变量须显式提供数据库地址与运行凭据、产品同源地址、Python loopback地址、服务凭据及当前内部协议修订。使用已由离线CLI迁移的PostgreSQL 18及无DDL权限的运行账号，默认监听127.0.0.1:8080。存活与就绪探针已实现；匿名bootstrap和会话恢复已实现，推荐命令API仍待后续装配。
 
 启动前须由离线迁移器应用V1～V9；Java与Python使用同版0.30协议配置。
+
+## 前端开发
+
+使用 Node.js 24 或更新版本，在仓库根执行：
+
+```powershell
+npm --prefix apps/frontend ci
+npm --prefix apps/frontend run build
+npm --prefix apps/frontend test
+npm --prefix apps/frontend run check
+npm --prefix apps/frontend run test:browser
+npm --prefix apps/frontend run dev -- --fixture
+```
+
+打开 `http://127.0.0.1:4173`。显式样例模式展示合成数据提示，不调用模型。接 Java 时去掉 `--fixture`，将 `AURALIS_JAVA_ORIGIN` 指向 Java 回环地址，并把 Java 的 `AURALIS_PRODUCT_ORIGIN` 设为前端地址；本地 HTTP 另需上文明确的非安全 Cookie 例外。开发代理只提供构建产物和 `/v1/` 转发，不是生产部署配置。搜索依赖 Java 已核验的完整目录索引。当前后端可用范围为身份建立、恢复读取和目录操作，推荐命令仍未开放。
+
+路由与校验器随产品提交，普通构建只需产品仓库。`npm --prefix apps/frontend run generate` 还需接入同版私有 OpenAPI 工作区，从共享 Schema 再生成，禁止手改生成物。浏览器测试使用已安装 Chrome 及独立端口4187。真实 Java 目录浏览器测试需设置 `AURALIS_JAVA_ORIGIN` 后执行 `npm --prefix apps/frontend run test:java`；Java须允许前端 Origin `http://127.0.0.1:4188`。
 
 ## 匿名会话
 
