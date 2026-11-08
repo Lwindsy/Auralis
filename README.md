@@ -8,7 +8,15 @@ Auralis aims to help you discover albums through genre preferences, favorite alb
 
 A standalone Python agent demo and an internal execution service are available. Java product integration and the browser application are still pending; there is no complete website release yet.
 
-The Java online bootstrap can be built with `mvn -f apps/backend/pom.xml verify` and started with `java -jar apps/backend/target/auralis-core-database-0.1.0-SNAPSHOT-online.jar`. It requires explicit `AURALIS_JDBC_URL`, `AURALIS_DATABASE_USER`, `AURALIS_DATABASE_PASSWORD`, `AURALIS_PRODUCT_ORIGIN`, `AURALIS_PYTHON_URL`, `AURALIS_SERVICE_TOKEN` and `AURALIS_CONTRACT_REVISION` environment variables. Use PostgreSQL 18 with the existing migrations applied by the offline CLI and a non-DDL runtime role. The service exposes liveness/readiness probes; product session APIs are not implemented yet.
+The Java online bootstrap can be built with `mvn -f apps/backend/pom.xml verify` and started with `java -jar apps/backend/target/auralis-core-database-0.1.0-SNAPSHOT-online.jar`. It requires explicit `AURALIS_JDBC_URL`, `AURALIS_DATABASE_USER`, `AURALIS_DATABASE_PASSWORD`, `AURALIS_PRODUCT_ORIGIN`, `AURALIS_PYTHON_URL`, `AURALIS_SERVICE_TOKEN`, `AURALIS_CONTRACT_REVISION` and `AURALIS_SUBJECT_SECRET` environment variables. Use PostgreSQL 18 with the existing migrations applied by the offline CLI and a non-DDL runtime role. The service exposes liveness/readiness probes, anonymous bootstrap and session recovery; recommendation command APIs still require subsequent integration.
+
+## Anonymous sessions
+
+Provide a separate, securely generated URL-safe signing key of at least 43 characters in `AURALIS_SUBJECT_SECRET`. Keep it stable across ordinary restarts and separate from database backups. HTTPS uses Secure/HttpOnly/SameSite=Lax cookies; local loopback HTTP requires the explicit `AURALIS_ALLOW_INSECURE_COOKIE=true` exception. Internal protocol configuration must match the packaged schema (currently 0.27).
+
+`POST /v1/bootstrap` accepts an empty JSON object from the configured same origin and returns a CSRF token and recoverable state. `GET /v1/current-state` and `GET /v1/discovery-sessions/{session_id}` enforce credential ownership and never renew retention. Successful active operations retain the current process for exactly 30 days; expired credentials bootstrap a fresh empty identity. The lifecycle application port supports replacement, heard albums and deletion, while production recommendation commands remain for later integration.
+
+V8 adds revocation receipts and a publication-owned recovery projection. Deletion first commits a barrier, then processes bounded cleanup batches; executions still occupying a slot remain pending physical release by the dispatcher. Database restore requires service isolation and replay of post-backup revocations before access is reopened. Rotating the independent signing key invalidates old credentials; it is not part of a normal restart. End-to-end backup operations are a separate deployment responsibility.
 
 ## Persistence development
 
