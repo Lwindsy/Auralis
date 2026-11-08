@@ -7,6 +7,44 @@ from auralis_intelligence.album_reviews.cold import ColdEvidence
 from auralis_intelligence.providers.types import ReadResult, SearchHit
 
 
+def test_access_page_does_not_win_race_or_trigger_another_search():
+    async def run():
+        blocked_seen = asyncio.Event()
+
+        class Tools:
+            searches = 0
+            domain = staticmethod(lambda host: SimpleNamespace(top_domain_under_public_suffix=host))
+
+            async def search(self, *args, **kwargs):
+                self.searches += 1
+                return (
+                    SearchHit("https://blocked.example/a", "Artist Album"),
+                    SearchHit("https://review.example/a", "Artist Album"),
+                )
+
+            async def read(self, execution, *, url, **kwargs):
+                if "blocked" in url:
+                    blocked_seen.set()
+                    text = "Access denied\n" + "Artist Album " * 40
+                else:
+                    await blocked_seen.wait()
+                    text = "Artist Album\n" + "Guitars and quiet vocals lead the arrangement. " * 20
+                return ReadResult({"status": "READ_OK", "failure_reason": None}, text)
+
+        tools = Tools()
+        evidence = ColdEvidence(overlap=True, sources_per_album=1, race=True)
+        await evidence.prepare(
+            None,
+            [{"release_group_id": "a", "identity": {"title": "Album", "artist_credit": "Artist"}}],
+            tools,
+        )
+        assert tools.searches == 1
+        assert "Guitars" in evidence.take_reads("a")[0].text
+        assert any(event.get("technical_rejection") == "ACCESS_PAGE" for event in evidence.events)
+
+    asyncio.run(run())
+
+
 def test_overlapping_search_and_read_does_not_wait_for_slow_search():
     async def run():
         read_started, release_search = asyncio.Event(), asyncio.Event()

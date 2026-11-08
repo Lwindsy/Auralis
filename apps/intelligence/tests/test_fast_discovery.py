@@ -33,8 +33,8 @@ def test_generic_route_never_swallows_specific_constraints():
         assert not GENERIC.fullmatch(text)
 
 
-@pytest.mark.parametrize("background", [False, True])
-def test_batch_one_call_and_audience_verified_at_publication(tmp_path, background):
+@pytest.mark.parametrize("background,insufficient", [(False, 0), (True, 0), (False, 2), (False, 4)])
+def test_batch_one_call_and_audience_verified_at_publication(tmp_path, background, insufficient):
     async def run():
         harness = DemoHarness(root=tmp_path, scenario="genre", r=5, k=5, n=3)
         try:
@@ -71,7 +71,7 @@ def test_batch_one_call_and_audience_verified_at_publication(tmp_path, backgroun
 
             def reply(binding, request):
                 seen.append(request.schema_name)
-                if request.schema_name != "batch_v2":
+                if request.schema_name != "batch_v3":
                     return _reply(binding, request)
                 from auralis_intelligence.agents import CallResult, Usage
 
@@ -79,10 +79,20 @@ def test_batch_one_call_and_audience_verified_at_publication(tmp_path, backgroun
                 candidates = request.input["candidates"]
                 return CallResult(
                     {
+                        "assessments": [
+                            {
+                                "c": c["c"],
+                                "reason": "NO_MUSIC_DESCRIPTION"
+                                if i < insufficient
+                                else "SUFFICIENT",
+                                "refs": ["R1", "R2"],
+                            }
+                            for i, c in enumerate(candidates)
+                        ],
                         "cards": [
                             {"c": c["c"], "score": 4, "text": text, "refs": ["R1", "R2"]}
-                            for c in candidates[:3]
-                        ]
+                            for c in (candidates[insufficient:] if insufficient else candidates[:3])
+                        ],
                     },
                     usage=Usage(10, 10, 0),
                 )
@@ -104,7 +114,7 @@ def test_batch_one_call_and_audience_verified_at_publication(tmp_path, backgroun
                 )
                 entry = harness.control.executions[execution.id]
                 first_ids = set(entry["display"]["shown_candidate_ids"])
-                assert seen == ["batch_v2"]
+                assert seen == ["batch_v3"]
                 await command(
                     harness,
                     execution,
@@ -132,16 +142,28 @@ def test_batch_one_call_and_audience_verified_at_publication(tmp_path, backgroun
                     d["kind"] == "LONG_REVIEW" for d in harness.control.deliveries.values()
                 )
             assert execution.status == "CLOSED", execution.error_code
-            assert seen == (["batch_v2", "batch_v2"] if background else ["batch_v2"])
+            assert seen == (["batch_v3", "batch_v3"] if background else ["batch_v3"])
             first = next(
                 d["payload"]
                 for d in harness.control.deliveries.values()
                 if d["kind"] == "CARD_BATCH"
             )
-            assert first["analysis_mode"] == "PERSONALIZED"
-            assert len(first["cards"]) == 3
+            assert first["analysis_mode"] == ("BASIC" if insufficient == 4 else "PERSONALIZED")
+            assert len(first["cards"]) == (min(3, 4 - insufficient))
+            if insufficient:
+                assert (
+                    sum(
+                        a["reason"] == "NO_MUSIC_DESCRIPTION"
+                        for a in batch.statistics["evidence_assessments"].values()
+                    )
+                    == insufficient
+                )
+                assert len(seen) == 1
             assert all(c["admission"]["audience"]["listeners"] >= 50 for c in first["cards"])
             assert "album-1" not in {c["candidate_id"] for c in first["cards"]}
+            if insufficient == 4:
+                assert first["outcome"] == "NO_MATCH"
+                return
             entry = harness.control.executions[execution.id]
             tampered = dict(
                 first["cards"][0], admission={**first["cards"][0]["admission"], "audience": None}

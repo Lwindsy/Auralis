@@ -13,10 +13,29 @@ from .types import AlbumDossier, ReadRecord, ResearchResult
 from .validation import validate_short
 from .writing import ShortWriteResult, WriteStage
 
-PROMPT = files(__package__).joinpath("batch.v2.txt").read_text(encoding="utf-8")
+PROMPT = files(__package__).joinpath("batch.v3.txt").read_text(encoding="utf-8")
 REFS = array({"type": "string"}, maximum=4)
 SCHEMA = object_schema(
     {
+        "assessments": array(
+            object_schema(
+                {
+                    "c": {"type": "string"},
+                    "reason": {
+                        "type": "string",
+                        "enum": [
+                            "SUFFICIENT",
+                            "WRONG_WORK",
+                            "NO_MUSIC_DESCRIPTION",
+                            "INSUFFICIENT_DETAIL",
+                            "UNRESOLVED_CONFLICT",
+                        ],
+                    },
+                    "refs": REFS,
+                }
+            ),
+            maximum=10,
+        ),
         "cards": array(
             object_schema(
                 {
@@ -27,7 +46,7 @@ SCHEMA = object_schema(
                 }
             ),
             maximum=10,
-        )
+        ),
     }
 )
 
@@ -218,7 +237,7 @@ class BatchResearchStage:
                 ),
                 input=payload,
                 output_schema=SCHEMA,
-                prompt_version="batch.v2",
+                prompt_version="batch.v3",
                 read_ids=read_ids,
             )
             if reply.finish == "COMPLETE":
@@ -245,6 +264,17 @@ class BatchResearchStage:
         self.invocation_id = reply.invocation_id
         self.order = []
         chosen = {row["c"] for row in output["cards"]}
+        self.statistics["evidence_assessments"] = {
+            aliases[row["c"]][1].candidate_id: {"reason": row["reason"], "refs": row["refs"]}
+            for row in output["assessments"]
+        }
+        for row in output["assessments"]:
+            if row["reason"] != "SUFFICIENT":
+                candidate, dossier = aliases[row["c"]]
+                results[dossier.candidate_id] = ResearchStage._failed(
+                    candidate, dossier, "INSUFFICIENT_REVIEWS"
+                )
+
         for row in output["cards"]:
             candidate, dossier = aliases[row["c"]]
             identifier = dossier.candidate_id
@@ -269,7 +299,7 @@ class BatchResearchStage:
                     "status": "OK",
                     "score": score,
                     "invocation_id": reply.invocation_id,
-                    "prompt_version": "batch.v2",
+                    "prompt_version": "batch.v3",
                 },
                 "disposition": "RESERVE"
                 if qualified and score >= 3
@@ -296,7 +326,7 @@ class BatchResearchStage:
                     "text": row["text"],
                     "citations": [{"marker": ref, "read_id": lookup[ref]} for ref in row["refs"]],
                     "invocation_id": reply.invocation_id,
-                    "prompt_version": "batch.v2",
+                    "prompt_version": "batch.v3",
                 },
             )
         execution.counters["qualified"] += sum(
@@ -306,6 +336,16 @@ class BatchResearchStage:
 
     @staticmethod
     def _validate(output, aliases, count, policy, *, curated=False):
+        assessments = output["assessments"]
+        if len(assessments) != len(aliases) or {r["c"] for r in assessments} != set(aliases):
+            raise ContractError("BATCH_ASSESSMENTS_INCOMPLETE")
+        assessed = {r["c"]: r for r in assessments}
+        for row in assessments:
+            available = {r.ref for r in aliases[row["c"]][1].reads}
+            if not set(row["refs"]).issubset(available) or (
+                row["reason"] == "SUFFICIENT" and not row["refs"]
+            ):
+                raise ContractError("BATCH_EVIDENCE_REFS_INVALID")
         cards = output["cards"]
         if len(cards) > count or len({r["c"] for r in cards}) != len(cards):
             raise ContractError("BATCH_CARDS_INVALID")
@@ -317,6 +357,11 @@ class BatchResearchStage:
         for card in cards:
             if card["c"] not in aliases or card["score"] < 3 or not card["refs"]:
                 raise ContractError("BATCH_ADMISSION_INVALID")
+            assessment = assessed[card["c"]]
+            if assessment["reason"] != "SUFFICIENT" or not set(card["refs"]).issubset(
+                assessment["refs"]
+            ):
+                raise ContractError("BATCH_EVIDENCE_INSUFFICIENT")
             available = {r.ref for r in aliases[card["c"]][1].reads}
             validate_short({"text": card["text"], "refs": card["refs"]}, available, policy)
 
