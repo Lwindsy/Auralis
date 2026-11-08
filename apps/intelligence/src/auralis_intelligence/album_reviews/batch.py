@@ -58,6 +58,8 @@ class BatchResearchStage:
         self, model, tools, evidence, *, genre_names=None, album_names=None, candidate_limit=8
     ):
         self.model, self.tools, self.evidence = model, tools, evidence
+        if getattr(evidence, "cold", False):
+            evidence.keep_background = True
         self.genre_names, self.album_names = genre_names, album_names
         self.candidate_limit = candidate_limit
         self.task = None
@@ -261,6 +263,9 @@ class BatchResearchStage:
                 break
         if output is None:
             raise ContractError("BATCH_RECOMMENDATION_FAILED")
+        if getattr(self.evidence, "cold", False):
+            selected_ids = {aliases[row["c"]][1].candidate_id for row in output["cards"]}
+            execution.spawn(lambda: self.evidence.discard_unselected(selected_ids))
         self.invocation_id = reply.invocation_id
         self.order = []
         chosen = {row["c"] for row in output["cards"]}
@@ -374,6 +379,23 @@ class BatchWriteStage(WriteStage):
     def __init__(self, *args, batch, **kwargs):
         super().__init__(*args, **kwargs)
         self.batch = batch
+
+    async def additional_records(self, execution, dossier):
+        if not getattr(self.batch.evidence, "cold", False):
+            return []
+        extra = await self.batch.evidence.take_background_reads(dossier.candidate_id)
+        records = []
+        seen = {r.result.receipt["content_digest"] for r in dossier.reads}
+        for read in extra:
+            if read.receipt["content_digest"] not in seen:
+                seen.add(read.receipt["content_digest"])
+                record = ReadRecord(
+                    f"R{len(dossier.reads) + 1}", read, excerpt(read.text, 3500), True
+                )
+                dossier.reads.append(record)
+                records.append(record)
+            read.clear()
+        return records
 
     async def short(self, execution, dossier, preferences, **kwargs):
         if dossier.candidate_id in self.batch.shorts:
