@@ -16,6 +16,13 @@ from .ports import CallDenied, ControlPort, ControlUnavailable
 from .runtime import RoundSupervisor
 
 CONTROL_ROUTES = {
+    "seed-evidence": ("GET", "/executions/{execution_id}/seed-evidence", None, "SeedEvidenceState"),
+    "seed-evidence-save": (
+        "PUT",
+        "/executions/{execution_id}/seed-evidence",
+        "SeedEvidenceUpdate",
+        "SeedEvidenceState",
+    ),
     "preference-resolution": (
         "POST",
         "/executions/{execution_id}/preference-resolution",

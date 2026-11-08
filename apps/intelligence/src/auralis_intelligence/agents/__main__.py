@@ -81,14 +81,17 @@ def serve(args):
         else:
             evidence = prepared
             tools = ToolGateway(evidence, model_gateway=model)
+        from auralis_intelligence.album_reviews.seed_context import SeedContext, SeededPipeline
+
+        seeds = SeedContext(model, long_tools)
         batch = BatchResearchStage(
-            model,
+            seeds,
             tools,
             evidence,
             genre_names={i: r["name"] for i, r in reference.genres.items()},
             candidate_limit=start["selection_config"]["shortlist_target_count"],
         )
-        return RoundPipeline(
+        pipeline = RoundPipeline(
             FastPreferencesStage(model, reference),
             RecallStage(
                 relative("recall_snapshot"),
@@ -98,9 +101,11 @@ def serve(args):
                 min_listeners=50,
             ),
             batch,
-            BatchWriteStage(model, long_tools, batch=batch),
-            BatchSelectStage(model, batch=batch),
+            BatchWriteStage(seeds, long_tools, batch=batch),
+            BatchSelectStage(seeds, batch=batch),
         )
+
+        return SeededPipeline(pipeline, seeds)
 
     app = create_execution_app(
         RoundSupervisor(receipt_timeout_seconds=config.get("receipt_timeout_seconds", 1.0)),
