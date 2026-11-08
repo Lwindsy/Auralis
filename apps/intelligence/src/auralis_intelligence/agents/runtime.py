@@ -518,8 +518,42 @@ class RoundSupervisor:
         self.receipt_timeout_seconds = receipt_timeout_seconds
         self.active: Execution | None = None
         self.records: dict[str, tuple[str, Execution, asyncio.Task]] = {}
+        self.cleared: dict[str, tuple[str, datetime]] = {}
         self.maintenance = False
         self._lock = asyncio.Lock()
+
+    def admission(self, execution_id: str, query: dict[str, str]) -> dict[str, Any]:
+        """Read bounded acceptance evidence without re-running the original intent."""
+        validate_definition("AdmissionQuery", query)
+        deadline = datetime.fromisoformat(query["original_deadline"].replace("Z", "+00:00"))
+        result = {
+            "execution_id": execution_id,
+            "boot_id": self.boot_id,
+            "payload_digest": query["payload_digest"],
+            "status": "UNKNOWN",
+            "dedup_until": None,
+            "execution": None,
+        }
+        if query["python_boot_id"] == self.boot_id and deadline > datetime.now(timezone.utc):
+            record = self.records.get(execution_id)
+            cleared = self.cleared.get(execution_id)
+            known = (record[0], record[1]._deadline) if record else cleared
+            if known is not None and known != (query["payload_digest"], deadline):
+                raise ContractError("BINDING_MISMATCH")
+            result["dedup_until"] = query["original_deadline"]
+            if record:
+                result["status"] = "TERMINAL" if record[1].slot_released else "ACTIVE"
+                result["execution"] = record[1].view()
+            else:
+                result["status"] = "CLEARED" if cleared else "NOT_ACCEPTED"
+        validate_definition("ExecutionAdmission", result)
+        return result
+
+    def forget(self, execution_id: str) -> None:
+        """Erase context while retaining only the original digest and deadline fence."""
+        record = self.records.pop(execution_id, None)
+        if record is not None:
+            self.cleared[execution_id] = (record[0], record[1]._deadline)
 
     async def accept(
         self, start: dict[str, Any], stage: Stage, control: ControlPort
@@ -532,6 +566,8 @@ class RoundSupervisor:
         if start["boot"]["python_boot_id"] != self.boot_id:
             raise ContractError("STALE_BOOT")
         async with self._lock:
+            if start["execution_id"] in self.cleared:
+                raise ContractError("EXECUTION_GONE")
             previous = self.records.get(start["execution_id"])
             if previous:
                 if previous[0] != start["payload_digest"]:
@@ -547,7 +583,8 @@ class RoundSupervisor:
                 for key, value in self.records.items()
                 if not value[1].slot_released or value[1]._deadline > now
             }
-            if len(self.records) >= self.max_records:
+            self.cleared = {key: value for key, value in self.cleared.items() if value[1] > now}
+            if len(self.records) + len(self.cleared) >= self.max_records:
                 raise CallDenied("EXECUTION_RECORD_CAPACITY")
             execution = Execution(
                 start, control, receipt_timeout_seconds=self.receipt_timeout_seconds

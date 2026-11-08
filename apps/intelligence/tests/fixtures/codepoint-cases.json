@@ -1,0 +1,52 @@
+[
+  {
+    "name": "chinese",
+    "text": "想听爵士",
+    "span": {
+      "start": 2,
+      "end": 4
+    },
+    "expected": "爵士",
+    "valid": true
+  },
+  {
+    "name": "emoji-codepoint",
+    "text": "🎷爵士",
+    "span": {
+      "start": 1,
+      "end": 3
+    },
+    "expected": "爵士",
+    "valid": true
+  },
+  {
+    "name": "combining-codepoints",
+    "text": "é 爵士",
+    "span": {
+      "start": 0,
+      "end": 2
+    },
+    "expected": "é",
+    "valid": true
+  },
+  {
+    "name": "utf16-offset-rejected",
+    "text": "🎷爵士",
+    "span": {
+      "start": 2,
+      "end": 4
+    },
+    "expected": "爵士",
+    "valid": false
+  },
+  {
+    "name": "normalized-offset-rejected",
+    "text": "é 爵士",
+    "span": {
+      "start": 0,
+      "end": 1
+    },
+    "expected": "é",
+    "valid": false
+  }
+]

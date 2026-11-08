@@ -247,6 +247,10 @@ def create_execution_app(
         result = await supervisor.command(request.match_info["execution_id"], payload)
         return response("Acknowledgement", result, request, 202)
 
+    async def admission(request):
+        result = supervisor.admission(request.match_info["execution_id"], dict(request.query))
+        return response("ExecutionAdmission", result, request)
+
     async def cancel(request):
         payload = await read_message(request, "Cancellation")
         result = await supervisor.cancel(
@@ -261,8 +265,8 @@ def create_execution_app(
             {
                 "boot_id": supervisor.boot_id,
                 "status": "MAINTENANCE" if supervisor.maintenance else "READY",
-                "execution_id": active.id if active else None,
-                "foreground": active.foreground if active else False,
+                "execution_capacity": 1,
+                "active": [active.view()] if active and not active.slot_released else [],
             },
             request,
         )
@@ -274,7 +278,7 @@ def create_execution_app(
         for identifier, (_, execution, _) in list(supervisor.records.items()):
             if execution.start["erasure_handle"] == handle:
                 await supervisor.cancel(identifier, execution.start["boot"], "SUBJECT_DELETED")
-                supervisor.records.pop(identifier, None)
+                supervisor.forget(identifier)
         return response("Acknowledgement", {"accepted": True}, request)
 
     async def shutdown(app):
@@ -287,6 +291,7 @@ def create_execution_app(
         [
             web.put("/internal/v1/executions/{execution_id}", start),
             web.get("/internal/v1/executions/{execution_id}", view),
+            web.get("/internal/v1/executions/{execution_id}/admission", admission),
             web.put("/internal/v1/executions/{execution_id}/commands/{command_id}", command),
             web.put("/internal/v1/executions/{execution_id}/cancellation", cancel),
             web.get("/internal/v1/runtime", runtime),

@@ -3,7 +3,7 @@
     "name": "first-round-natural-language",
     "message": {
       "schema_version": "intel.v1",
-      "contract_revision": "0.25",
+      "contract_revision": "0.26",
       "request_id": "request-start",
       "trace_context": {
         "trace_id": "local",
@@ -197,7 +197,7 @@
     "name": "missing-boot",
     "message": {
       "schema_version": "intel.v1",
-      "contract_revision": "0.25",
+      "contract_revision": "0.26",
       "request_id": "request-start",
       "trace_context": {
         "trace_id": "local",
@@ -387,7 +387,7 @@
     "name": "unknown-operation",
     "message": {
       "schema_version": "intel.v1",
-      "contract_revision": "0.25",
+      "contract_revision": "0.26",
       "request_id": "request-start",
       "trace_context": {
         "trace_id": "local",
@@ -581,7 +581,7 @@
     "name": "unknown-capability",
     "message": {
       "schema_version": "intel.v1",
-      "contract_revision": "0.25",
+      "contract_revision": "0.26",
       "request_id": "request-start",
       "trace_context": {
         "trace_id": "local",
@@ -777,7 +777,7 @@
     "name": "forged-digest",
     "message": {
       "schema_version": "intel.v1",
-      "contract_revision": "0.25",
+      "contract_revision": "0.26",
       "request_id": "request-start",
       "trace_context": {
         "trace_id": "local",
@@ -971,7 +971,7 @@
     "name": "forged-count-binding",
     "message": {
       "schema_version": "intel.v1",
-      "contract_revision": "0.25",
+      "contract_revision": "0.26",
       "request_id": "request-start",
       "trace_context": {
         "trace_id": "local",
@@ -1165,7 +1165,7 @@
     "name": "raw-text-in-continuation",
     "message": {
       "schema_version": "intel.v1",
-      "contract_revision": "0.25",
+      "contract_revision": "0.26",
       "request_id": "request-start",
       "trace_context": {
         "trace_id": "local",
@@ -1553,7 +1553,7 @@
     "name": "extra-sensitive-property",
     "message": {
       "schema_version": "intel.v1",
-      "contract_revision": "0.25",
+      "contract_revision": "0.26",
       "request_id": "request-start",
       "trace_context": {
         "trace_id": "local",
@@ -1748,7 +1748,7 @@
     "name": "RuntimeView",
     "message": {
       "schema_version": "intel.v1",
-      "contract_revision": "0.25",
+      "contract_revision": "0.26",
       "request_id": "request-RuntimeView",
       "trace_context": {
         "trace_id": "local",
@@ -1756,10 +1756,10 @@
       },
       "message_type": "RuntimeView",
       "payload": {
-        "boot_id": "fixture",
+        "boot_id": "python-1",
         "status": "READY",
-        "execution_id": null,
-        "foreground": false
+        "execution_capacity": 1,
+        "active": []
       }
     },
     "structural_valid": true,
@@ -1769,7 +1769,7 @@
     "name": "Error",
     "message": {
       "schema_version": "intel.v1",
-      "contract_revision": "0.25",
+      "contract_revision": "0.26",
       "request_id": "request-Error",
       "trace_context": {
         "trace_id": "local",
@@ -1789,7 +1789,7 @@
     "name": "UsageReceipt",
     "message": {
       "schema_version": "intel.v1",
-      "contract_revision": "0.25",
+      "contract_revision": "0.26",
       "request_id": "request-UsageReceipt",
       "trace_context": {
         "trace_id": "local",
@@ -1814,7 +1814,7 @@
     "name": "ReadAuthorization",
     "message": {
       "schema_version": "intel.v1",
-      "contract_revision": "0.25",
+      "contract_revision": "0.26",
       "request_id": "request-ReadAuthorization",
       "trace_context": {
         "trace_id": "local",
@@ -1835,7 +1835,7 @@
     "name": "ReadAuthorizationResult",
     "message": {
       "schema_version": "intel.v1",
-      "contract_revision": "0.25",
+      "contract_revision": "0.26",
       "request_id": "request-ReadAuthorizationResult",
       "trace_context": {
         "trace_id": "local",
@@ -1855,7 +1855,7 @@
     "name": "SourcePolicy",
     "message": {
       "schema_version": "intel.v1",
-      "contract_revision": "0.25",
+      "contract_revision": "0.26",
       "request_id": "request-SourcePolicy",
       "trace_context": {
         "trace_id": "local",
@@ -1883,7 +1883,7 @@
     "name": "Acknowledgement",
     "message": {
       "schema_version": "intel.v1",
-      "contract_revision": "0.25",
+      "contract_revision": "0.26",
       "request_id": "request-Acknowledgement",
       "trace_context": {
         "trace_id": "local",
@@ -1901,7 +1901,7 @@
     "name": "registered-reading",
     "message": {
       "schema_version": "intel.v1",
-      "contract_revision": "0.25",
+      "contract_revision": "0.26",
       "request_id": "request-read",
       "trace_context": {
         "trace_id": "local",
@@ -1938,7 +1938,7 @@
     "name": "continuation-snapshot",
     "message": {
       "schema_version": "intel.v1",
-      "contract_revision": "0.25",
+      "contract_revision": "0.26",
       "request_id": "request-continuation",
       "trace_context": {
         "trace_id": "local",
@@ -2514,7 +2514,7 @@
     "name": "continuation-forged-window",
     "message": {
       "schema_version": "intel.v1",
-      "contract_revision": "0.25",
+      "contract_revision": "0.26",
       "request_id": "request-continuation",
       "trace_context": {
         "trace_id": "local",
@@ -3090,7 +3090,7 @@
     "name": "SeedEvidenceState",
     "message": {
       "schema_version": "intel.v1",
-      "contract_revision": "0.25",
+      "contract_revision": "0.26",
       "request_id": "seed-fixture",
       "trace_context": {
         "trace_id": "local",
@@ -3140,7 +3140,7 @@
     "name": "SeedEvidenceUpdate",
     "message": {
       "schema_version": "intel.v1",
-      "contract_revision": "0.25",
+      "contract_revision": "0.26",
       "request_id": "seed-fixture",
       "trace_context": {
         "trace_id": "local",

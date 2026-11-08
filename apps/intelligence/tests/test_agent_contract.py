@@ -12,6 +12,7 @@ from auralis_intelligence.contracts import (
     digest,
     require_binding,
     schema,
+    validate_definition,
     validate_message,
 )
 from jsonschema import Draft202012Validator, FormatChecker
@@ -19,6 +20,21 @@ from jsonschema import Draft202012Validator, FormatChecker
 CASES = json.loads(
     (Path(__file__).parent / "fixtures/agent-contract-cases.json").read_text(encoding="utf-8")
 )
+INTEGRATION_CASES = json.loads(
+    (Path(__file__).parent / "fixtures/java-integration-cases.json").read_text(encoding="utf-8")
+)
+
+
+@pytest.mark.parametrize("case", INTEGRATION_CASES, ids=lambda case: case["name"])
+def test_java_integration_definitions(case):
+    document = {**schema(), "$ref": "#/$defs/" + case["definition"]}
+    validator = Draft202012Validator(document, format_checker=FormatChecker())
+    assert validator.is_valid(case["payload"]) == case["structural_valid"]
+    if case["semantic_valid"]:
+        validate_definition(case["definition"], case["payload"])
+    else:
+        with pytest.raises(ContractError):
+            validate_definition(case["definition"], case["payload"])
 
 
 @pytest.mark.parametrize("case", CASES, ids=lambda case: case["name"])
