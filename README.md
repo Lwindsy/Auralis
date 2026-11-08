@@ -8,6 +8,8 @@ Auralis aims to help you discover albums through genre preferences, favorite alb
 
 A standalone Python agent demo and an internal execution service are available. Java product integration and the browser application are still pending; there is no complete website release yet.
 
+The Java online bootstrap can be built with `mvn -f apps/backend/pom.xml verify` and started with `java -jar apps/backend/target/auralis-core-database-0.1.0-SNAPSHOT-online.jar`. It requires explicit `AURALIS_JDBC_URL`, `AURALIS_DATABASE_USER`, `AURALIS_DATABASE_PASSWORD`, `AURALIS_PRODUCT_ORIGIN`, `AURALIS_PYTHON_URL`, `AURALIS_SERVICE_TOKEN` and `AURALIS_CONTRACT_REVISION` environment variables. Use PostgreSQL 18 with the existing migrations applied by the offline CLI and a non-DDL runtime role. The service exposes liveness/readiness probes; product session APIs are not implemented yet.
+
 ## Agent development
 
 Use Python 3.10+ with the dependencies in [pyproject.toml](apps/intelligence/pyproject.toml). From the repository root, run the complete first-batch flow with synthetic models and pages and the local A-V2 implementation. This performs no paid requests.
