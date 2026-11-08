@@ -1,7 +1,7 @@
 """Read explicitly supplied recall snapshots and structured requests."""
 
-from dataclasses import fields
 import json
+from dataclasses import fields
 from pathlib import Path
 
 import numpy as np
@@ -58,16 +58,19 @@ def save_dataset(data: RecallDataset, path: Path, provenance: dict | None = None
     path.mkdir(parents=True, exist_ok=False)
     sparse.save_npz(path / "album_tags.npz", data.album_tags)
     sparse.save_npz(path / "interactions.npz", data.interactions)
-    write_json(path / "dataset.json", {
-        "format_version": 1,
-        "dataset_id": data.dataset_id,
-        "window": data.window,
-        "album_ids": list(data.album_ids),
-        "tag_ids": list(data.tag_ids),
-        "tag_parents": list(data.tag_parents),
-        "fingerprint": dataset_fingerprint(data),
-        "provenance": provenance or {},
-    })
+    write_json(
+        path / "dataset.json",
+        {
+            "format_version": 1,
+            "dataset_id": data.dataset_id,
+            "window": data.window,
+            "album_ids": list(data.album_ids),
+            "tag_ids": list(data.tag_ids),
+            "tag_parents": list(data.tag_parents),
+            "fingerprint": dataset_fingerprint(data),
+            "provenance": provenance or {},
+        },
+    )
 
 
 def load_dataset(path: Path) -> RecallDataset:
@@ -84,8 +87,15 @@ def load_dataset(path: Path) -> RecallDataset:
         # JSON is intended for small fixtures; real runs use sparse NPZ files.
         album_tags = sparse.csr_matrix(np.asarray(raw["album_tags"], dtype=float))
         interactions = sparse.csr_matrix(np.asarray(raw["interactions"], dtype=float))
-    data = RecallDataset(albums, tags, album_tags, interactions, raw["dataset_id"], raw["window"],
-                         tuple(tuple(pair) for pair in raw.get("tag_parents", [])))
+    data = RecallDataset(
+        albums,
+        tags,
+        album_tags,
+        interactions,
+        raw["dataset_id"],
+        raw["window"],
+        tuple(tuple(pair) for pair in raw.get("tag_parents", [])),
+    )
     validate_dataset(data)
     if path.is_dir() and raw.get("fingerprint") != dataset_fingerprint(data):
         raise ValueError("dataset fingerprint mismatch")

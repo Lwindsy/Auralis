@@ -1,7 +1,7 @@
 """Compute Java-only interval unions using an injectable monotonic clock."""
 
-from contextlib import contextmanager
 import time
+from contextlib import contextmanager
 from typing import Callable, Iterator
 
 
@@ -55,9 +55,20 @@ class AgentClock:
                 java_only += right - left
         wall = max(0, round((end - start) * 1000))
         blocked = max(0, round(java_only * 1000))
-        result = {"agent_wall_ms": wall, "java_blocked_ms": blocked, "agent_wait_ms": max(0, wall - blocked)}
+        result = {
+            "agent_wall_ms": wall,
+            "java_blocked_ms": blocked,
+            "agent_wait_ms": max(0, wall - blocked),
+        }
         for category in ("interpret", "recall", "candidate_validation"):
-            result[category + "_ms"] = round(sum(max(0, b - max(a, self.phase_floor)) if self.phase_floor is not None else b - a for kind, a, b in intervals if kind == category) * 1000)
+            result[category + "_ms"] = round(
+                sum(
+                    max(0, b - max(a, self.phase_floor)) if self.phase_floor is not None else b - a
+                    for kind, a, b in intervals
+                    if kind == category
+                )
+                * 1000
+            )
         return result
 
     def clear(self) -> None:

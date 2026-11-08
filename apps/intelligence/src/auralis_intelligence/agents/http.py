@@ -1,31 +1,65 @@
 """Loopback HTTP transport for execution and Java control ports."""
 
-from hashlib import sha256
 import hmac
 import ipaddress
 import json
+from hashlib import sha256
 from typing import Any, Callable
 from urllib.parse import quote, urlsplit
 from uuid import uuid4
 
-from aiohttp import web
 import httpx
-
+from aiohttp import web
 from auralis_intelligence.contracts import ContractError, envelope, validate_message
+
 from .ports import CallDenied, ControlPort, ControlUnavailable
 from .runtime import RoundSupervisor
 
-
 CONTROL_ROUTES = {
-    "preference-resolution": ("POST", "/executions/{execution_id}/preference-resolution", "PreferenceResolutionProposal", "EffectivePreferenceSnapshot"),
-    "candidate-validation": ("POST", "/executions/{execution_id}/candidate-validation", "RecallProposal", "CandidateBundle"),
-    "invocation-grants": ("POST", "/executions/{execution_id}/invocation-grants", "InvocationGrants", "GrantResults"),
-    "usage-receipt": ("PUT", "/invocations/{invocation_id}/usage-receipts/{receipt_id}", "UsageReceipt", "UsageSettlement"),
-    "read-authorization": ("POST", "/executions/{execution_id}/read-authorization", "ReadAuthorization", "ReadAuthorizationResult"),
-    "read-receipts": ("POST", "/executions/{execution_id}/read-receipts", "ReadReceipts", "ReadRegistrationResult"),
+    "preference-resolution": (
+        "POST",
+        "/executions/{execution_id}/preference-resolution",
+        "PreferenceResolutionProposal",
+        "EffectivePreferenceSnapshot",
+    ),
+    "candidate-validation": (
+        "POST",
+        "/executions/{execution_id}/candidate-validation",
+        "RecallProposal",
+        "CandidateBundle",
+    ),
+    "invocation-grants": (
+        "POST",
+        "/executions/{execution_id}/invocation-grants",
+        "InvocationGrants",
+        "GrantResults",
+    ),
+    "usage-receipt": (
+        "PUT",
+        "/invocations/{invocation_id}/usage-receipts/{receipt_id}",
+        "UsageReceipt",
+        "UsageSettlement",
+    ),
+    "read-authorization": (
+        "POST",
+        "/executions/{execution_id}/read-authorization",
+        "ReadAuthorization",
+        "ReadAuthorizationResult",
+    ),
+    "read-receipts": (
+        "POST",
+        "/executions/{execution_id}/read-receipts",
+        "ReadReceipts",
+        "ReadRegistrationResult",
+    ),
     "source-policy": ("GET", "/executions/{execution_id}/source-policy", None, "SourcePolicy"),
     "budget-state": ("GET", "/executions/{execution_id}/budget-state", None, "BudgetState"),
-    "delivery": ("PUT", "/executions/{execution_id}/deliveries/{delivery_id}", "Delivery", "DeliveryResult"),
+    "delivery": (
+        "PUT",
+        "/executions/{execution_id}/deliveries/{delivery_id}",
+        "Delivery",
+        "DeliveryResult",
+    ),
 }
 
 
@@ -36,19 +70,44 @@ class ControlHTTPClient:
             loopback = ipaddress.ip_address(parts.hostname or "").is_loopback
         except ValueError:
             loopback = False
-        if not loopback or parts.scheme != "http" or parts.username or parts.password or parts.query or parts.fragment or not token:
+        if (
+            not loopback
+            or parts.scheme != "http"
+            or parts.username
+            or parts.password
+            or parts.query
+            or parts.fragment
+            or not token
+        ):
             raise ValueError("LOOPBACK_CONTROL_CONFIGURATION_REQUIRED")
-        self.client = httpx.AsyncClient(base_url=base_url.rstrip("/") + "/", headers={"Authorization": "Bearer " + token, "X-Auralis-Audience": "coordinator"},
-                                        transport=httpx.AsyncHTTPTransport(retries=0), trust_env=False, follow_redirects=False, timeout=timeout_seconds)
+        self.client = httpx.AsyncClient(
+            base_url=base_url.rstrip("/") + "/",
+            headers={"Authorization": "Bearer " + token, "X-Auralis-Audience": "coordinator"},
+            transport=httpx.AsyncHTTPTransport(retries=0),
+            trust_env=False,
+            follow_redirects=False,
+            timeout=timeout_seconds,
+        )
 
-    async def request(self, execution_id: str, operation: str, payload: dict[str, Any]) -> dict[str, Any]:
+    async def request(
+        self, execution_id: str, operation: str, payload: dict[str, Any]
+    ) -> dict[str, Any]:
         method, path, request_type, result_type = CONTROL_ROUTES[operation]
-        identifiers = {"execution_id": quote(execution_id, safe=""), **{key: quote(str(payload[key]), safe="") for key in ("invocation_id", "receipt_id", "delivery_id") if key in payload}}
+        identifiers = {
+            "execution_id": quote(execution_id, safe=""),
+            **{
+                key: quote(str(payload[key]), safe="")
+                for key in ("invocation_id", "receipt_id", "delivery_id")
+                if key in payload
+            },
+        }
         path = "internal/v1" + path.format(**identifiers)
         request_id = uuid4().hex
         message = envelope(request_type, payload, request_id) if request_type else None
         try:
-            response = await self.client.request(method, path, json=message if request_type else None)
+            response = await self.client.request(
+                method, path, json=message if request_type else None
+            )
         except httpx.HTTPError as error:
             raise ControlUnavailable("CONTROL_UNAVAILABLE") from error
         try:
@@ -71,14 +130,35 @@ class ControlHTTPClient:
 
 
 def _error(code: str, request_id: str):
-    mapping = {"EXECUTOR_BUSY": (409, "WAIT_FOR_SLOT"), "IDEMPOTENCY_CONFLICT": (409, "NEW_EXPLICIT_INTENT"),
-               "EXECUTION_GONE": (410, "STOP_OLD_EXECUTION"), "STALE_BOOT": (409, "STOP_OLD_EXECUTION"),
-               "MAINTENANCE": (503, "WAIT_FOR_MAINTENANCE"), "UNAUTHENTICATED": (401, "STOP"), "FORBIDDEN": (403, "STOP"),
-               "BINDING_MISMATCH": (409, "STOP_OLD_EXECUTION"), "SUBJECT_REVOKED": (410, "CANCEL_AND_PURGE"),
-               "DEADLINE_EXCEEDED": (410, "FINALIZE"), "DEPENDENCY_UNAVAILABLE": (503, "READ_STATUS_OR_SAFE_RETRY")}
+    mapping = {
+        "EXECUTOR_BUSY": (409, "WAIT_FOR_SLOT"),
+        "IDEMPOTENCY_CONFLICT": (409, "NEW_EXPLICIT_INTENT"),
+        "EXECUTION_GONE": (410, "STOP_OLD_EXECUTION"),
+        "STALE_BOOT": (409, "STOP_OLD_EXECUTION"),
+        "MAINTENANCE": (503, "WAIT_FOR_MAINTENANCE"),
+        "UNAUTHENTICATED": (401, "STOP"),
+        "FORBIDDEN": (403, "STOP"),
+        "BINDING_MISMATCH": (409, "STOP_OLD_EXECUTION"),
+        "SUBJECT_REVOKED": (410, "CANCEL_AND_PURGE"),
+        "DEADLINE_EXCEEDED": (410, "FINALIZE"),
+        "DEPENDENCY_UNAVAILABLE": (503, "READ_STATUS_OR_SAFE_RETRY"),
+    }
     status, retry = mapping.get(code, (400, "FIX_INPUT"))
-    safe_code = code if code in mapping or code in {"INVALID_PAYLOAD", "POLICY_OUT_OF_RANGE", "UNKNOWN_CAPABILITY"} else "INVALID_PAYLOAD"
-    return web.json_response(envelope("Error", {"code": safe_code, "retry_disposition": retry, "reason": safe_code.lower()}, request_id), status=status, headers={"Cache-Control": "no-store"})
+    safe_code = (
+        code
+        if code in mapping
+        or code in {"INVALID_PAYLOAD", "POLICY_OUT_OF_RANGE", "UNKNOWN_CAPABILITY"}
+        else "INVALID_PAYLOAD"
+    )
+    return web.json_response(
+        envelope(
+            "Error",
+            {"code": safe_code, "retry_disposition": retry, "reason": safe_code.lower()},
+            request_id,
+        ),
+        status=status,
+        headers={"Cache-Control": "no-store"},
+    )
 
 
 def service_middleware(token: str, audience: str):
@@ -100,6 +180,7 @@ def service_middleware(token: str, audience: str):
             return _error("DEPENDENCY_UNAVAILABLE", request["request_id"])
         except Exception:
             return _error("DEPENDENCY_UNAVAILABLE", request["request_id"])
+
     return boundary
 
 
@@ -112,13 +193,27 @@ async def read_message(request: web.Request, expected: str) -> dict[str, Any]:
     return message["payload"]
 
 
-def create_execution_app(supervisor: RoundSupervisor, control: ControlPort, factory: Callable, *, token: str,
-                         prepare: Callable | None = None) -> web.Application:
+def create_execution_app(
+    supervisor: RoundSupervisor,
+    control: ControlPort,
+    factory: Callable,
+    *,
+    token: str,
+    prepare: Callable | None = None,
+) -> web.Application:
     if not token:
         raise ValueError("SERVICE_TOKEN_REQUIRED")
-    app = web.Application(middlewares=[service_middleware(token, "intelligence")], client_max_size=4 * 1024 * 1024)
+    app = web.Application(
+        middlewares=[service_middleware(token, "intelligence")], client_max_size=4 * 1024 * 1024
+    )
     erased = set()
-    response = lambda kind, payload, request, status=200: web.json_response(envelope(kind, payload, request["request_id"]), status=status, headers={"Cache-Control": "no-store"})
+
+    def response(kind, payload, request, status=200):
+        return web.json_response(
+            envelope(kind, payload, request["request_id"]),
+            status=status,
+            headers={"Cache-Control": "no-store"},
+        )
 
     async def start(request):
         payload = await read_message(request, "RoundStart")
@@ -148,12 +243,23 @@ def create_execution_app(supervisor: RoundSupervisor, control: ControlPort, fact
 
     async def cancel(request):
         payload = await read_message(request, "Cancellation")
-        result = await supervisor.cancel(request.match_info["execution_id"], payload["boot"], payload["reason"])
+        result = await supervisor.cancel(
+            request.match_info["execution_id"], payload["boot"], payload["reason"]
+        )
         return response("ExecutionView", result, request)
 
     async def runtime(request):
         active = supervisor.active
-        return response("RuntimeView", {"boot_id": supervisor.boot_id, "status": "MAINTENANCE" if supervisor.maintenance else "READY", "execution_id": active.id if active else None, "foreground": active.foreground if active else False}, request)
+        return response(
+            "RuntimeView",
+            {
+                "boot_id": supervisor.boot_id,
+                "status": "MAINTENANCE" if supervisor.maintenance else "READY",
+                "execution_id": active.id if active else None,
+                "foreground": active.foreground if active else False,
+            },
+            request,
+        )
 
     async def erase(request):
         await read_message(request, "Erasure")
@@ -169,30 +275,50 @@ def create_execution_app(supervisor: RoundSupervisor, control: ControlPort, fact
         if supervisor.active is not None:
             execution = supervisor.active
             await supervisor.cancel(execution.id, execution.start["boot"], "USER_CANCELLED")
+
     app.on_shutdown.append(shutdown)
-    app.add_routes([web.put("/internal/v1/executions/{execution_id}", start), web.get("/internal/v1/executions/{execution_id}", view),
-                    web.put("/internal/v1/executions/{execution_id}/commands/{command_id}", command), web.put("/internal/v1/executions/{execution_id}/cancellation", cancel),
-                    web.get("/internal/v1/runtime", runtime), web.put("/internal/v1/erasures/{erasure_handle}", erase)])
+    app.add_routes(
+        [
+            web.put("/internal/v1/executions/{execution_id}", start),
+            web.get("/internal/v1/executions/{execution_id}", view),
+            web.put("/internal/v1/executions/{execution_id}/commands/{command_id}", command),
+            web.put("/internal/v1/executions/{execution_id}/cancellation", cancel),
+            web.get("/internal/v1/runtime", runtime),
+            web.put("/internal/v1/erasures/{erasure_handle}", erase),
+        ]
+    )
     return app
 
 
 def create_control_double_app(control, *, token: str) -> web.Application:
     """Test server for the actual HTTP client; not a Java product service."""
-    app = web.Application(middlewares=[service_middleware(token, "coordinator")], client_max_size=4 * 1024 * 1024)
+    app = web.Application(
+        middlewares=[service_middleware(token, "coordinator")], client_max_size=4 * 1024 * 1024
+    )
     for operation, (method, path, request_type, result_type) in CONTROL_ROUTES.items():
-        async def handler(request, operation=operation, request_type=request_type, result_type=result_type):
+
+        async def handler(
+            request, operation=operation, request_type=request_type, result_type=result_type
+        ):
             payload = await read_message(request, request_type) if request_type else {}
             execution_id = request.match_info.get("execution_id")
             if operation == "usage-receipt":
-                if any(payload[key] != request.match_info[key] for key in ("invocation_id", "receipt_id")):
+                if any(
+                    payload[key] != request.match_info[key]
+                    for key in ("invocation_id", "receipt_id")
+                ):
                     raise ContractError("BINDING_MISMATCH")
                 invocation = control.invocations.get(payload["invocation_id"])
                 if invocation is None:
                     raise ContractError("BINDING_MISMATCH")
                 execution_id = invocation["execution_id"]
-            if operation == "delivery" and payload["delivery_id"] != request.match_info["delivery_id"]:
+            if (
+                operation == "delivery"
+                and payload["delivery_id"] != request.match_info["delivery_id"]
+            ):
                 raise ContractError("BINDING_MISMATCH")
             result = await control.request(execution_id, operation, payload)
             return web.json_response(envelope(result_type, result, request["request_id"]))
+
         app.router.add_route(method, "/internal/v1" + path, handler)
     return app

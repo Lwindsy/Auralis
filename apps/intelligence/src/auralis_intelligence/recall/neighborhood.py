@@ -1,8 +1,8 @@
 """Sparse listener-neighborhood and direct-genre candidate retrieval."""
 
-from dataclasses import asdict, dataclass
 import json
 import math
+from dataclasses import asdict, dataclass
 from pathlib import Path
 
 import numpy as np
@@ -26,7 +26,11 @@ class NeighborhoodConfig:
 class NeighborhoodModel:
     name = "neighborhood"
 
-    def __init__(self, config: NeighborhoodConfig = NeighborhoodConfig(), weights: WeightConfig = WeightConfig()):
+    def __init__(
+        self,
+        config: NeighborhoodConfig = NeighborhoodConfig(),
+        weights: WeightConfig = WeightConfig(),
+    ):
         self.config = config
         self.weights = weights
         self.data: RecallDataset | None = None
@@ -35,13 +39,20 @@ class NeighborhoodModel:
     def _validate_config(self) -> None:
         for name in ("shrinkage", "max_fraction", "tag_fraction", "rrf_constant", "count_cap"):
             value = getattr(self.config, name)
-            if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value < 0:
+            if (
+                isinstance(value, bool)
+                or not isinstance(value, (int, float))
+                or not math.isfinite(value)
+                or value < 0
+            ):
                 raise ValueError(f"invalid {name}")
         if self.config.max_fraction > 1 or self.config.tag_fraction > 1:
             raise ValueError("fractions must be between zero and one")
         if self.config.count_cap == 0:
             raise ValueError("count_cap must be positive")
-        if not isinstance(self.config.use_counts, bool) or not isinstance(self.config.activity_correction, bool):
+        if not isinstance(self.config.use_counts, bool) or not isinstance(
+            self.config.activity_correction, bool
+        ):
             raise ValueError("count/activity options must be boolean")
         weighted_preferences((), self.weights)
 
@@ -51,9 +62,17 @@ class NeighborhoodModel:
         positive.data[:] = 1.0
         self._binary = positive.tocsc()
         counts = data.interactions.copy()
-        counts.data = np.log1p(np.minimum(counts.data, self.config.count_cap)) if self.config.use_counts else np.ones_like(counts.data)
+        counts.data = (
+            np.log1p(np.minimum(counts.data, self.config.count_cap))
+            if self.config.use_counts
+            else np.ones_like(counts.data)
+        )
         activity = np.asarray(positive.getnnz(axis=1)).ravel()
-        correction = 1.0 / np.log(2.0 + activity) if self.config.activity_correction else np.ones(len(activity))
+        correction = (
+            1.0 / np.log(2.0 + activity)
+            if self.config.activity_correction
+            else np.ones(len(activity))
+        )
         weighted = sparse.diags(np.sqrt(correction)) @ counts
         norms = np.sqrt(np.asarray(weighted.power(2).sum(axis=0)).ravel())
         inverse = np.divide(1.0, norms, out=np.zeros_like(norms), where=norms > 0)
@@ -62,14 +81,18 @@ class NeighborhoodModel:
         self._idf = np.log((1.0 + len(data.album_ids)) / (1.0 + frequencies)) + 1.0
         genre = data.album_tags.multiply(self._idf).tocsr()
         genre_norm = np.sqrt(np.asarray(genre.power(2).sum(axis=1)).ravel())
-        inverse_genre = np.divide(1.0, genre_norm, out=np.zeros_like(genre_norm), where=genre_norm > 0)
+        inverse_genre = np.divide(
+            1.0, genre_norm, out=np.zeros_like(genre_norm), where=genre_norm > 0
+        )
         self._genre = (sparse.diags(inverse_genre) @ genre).tocsr()
         self.data = data
         # Stable ID order makes numeric stable-sort tie breaking identical to the old tuple sort.
         self._id_order = np.argsort(np.asarray(data.album_ids))
         return self
 
-    def _tag_query(self, request: RecallRequest, seeds: dict[int, float], tags: dict[int, float]) -> np.ndarray:
+    def _tag_query(
+        self, request: RecallRequest, seeds: dict[int, float], tags: dict[int, float]
+    ) -> np.ndarray:
         data = self.data
         assert data is not None
         # Seed labels are a recall hint, not inherited per-album musical facts.
@@ -81,7 +104,11 @@ class NeighborhoodModel:
                 derived[key] = derived.get(key, 0.0) + weight / max(1, len(row.indices))
         seed_tags: dict[int, float] = {}
         if derived:
-            proxy = RecallRequest(limit=request.limit, tags=tuple(Preference(key, weight=value) for key, value in derived.items()), mode=request.mode)
+            proxy = RecallRequest(
+                limit=request.limit,
+                tags=tuple(Preference(key, weight=value) for key, value in derived.items()),
+                mode=request.mode,
+            )
             _, seed_tags = query_weights(data, proxy, self.weights)
         result = np.zeros(len(data.tag_ids), dtype=np.float64)
         for channel in (tags, seed_tags):
@@ -113,7 +140,9 @@ class NeighborhoodModel:
             similarity = (self._normalized.T @ self._normalized[:, index]).toarray().ravel()
             common = (self._binary.T @ self._binary[:, index]).toarray().ravel()
             denominator = common + self.config.shrinkage
-            shrink = np.divide(common, denominator, out=np.zeros_like(common), where=denominator > 0)
+            shrink = np.divide(
+                common, denominator, out=np.zeros_like(common), where=denominator > 0
+            )
             similarity *= shrink
             mean += (weight / seed_mass) * similarity
             maximum = np.maximum(maximum, (weight / strongest) * similarity)
@@ -124,9 +153,11 @@ class NeighborhoodModel:
         mass = 0.0
         # Split only the seed channel between behavior and inherited genre;
         # explicit tags retain their independently weighted input mass.
-        channels = ((neighbor, (1.0 - self.config.tag_fraction) * seed_mass),
-                    (inherited_genre, self.config.tag_fraction * seed_mass),
-                    (explicit_genre, tag_mass))
+        channels = (
+            (neighbor, (1.0 - self.config.tag_fraction) * seed_mass),
+            (inherited_genre, self.config.tag_fraction * seed_mass),
+            (explicit_genre, tag_mass),
+        )
         for scores, fraction in channels:
             if fraction > 0 and np.any(scores > 0):
                 result += fraction * self._reciprocal_ranks(scores)
@@ -141,8 +172,13 @@ class NeighborhoodModel:
             raise RuntimeError("model must be fitted before saving")
         path = Path(path)
         path.mkdir(parents=True, exist_ok=True)
-        payload = {"format_version": 1, "algorithm": self.name, "config": asdict(self.config),
-                   "weights": asdict(self.weights), "dataset_fingerprint": dataset_fingerprint(self.data)}
+        payload = {
+            "format_version": 1,
+            "algorithm": self.name,
+            "config": asdict(self.config),
+            "weights": asdict(self.weights),
+            "dataset_fingerprint": dataset_fingerprint(self.data),
+        }
         (path / "model.json").write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
     @classmethod
@@ -153,4 +189,6 @@ class NeighborhoodModel:
             raise ValueError("unsupported neighborhood artifact")
         if payload.get("dataset_fingerprint") != dataset_fingerprint(data):
             raise ValueError("artifact dataset does not match")
-        return cls(NeighborhoodConfig(**payload["config"]), WeightConfig(**payload["weights"])).fit(data)
+        return cls(NeighborhoodConfig(**payload["config"]), WeightConfig(**payload["weights"])).fit(
+            data
+        )

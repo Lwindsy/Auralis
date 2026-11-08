@@ -6,7 +6,6 @@ No raw user text, database credentials, or final recommendation objects.
 """
 
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Literal, Protocol
 
 import numpy as np

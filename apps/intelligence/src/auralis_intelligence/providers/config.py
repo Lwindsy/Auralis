@@ -4,12 +4,19 @@ import json
 from pathlib import Path
 
 from auralis_intelligence.contracts import validate_definition
+
 from .types import ModelBinding
 
 
 def load_bindings(path: str | Path) -> dict[str, ModelBinding]:
     raw = json.loads(Path(path).read_text(encoding="utf-8"))
-    if not {"interpret", "screen", "select", "write"}.issubset(raw) or set(raw) - {"interpret", "screen", "select", "write", "long_write"}:
+    if not {"interpret", "screen", "select", "write"}.issubset(raw) or set(raw) - {
+        "interpret",
+        "screen",
+        "select",
+        "write",
+        "long_write",
+    }:
         raise ValueError("FOUR_MODEL_ROLES_REQUIRED")
     bindings = {}
     for value in raw.values():

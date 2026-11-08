@@ -1,13 +1,11 @@
 import json
 import os
-from pathlib import Path
 import subprocess
 import sys
+from pathlib import Path
 
 import pytest
-
 from auralis_intelligence.recall import Preference, RecallRequest, WeightConfig, load_a_v2
-
 
 APP = Path(__file__).resolve().parents[1]
 FIXTURES = APP / "tests" / "fixtures"
@@ -25,7 +23,9 @@ def test_a_v2_excludes_seeds_and_filters_before_limiting(engine):
     assert [item.album_id for item in result.candidates] == ["a1", "a2"]
     assert result.algorithm == "A-V2"
 
-    filtered = engine.recall(RecallRequest(limit=2, seeds=request.seeds, forbidden_tags=("electronic",)))
+    filtered = engine.recall(
+        RecallRequest(limit=2, seeds=request.seeds, forbidden_tags=("electronic",))
+    )
     assert [item.album_id for item in filtered.candidates] == ["a1"]
     assert filtered.reason == "insufficient_candidates"
     assert filtered.returned_count == 1
@@ -46,9 +46,23 @@ def test_negative_only_returns_controlled_empty_result(engine):
 def invoke(request):
     env = {**os.environ, "PYTHONPATH": str(APP / "src")}
     return subprocess.run(
-        [sys.executable, "-m", "auralis_intelligence.recall", "--snapshot", str(SNAPSHOT),
-         "--request", str(request), "--special-weight", "2", "--focus-weight", "2"],
-        env=env, capture_output=True, text=True, timeout=30,
+        [
+            sys.executable,
+            "-m",
+            "auralis_intelligence.recall",
+            "--snapshot",
+            str(SNAPSHOT),
+            "--request",
+            str(request),
+            "--special-weight",
+            "2",
+            "--focus-weight",
+            "2",
+        ],
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=30,
     )
 
 
@@ -56,17 +70,25 @@ def test_subprocess_serializes_result():
     run = invoke(FIXTURES / "request.json")
     assert run.returncode == 0, run.stderr
     assert json.loads(run.stdout) == {
-        "format_version": 1, "algorithm": "A-V2", "dataset_id": "synthetic-code-check-v1",
-        "window": "synthetic", "requested_count": 2, "returned_count": 2,
-        "reason": "complete", "candidate_ids": ["a1", "a2"],
+        "format_version": 1,
+        "algorithm": "A-V2",
+        "dataset_id": "synthetic-code-check-v1",
+        "window": "synthetic",
+        "requested_count": 2,
+        "returned_count": 2,
+        "reason": "complete",
+        "candidate_ids": ["a1", "a2"],
     }
 
 
-@pytest.mark.parametrize("request_body", [
-    {"seeds": [{"id": "a0"}]},
-    {"limit": 2, "seeds": [{"id": "missing"}]},
-    {"limit": 2, "text": "raw text"},
-])
+@pytest.mark.parametrize(
+    "request_body",
+    [
+        {"seeds": [{"id": "a0"}]},
+        {"limit": 2, "seeds": [{"id": "missing"}]},
+        {"limit": 2, "text": "raw text"},
+    ],
+)
 def test_bad_request_does_not_emit_candidates(request_body, tmp_path):
     request = tmp_path / "request.json"
     request.write_text(json.dumps(request_body), encoding="utf-8")

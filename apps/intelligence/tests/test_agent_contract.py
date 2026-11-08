@@ -1,19 +1,24 @@
 """Consumer-shaped wire fixtures, binding and duplicate semantics (T-07/12/28)."""
 
-from copy import deepcopy
 import json
+from copy import deepcopy
 from pathlib import Path
 
-from jsonschema import Draft202012Validator, FormatChecker
 import pytest
-
 from auralis_intelligence.contracts import (
-    ContractError, IdempotencyLedger, content_digest, digest, require_binding,
-    schema, validate_message,
+    ContractError,
+    IdempotencyLedger,
+    content_digest,
+    digest,
+    require_binding,
+    schema,
+    validate_message,
 )
+from jsonschema import Draft202012Validator, FormatChecker
 
-
-CASES = json.loads((Path(__file__).parent / "fixtures/agent-contract-cases.json").read_text(encoding="utf-8"))
+CASES = json.loads(
+    (Path(__file__).parent / "fixtures/agent-contract-cases.json").read_text(encoding="utf-8")
+)
 
 
 @pytest.mark.parametrize("case", CASES, ids=lambda case: case["name"])

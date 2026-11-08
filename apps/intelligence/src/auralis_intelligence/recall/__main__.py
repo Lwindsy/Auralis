@@ -2,8 +2,8 @@
 
 import argparse
 import json
-from pathlib import Path
 import sys
+from pathlib import Path
 
 from . import WeightConfig, load_a_v2, load_c_v0
 from .io import load_request
@@ -30,16 +30,21 @@ def main() -> int:
         print(f"Recall failed: {exc}", file=sys.stderr)
         return 2
 
-    print(json.dumps({
-        "format_version": 1,
-        "algorithm": result.algorithm,
-        "dataset_id": result.dataset_id,
-        "window": result.window,
-        "requested_count": result.requested_count,
-        "returned_count": result.returned_count,
-        "reason": result.reason,
-        "candidate_ids": [item.album_id for item in result.candidates],
-    }, allow_nan=False))
+    print(
+        json.dumps(
+            {
+                "format_version": 1,
+                "algorithm": result.algorithm,
+                "dataset_id": result.dataset_id,
+                "window": result.window,
+                "requested_count": result.requested_count,
+                "returned_count": result.returned_count,
+                "reason": result.reason,
+                "candidate_ids": [item.album_id for item in result.candidates],
+            },
+            allow_nan=False,
+        )
+    )
     return 0
 
 
