@@ -71,7 +71,7 @@ class PreferenceAuthorityIT {
         properties.put("auralis.product-origin", "http://127.0.0.1:8080");
         properties.put("auralis.python-url", "http://127.0.0.1:1");
         properties.put("auralis.service-token", "be008-service-synthetic-token-123456789");
-        properties.put("auralis.contract-revision", "0.28");
+        properties.put("auralis.contract-revision", "0.29");
         properties.put(
                 "auralis.subject-secret",
                 "be008-test-subject-secret-abcdefghijklmnopqrstuvwxyz0123456789");

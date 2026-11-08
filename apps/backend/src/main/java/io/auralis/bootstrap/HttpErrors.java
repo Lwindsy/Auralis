@@ -42,10 +42,13 @@ public final class HttpErrors implements ErrorController {
             body.put("code", code);
             body.put("request_id", id);
             body.put("message_key", code);
-            body.put("retryable", false);
+            boolean catalogRetry =
+                    code.startsWith("CATALOG_")
+                            && (status == 429 || status == 503 || status == 504);
+            body.put("retryable", catalogRetry);
             body.put("idempotency_consumed", false);
             body.put("current_revision", null);
-            body.put("retry_disposition", "STOP");
+            body.put("retry_disposition", catalogRetry ? "RETRY_SAME_KEY" : "STOP");
         }
         mapper.writeValue(response.getOutputStream(), body);
     }

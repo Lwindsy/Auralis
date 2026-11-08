@@ -12,7 +12,7 @@ Java在线底座使用`mvn -f apps/backend/pom.xml verify`构建，再运行`jav
 
 ## 匿名会话
 
-通过`AURALIS_SUBJECT_SECRET`提供独立的安全随机签名密钥，至少43位URL-safe字符；普通重启保持一致，与数据库备份分开保存。HTTPS使用Secure／HttpOnly／SameSite=Lax Cookie；本地loopback HTTP必须显式设置`AURALIS_ALLOW_INSECURE_COOKIE=true`。内部协议配置须匹配打包的Schema（当前0.28）。
+通过`AURALIS_SUBJECT_SECRET`提供独立的安全随机签名密钥，至少43位URL-safe字符；普通重启保持一致，与数据库备份分开保存。HTTPS使用Secure／HttpOnly／SameSite=Lax Cookie；本地loopback HTTP必须显式设置`AURALIS_ALLOW_INSECURE_COOKIE=true`。内部协议配置须匹配打包的Schema（当前0.29）。
 
 `POST /v1/bootstrap`只接受配置同源的空JSON对象，返回CSRF令牌和可恢复状态。`GET /v1/current-state`及`GET /v1/discovery-sessions/{session_id}`核验凭证归属，读取不续期。成功的主动操作将当前过程保留固定30天；过期凭证通过bootstrap自动得到新的空白身份。应用生命周期端口支持修改需求、已听过与删除，正式推荐命令仍待后续集成。
 
@@ -61,3 +61,9 @@ python -m auralis_intelligence.recall --snapshot apps/intelligence/tests/fixture
 - 选择熟悉、拓展或惊喜，查看封面、艺人、主要风格、推出年份和短评，按需打开详细乐评。
 - “已听过”与“来张新的”分别提供单卡补位；可以整组换批，或在当前页编辑预填需求。空位补充中保留其他卡片，完成后自动填入。
 - 结果不足按实际数量展示；零结果或失败均提供重新输入按钮，保留原输入供修改。
+
+## 完整目录搜索
+
+Java目录接口通过本地只读Lucene索引搜索完整MusicBrainz作品组快照，支持专辑、艺人署名和别名；不会把召回核心子集当成完整目录。启动时用`AURALIS_CATALOG_SEARCH_INDEX`和`AURALIS_CATALOG_SEARCH_MANIFEST_SHA256`提供离线核验索引及对应候选manifest摘要。未配置时目录返回503；错误索引拒绝启动。
+
+匿名bootstrap后可读取`/v1/catalog/albums?query=...`、`/v1/catalog/albums/{mb_release_group_id}`和`/v1/genres`；GET不续期，未知作品与无匹配分别处理。库外作品可选择，只有已核验可用信息进入召回；封面暂用占位。索引由离线`io.auralis.catalog.adapters.CatalogIndexBuild`从完整候选导入，输入目录、全新输出目录和manifest摘要必须显式提供。更新在维护窗口换路径及摘要后重启，失败恢复旧完整索引；没有在线下载或远端回退。目录能力已实现，完整推荐API与网站仍需后续集成。
