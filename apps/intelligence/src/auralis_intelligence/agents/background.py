@@ -10,7 +10,6 @@ from auralis_intelligence.contracts import (
     digest,
     validate_definition,
 )
-from auralis_intelligence.providers.web import policy_permits
 from auralis_intelligence.ranking import SelectionResult
 
 from .pipeline import FirstBatchPipeline, RoundWork, utc_now
@@ -21,7 +20,6 @@ from .runtime import Execution
 class RoundPipeline(FirstBatchPipeline):
     async def __call__(self, execution: Execution) -> None:
         execution.report_builder = self.report
-        execution.policy_handler = self.policy_update
         try:
             await execution.refresh_budget()
             if execution.start["start_mode"] == "CONTINUE":
@@ -99,7 +97,6 @@ class RoundPipeline(FirstBatchPipeline):
                 else row["long_review_state"]
             )
         execution.phase = "FOREGROUND" if start["foreground"] else "BACKGROUND"
-        self.policy_update(execution, start["source_policy"])
         return work
 
     async def finish(self, execution: Execution, work: RoundWork) -> None:
@@ -279,8 +276,6 @@ class RoundPipeline(FirstBatchPipeline):
                         state = await execution.refresh_budget()
                         execution.start["budget"]["limits"]["lane_caps"] = state["lane_caps"]
                         blocked = None
-                    elif kind == "SOURCE_POLICY_UPDATE":
-                        self.policy_update(execution, execution.start["source_policy"])
                     elif kind == "PRIORITIZE_LONG_REVIEW":
                         execution.prioritize_long(payload["candidate_id"])
                     elif kind == "CLOSE":
@@ -733,31 +728,6 @@ class RoundPipeline(FirstBatchPipeline):
             work.heard.update(display["heard_candidate_ids"])
             work.ready_unshown = set(display["ready_unshown_ids"])
             work.user_waiting = display["user_waiting"]
-
-    @staticmethod
-    def policy_update(execution, policy):
-        work = execution.work
-        for identifier, dossier in execution.dossiers.items():
-            revoked = set()
-            for record in getattr(dossier, "reads", []):
-                url = record.result.receipt.get("final_url")
-                if url and (
-                    not policy_permits(policy, url, "AI_PROCESS")
-                    or not policy_permits(policy, url, "STORE_LOCATOR")
-                ):
-                    revoked.add(record.result.receipt["read_id"])
-                    record.clear()
-            for reference in work.read_refs.get(identifier, []) if work else []:
-                if not policy_permits(policy, reference["url"], "AI_PROCESS") or not policy_permits(
-                    policy, reference["url"], "STORE_LOCATOR"
-                ):
-                    revoked.add(reference["read_id"])
-            if revoked and dossier.screening:
-                execution.reject_reads(revoked)
-                if work:
-                    work.cards.pop(identifier, None)
-                    work.existing_ready.discard(identifier)
-                    work.ready_unshown.discard(identifier)
 
     def report(self, execution):
         work = execution.work

@@ -236,9 +236,7 @@ def test_unknown_usage_is_null_and_search_locations_are_not_read_receipts():
 def web_execution():
     request = start()
     request["capabilities"] = ["web_read.v1", "web_search.v1"]
-    request["source_policy"]["guards"].update(
-        max_bytes=10000, read_timeout_ms=1000, max_redirects=2
-    )
+    request["web_guards"].update(max_bytes=10000, read_timeout_ms=1000, max_redirects=2)
     request["model_bindings"]["screen"] = BINDING.wire()
     request["payload_digest"] = content_digest(request)
     _, control = setup(request)
@@ -369,10 +367,6 @@ def test_resolver_validates_addresses_used_for_connection_not_a_preflight_lookup
     [
         "private_redirect",
         "oversize",
-        "no_permission",
-        "no_locator_permission",
-        "expired",
-        "revoked_during_read",
     ],
 )
 def test_web_guards_prevent_unapproved_content_use(kind):
@@ -383,40 +377,16 @@ def test_web_guards_prevent_unapproved_content_use(kind):
             replies[0] = FetchResponse(302, {"location": "https://127.0.0.1/private"}, b"")
         if kind == "oversize":
             replies[0] = FetchResponse(200, {"content-type": "text/plain"}, b"x" * 10001)
-        if kind == "no_permission":
-            control.policy["rules"][0]["decision"] = "DENY"
-        if kind == "no_locator_permission":
-            control.policy["rules"][0]["uses"].remove("STORE_LOCATOR")
-        if kind == "expired":
-            control.policy["valid_until"] = "2000-01-01T00:00:00Z"
         fetcher = FakeFetcher(replies)
-        if kind == "revoked_during_read":
-            original = fetcher.fetch
-
-            async def revoke(*args):
-                control.policy["rules"][0]["decision"] = "DENY"
-                return await original(*args)
-
-            fetcher.fetch = revoke
         tool = ToolGateway(fetcher)
-        if kind == "expired":
-            with pytest.raises(CallDenied, match="SOURCE_POLICY_EXPIRED"):
-                await tool.read(
-                    execution,
-                    candidate_id="album-1",
-                    url="https://one.example/a",
-                    title="Album",
-                    artist="Artist",
-                )
-        else:
-            result = await tool.read(
-                execution,
-                candidate_id="album-1",
-                url="https://one.example/a",
-                title="Album",
-                artist="Artist",
-            )
-            assert not result.text and result.receipt["status"] != "READ_OK"
+        result = await tool.read(
+            execution,
+            candidate_id="album-1",
+            url="https://one.example/a",
+            title="Album",
+            artist="Artist",
+        )
+        assert not result.text and result.receipt["status"] != "READ_OK"
         assert not control.reads
         if kind in {"no_permission", "expired"}:
             assert not fetcher.urls
@@ -429,7 +399,7 @@ def test_web_guards_prevent_unapproved_content_use(kind):
 def test_web_timeout_and_cancel_release_resources(cancel):
     async def run():
         execution, control = web_execution()
-        control.policy["guards"]["read_timeout_ms"] = 1000 if cancel else 10
+        execution.start["web_guards"]["read_timeout_ms"] = 1000 if cancel else 10
         began, closed = asyncio.Event(), asyncio.Event()
 
         class Fetcher:
@@ -505,7 +475,7 @@ def test_model_timeout_on_supported_python_310_is_uncertain_and_closed():
     asyncio.run(run())
 
 
-def test_search_policy_change_between_snapshot_and_grant_prevents_dispatch():
+def test_search_does_not_require_source_license_lookup():
     from auralis_intelligence.providers.testing import ScriptedModelAdapter, StaticSearchAdapter
 
     async def run():
@@ -520,19 +490,11 @@ def test_search_policy_change_between_snapshot_and_grant_prevents_dispatch():
 
         search = Search(())
         model = ModelGateway(ScriptedModelAdapter([]), {BINDING.ref: BINDING})
-        original = control.request
-
-        async def changed(identifier, operation, payload):
-            if operation == "invocation-grants":
-                control.policy["policy_epoch"] += 1
-            return await original(identifier, operation, payload)
-
-        control.request = changed
-        with pytest.raises(CallDenied, match="SOURCE_POLICY_CHANGED"):
-            await ToolGateway(search_adapter=search, model_gateway=model).search(
-                execution, candidate_id="album-1", query="Artist Album review"
-            )
-        assert search.calls == 0 and not control.invocations
+        await ToolGateway(search_adapter=search, model_gateway=model).search(
+            execution, candidate_id="album-1", query="Artist Album review"
+        )
+        assert search.calls == 1
+        assert all(operation != "source-policy" for _, operation in control.events)
         await execution.cleanup()
 
     asyncio.run(run())

@@ -7,7 +7,7 @@ import socket
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from hashlib import sha256
-from typing import Any, Protocol
+from typing import Protocol
 from urllib.parse import urljoin, urlsplit, urlunsplit
 from uuid import uuid4
 
@@ -123,28 +123,6 @@ class AiohttpPageFetcher:
             await resolver.close()
 
 
-def policy_permits(policy: dict[str, Any], url: str, use: str) -> bool:
-    if datetime.fromisoformat(policy["valid_until"].replace("Z", "+00:00")) <= datetime.now(
-        timezone.utc
-    ):
-        return False
-    host = urlsplit(url).hostname or ""
-    rules = [
-        rule
-        for rule in policy["rules"]
-        if use in rule["uses"]
-        and (
-            host == rule["match"]["domain_suffix"]
-            or host.endswith("." + rule["match"]["domain_suffix"])
-        )
-    ]
-    return (
-        all(rule["decision"] == "ALLOW" for rule in rules)
-        if rules
-        else policy["default_decision"] == "ALLOW"
-    )
-
-
 def extract_text(body: bytes, content_type: str) -> str:
     media_type = content_type.split(";", 1)[0].strip().lower()
     if media_type == "text/plain":
@@ -176,19 +154,6 @@ class ToolGateway:
             suffix_list_urls=(), cache_dir=None, include_psl_private_domains=True
         )
 
-    async def policy(self, execution: Execution) -> dict[str, Any]:
-        execution.ensure_active()
-        policy = await execution.control_request("source-policy", {})
-        validate_definition("SourcePolicy", policy)
-        if policy["policy_epoch"] < execution.start["source_policy"]["policy_epoch"]:
-            raise CallDenied("STALE_SOURCE_POLICY")
-        if datetime.fromisoformat(policy["valid_until"].replace("Z", "+00:00")) <= datetime.now(
-            timezone.utc
-        ):
-            raise CallDenied("SOURCE_POLICY_EXPIRED")
-        execution.start["source_policy"] = policy
-        return policy
-
     async def search(
         self, execution: Execution, *, candidate_id: str, query: str, lane: str = "FOREGROUND"
     ) -> tuple[SearchHit, ...]:
@@ -198,19 +163,8 @@ class ToolGateway:
             or self.model_gateway is None
         ):
             raise CallDenied("SEARCH_NOT_CONFIGURED")
-        policy = await self.policy(execution)
-        allowed = tuple(
-            rule["match"]["domain_suffix"]
-            for rule in policy["rules"]
-            if rule["decision"] == "ALLOW" and {"READ", "AI_PROCESS"}.issubset(rule["uses"])
-        )
-        blocked = tuple(
-            rule["match"]["domain_suffix"] for rule in policy["rules"] if rule["decision"] == "DENY"
-        )
-        if not allowed and policy["default_decision"] != "ALLOW":
-            raise CallDenied("SOURCE_NOT_PERMITTED")
-        if policy["default_decision"] == "ALLOW":
-            allowed = ()
+        execution.ensure_active()
+        allowed, blocked = (), ()
         binding = self.model_gateway.binding(execution, "screen")
         self.search_adapter.check_binding(binding, search=True)
         bound = len(query.encode("utf-8")) + sum(len(domain) for domain in allowed + blocked) + 1024
@@ -227,7 +181,6 @@ class ToolGateway:
             max_input_tokens=binding.max_input_tokens,
             max_output_tokens=min(binding.max_output_tokens, 1024),
         )
-        plan["source_policy_epoch"] = policy["policy_epoch"]
         result = await execution.invoke(
             plan,
             lambda: self.search_adapter.search(binding, query, allowed, blocked),
@@ -242,8 +195,7 @@ class ToolGateway:
                 url = checked_url(hit.url)
             except FetchFailure:
                 continue
-            if policy_permits(policy, url, "READ"):
-                hits.append(SearchHit(url, hit.title, hit.snippet))
+            hits.append(SearchHit(url, hit.title, hit.snippet))
         return tuple(hits)
 
     async def read(
@@ -260,8 +212,7 @@ class ToolGateway:
         if "web_read.v1" not in execution.start["capabilities"]:
             raise CallDenied("READ_NOT_CONFIGURED")
         requested = checked_url(url)
-        policy = await self.policy(execution)
-        guards = policy["guards"]
+        guards = execution.start["web_guards"]
         read_id = f"read:{uuid4().hex}"
         receipt = {
             "read_id": read_id,
@@ -277,7 +228,6 @@ class ToolGateway:
             "text_chars": 0,
             "near_duplicate_of": None,
             "checks": {"mentions_title": False, "mentions_artist": False},
-            "source_policy_epoch": policy["policy_epoch"],
         }
 
         async def fetch() -> ReadResult:
@@ -285,13 +235,10 @@ class ToolGateway:
             try:
                 for redirect in range(guards["max_redirects"] + 1):
                     execution.ensure_active()
-                    if not policy_permits(policy, current, "READ"):
-                        raise CallDenied("SOURCE_NOT_PERMITTED")
 
                     async def get_page() -> FetchResponse:
                         execution.ensure_active()
-                        if not policy_permits(policy, current, "READ"):
-                            raise CallDenied("SOURCE_NOT_PERMITTED")
+
                         authorization = await execution.control_request(
                             "read-authorization",
                             {
@@ -299,18 +246,13 @@ class ToolGateway:
                                 "candidate_id": candidate_id,
                                 "url": current,
                                 "purpose": purpose,
-                                "policy_epoch": policy["policy_epoch"],
                             },
                         )
                         validate_definition("ReadAuthorizationResult", authorization)
-                        if (
-                            authorization["read_id"] != read_id
-                            or authorization["policy_epoch"] < policy["policy_epoch"]
-                        ):
+                        if authorization["read_id"] != read_id:
                             raise CallDenied("READ_AUTHORIZATION_MISMATCH")
                         if authorization["decision"] != "GRANTED":
                             raise CallDenied(authorization["reason"] or "READ_ALREADY_CLAIMED")
-                        receipt["source_policy_epoch"] = authorization["policy_epoch"]
                         with execution.clock.measure("read"):
                             return await self.fetcher.fetch(
                                 current, guards["max_bytes"], guards["read_timeout_ms"] / 1000
@@ -342,8 +284,7 @@ class ToolGateway:
                     text = extract_text(response.body, response.headers.get("content-type", ""))
                     if not text:
                         raise FetchFailure("EMPTY_BODY")
-                    if not policy_permits(policy, current, "READ"):
-                        raise CallDenied("SOURCE_NOT_PERMITTED")
+
                     host = urlsplit(current).hostname
                     publisher = self.domain(host).top_domain_under_public_suffix or host
                     receipt.update(
@@ -369,7 +310,7 @@ class ToolGateway:
                     return ReadResult(receipt, text)
                 raise FetchFailure("REDIRECT_LIMIT")
             except CallDenied as error:
-                receipt.update(status="BLOCKED_BY_POLICY", failure_reason=str(error))
+                receipt.update(status="BLOCKED_BY_CONTROL", failure_reason=str(error))
             except (FetchFailure, asyncio.TimeoutError, TimeoutError, OSError) as error:
                 receipt.update(
                     status="READ_FAILED",

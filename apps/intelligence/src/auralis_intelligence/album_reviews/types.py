@@ -49,9 +49,7 @@ class AlbumDossier:
                 for identifier in self.screening["qualified_read_ids"]
                 if identifier not in read_ids
             ]
-            self.screening.update(
-                disposition="INELIGIBLE", reason_code="SOURCE_NOT_PERMITTED", brief=None
-            )
+            self.screening.update(disposition="INELIGIBLE", reason_code="READ_UNKNOWN", brief=None)
         return affected
 
 

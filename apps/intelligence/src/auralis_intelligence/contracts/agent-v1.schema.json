@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:auralis:intelligence:0.23",
+  "$id": "urn:auralis:intelligence:0.24",
   "title": "Auralis internal agent messages",
   "$ref": "#/$defs/Envelope",
   "$defs": {
@@ -705,130 +705,6 @@
       ],
       "additionalProperties": false
     },
-    "SourcePolicy": {
-      "type": "object",
-      "properties": {
-        "policy_epoch": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 2147483647
-        },
-        "valid_until": {
-          "type": "string",
-          "format": "date-time",
-          "pattern": "Z$"
-        },
-        "rules": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "match": {
-                "type": "object",
-                "properties": {
-                  "domain_suffix": {
-                    "type": "string",
-                    "minLength": 1,
-                    "maxLength": 253
-                  }
-                },
-                "required": [
-                  "domain_suffix"
-                ],
-                "additionalProperties": false
-              },
-              "decision": {
-                "type": "string",
-                "enum": [
-                  "ALLOW",
-                  "DENY"
-                ]
-              },
-              "uses": {
-                "type": "array",
-                "items": {
-                  "type": "string",
-                  "enum": [
-                    "READ",
-                    "AI_PROCESS",
-                    "STORE_LOCATOR"
-                  ]
-                },
-                "maxItems": 3,
-                "minItems": 0,
-                "uniqueItems": true
-              },
-              "reason": {
-                "type": "string",
-                "minLength": 1,
-                "maxLength": 160
-              }
-            },
-            "required": [
-              "match",
-              "decision",
-              "uses",
-              "reason"
-            ],
-            "additionalProperties": false
-          },
-          "maxItems": 1000,
-          "minItems": 0
-        },
-        "default_decision": {
-          "enum": [
-            "ALLOW",
-            "DENY"
-          ]
-        },
-        "guards": {
-          "type": "object",
-          "properties": {
-            "https_only": {
-              "const": true
-            },
-            "deny_ip_literals": {
-              "const": true
-            },
-            "deny_private_networks": {
-              "const": true
-            },
-            "max_redirects": {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 10
-            },
-            "max_bytes": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 10000000
-            },
-            "read_timeout_ms": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 300000
-            }
-          },
-          "required": [
-            "https_only",
-            "deny_ip_literals",
-            "deny_private_networks",
-            "max_redirects",
-            "max_bytes",
-            "read_timeout_ms"
-          ],
-          "additionalProperties": false
-        }
-      },
-      "required": [
-        "policy_epoch",
-        "valid_until",
-        "rules",
-        "default_decision",
-        "guards"
-      ],
-      "additionalProperties": false
-    },
     "ReadAuthorization": {
       "type": "object",
       "properties": {
@@ -855,19 +731,13 @@
             "LONG_REVIEW_RESEARCH",
             "REREAD"
           ]
-        },
-        "policy_epoch": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 2147483647
         }
       },
       "required": [
         "read_id",
         "candidate_id",
         "url",
-        "purpose",
-        "policy_epoch"
+        "purpose"
       ],
       "additionalProperties": false
     },
@@ -887,11 +757,6 @@
             "ALREADY_CLAIMED"
           ]
         },
-        "policy_epoch": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 2147483647
-        },
         "reason": {
           "anyOf": [
             {
@@ -908,7 +773,6 @@
       "required": [
         "read_id",
         "decision",
-        "policy_epoch",
         "reason"
       ],
       "additionalProperties": false
@@ -970,7 +834,7 @@
           "enum": [
             "READ_OK",
             "READ_FAILED",
-            "BLOCKED_BY_POLICY"
+            "BLOCKED_BY_CONTROL"
           ]
         },
         "failure_reason": {
@@ -1034,11 +898,6 @@
           ],
           "additionalProperties": false
         },
-        "source_policy_epoch": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 2147483647
-        },
         "retrieval_mode": {
           "enum": [
             "NETWORK",
@@ -1059,8 +918,7 @@
         "content_digest",
         "text_chars",
         "near_duplicate_of",
-        "checks",
-        "source_policy_epoch"
+        "checks"
       ],
       "additionalProperties": false
     },
@@ -1455,10 +1313,6 @@
         "input_digest": {
           "type": "string",
           "pattern": "^sha256:[0-9a-f]{64}$"
-        },
-        "source_policy_epoch": {
-          "type": "integer",
-          "minimum": 0
         }
       },
       "required": [
@@ -1486,9 +1340,7 @@
             }
           },
           "then": {
-            "required": [
-              "source_policy_epoch"
-            ]
+            "required": []
           }
         }
       ]
@@ -1524,7 +1376,7 @@
                 "LANE_EXHAUSTED",
                 "CALL_LIMIT",
                 "REPAIR_QUOTA_EXHAUSTED",
-                "SOURCE_NOT_PERMITTED",
+                "READ_UNKNOWN",
                 "EXECUTION_NOT_ACTIVE",
                 "STALE_BOOT",
                 "SOURCE_POLICY_CHANGED"
@@ -1555,11 +1407,6 @@
           "type": "integer",
           "minimum": 0,
           "maximum": 2147483647
-        },
-        "policy_epoch": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 2147483647
         }
       },
       "required": [
@@ -1569,8 +1416,7 @@
         "deny_reason",
         "not_permitted_read_ids",
         "lane_remaining_microusd",
-        "session_remaining_microusd",
-        "policy_epoch"
+        "session_remaining_microusd"
       ],
       "additionalProperties": false
     },
@@ -2786,9 +2632,6 @@
         "recall_binding": {
           "$ref": "#/$defs/RecallBinding"
         },
-        "source_policy": {
-          "$ref": "#/$defs/SourcePolicy"
-        },
         "input": {
           "type": "object",
           "properties": {
@@ -2869,6 +2712,9 @@
         "payload_digest": {
           "type": "string",
           "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "web_guards": {
+          "$ref": "#/$defs/WebGuards"
         }
       },
       "required": [
@@ -2890,7 +2736,7 @@
         "deadlines",
         "model_bindings",
         "recall_binding",
-        "source_policy",
+        "web_guards",
         "input",
         "capabilities",
         "continuation",
@@ -4582,37 +4428,6 @@
               "maxLength": 160
             },
             "kind": {
-              "const": "SOURCE_POLICY_UPDATE"
-            },
-            "boot": {
-              "$ref": "#/$defs/BootBinding"
-            },
-            "payload": {
-              "$ref": "#/$defs/SourcePolicy"
-            },
-            "payload_digest": {
-              "type": "string",
-              "pattern": "^sha256:[0-9a-f]{64}$"
-            }
-          },
-          "required": [
-            "command_id",
-            "kind",
-            "boot",
-            "payload",
-            "payload_digest"
-          ],
-          "additionalProperties": false
-        },
-        {
-          "type": "object",
-          "properties": {
-            "command_id": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 160
-            },
-            "kind": {
               "const": "BUDGET_UPDATE"
             },
             "boot": {
@@ -4908,16 +4723,6 @@
             }
           ]
         },
-        "policy_epoch": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 2147483647
-        },
-        "valid_until": {
-          "type": "string",
-          "format": "date-time",
-          "pattern": "Z$"
-        },
         "updated_seq": {
           "type": "integer",
           "minimum": 0,
@@ -4937,8 +4742,6 @@
         "counters",
         "uncertain_invocations",
         "lanes",
-        "policy_epoch",
-        "valid_until",
         "updated_seq"
       ],
       "additionalProperties": false
@@ -5150,7 +4953,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.23"
+              "const": "0.24"
             },
             "request_id": {
               "type": "string",
@@ -5201,7 +5004,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.23"
+              "const": "0.24"
             },
             "request_id": {
               "type": "string",
@@ -5252,7 +5055,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.23"
+              "const": "0.24"
             },
             "request_id": {
               "type": "string",
@@ -5303,7 +5106,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.23"
+              "const": "0.24"
             },
             "request_id": {
               "type": "string",
@@ -5354,7 +5157,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.23"
+              "const": "0.24"
             },
             "request_id": {
               "type": "string",
@@ -5405,7 +5208,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.23"
+              "const": "0.24"
             },
             "request_id": {
               "type": "string",
@@ -5456,7 +5259,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.23"
+              "const": "0.24"
             },
             "request_id": {
               "type": "string",
@@ -5507,7 +5310,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.23"
+              "const": "0.24"
             },
             "request_id": {
               "type": "string",
@@ -5558,7 +5361,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.23"
+              "const": "0.24"
             },
             "request_id": {
               "type": "string",
@@ -5609,7 +5412,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.23"
+              "const": "0.24"
             },
             "request_id": {
               "type": "string",
@@ -5660,7 +5463,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.23"
+              "const": "0.24"
             },
             "request_id": {
               "type": "string",
@@ -5711,7 +5514,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.23"
+              "const": "0.24"
             },
             "request_id": {
               "type": "string",
@@ -5762,7 +5565,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.23"
+              "const": "0.24"
             },
             "request_id": {
               "type": "string",
@@ -5813,7 +5616,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.23"
+              "const": "0.24"
             },
             "request_id": {
               "type": "string",
@@ -5864,7 +5667,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.23"
+              "const": "0.24"
             },
             "request_id": {
               "type": "string",
@@ -5915,7 +5718,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.23"
+              "const": "0.24"
             },
             "request_id": {
               "type": "string",
@@ -5966,7 +5769,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.23"
+              "const": "0.24"
             },
             "request_id": {
               "type": "string",
@@ -6017,7 +5820,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.23"
+              "const": "0.24"
             },
             "request_id": {
               "type": "string",
@@ -6068,7 +5871,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.23"
+              "const": "0.24"
             },
             "request_id": {
               "type": "string",
@@ -6119,58 +5922,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.23"
-            },
-            "request_id": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 160
-            },
-            "trace_context": {
-              "type": "object",
-              "properties": {
-                "trace_id": {
-                  "type": "string",
-                  "minLength": 1,
-                  "maxLength": 64
-                },
-                "span_id": {
-                  "type": "string",
-                  "minLength": 1,
-                  "maxLength": 32
-                }
-              },
-              "required": [
-                "trace_id",
-                "span_id"
-              ],
-              "additionalProperties": false
-            },
-            "message_type": {
-              "const": "SourcePolicy"
-            },
-            "payload": {
-              "$ref": "#/$defs/SourcePolicy"
-            }
-          },
-          "required": [
-            "schema_version",
-            "contract_revision",
-            "request_id",
-            "trace_context",
-            "message_type",
-            "payload"
-          ],
-          "additionalProperties": false
-        },
-        {
-          "type": "object",
-          "properties": {
-            "schema_version": {
-              "const": "intel.v1"
-            },
-            "contract_revision": {
-              "const": "0.23"
+              "const": "0.24"
             },
             "request_id": {
               "type": "string",
@@ -6221,7 +5973,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.23"
+              "const": "0.24"
             },
             "request_id": {
               "type": "string",
@@ -6272,7 +6024,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.23"
+              "const": "0.24"
             },
             "request_id": {
               "type": "string",
@@ -6323,7 +6075,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.23"
+              "const": "0.24"
             },
             "request_id": {
               "type": "string",
@@ -6971,6 +6723,44 @@
         "window",
         "sample_listeners",
         "listeners"
+      ],
+      "additionalProperties": false
+    },
+    "WebGuards": {
+      "type": "object",
+      "properties": {
+        "https_only": {
+          "const": true
+        },
+        "deny_ip_literals": {
+          "const": true
+        },
+        "deny_private_networks": {
+          "const": true
+        },
+        "max_redirects": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10
+        },
+        "max_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10000000
+        },
+        "read_timeout_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 300000
+        }
+      },
+      "required": [
+        "https_only",
+        "deny_ip_literals",
+        "deny_private_networks",
+        "max_redirects",
+        "max_bytes",
+        "read_timeout_ms"
       ],
       "additionalProperties": false
     }

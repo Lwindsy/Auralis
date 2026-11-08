@@ -8,7 +8,6 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from fractions import Fraction
 from typing import Any, Callable
-from urllib.parse import urlsplit
 
 from auralis_intelligence.contracts import (
     ContractError,
@@ -90,7 +89,6 @@ class JavaControlDouble:
         self.long_states: dict[tuple[str, str], str] = {}
         self.issued_commands = IdempotencyLedger(20000)
         self.ledger = IdempotencyLedger(20000)
-        self.policy: dict[str, Any] | None = None
         self.unavailable: set[str] = set()
         self.lose_response_once: set[str] = set()
         self.events: list[tuple[str, str]] = []
@@ -174,11 +172,6 @@ class JavaControlDouble:
             "bundle": bundle,
             "display": display,
         }
-        if (
-            self.policy is None
-            or start["source_policy"]["policy_epoch"] > self.policy["policy_epoch"]
-        ):
-            self.policy = deepcopy(start["source_policy"])
 
     def close_execution(self, execution_id: str) -> None:
         entry = self.executions[execution_id]
@@ -237,10 +230,6 @@ class JavaControlDouble:
         elif kind == "RESCREEN":
             entry["start"]["run_id"] = payload["run_id"]
             entry["display"].update(user_waiting=True, run_id=payload["run_id"])
-        elif (
-            kind == "SOURCE_POLICY_UPDATE" and payload["policy_epoch"] > self.policy["policy_epoch"]
-        ):
-            self.policy = deepcopy(payload)
         elif kind == "BUDGET_UPDATE":
             budget = self.rounds[entry["start"]["budget"]["round_budget_scope_id"]]
             proposed = {name: account.cap + payload[name] for name, account in budget.lanes.items()}
@@ -326,7 +315,6 @@ class JavaControlDouble:
             run_kind=(run_kind or ("RESCREEN" if rescreen else "SUPPLY")) if run_id else None,
             foreground=run_id is not None,
             boot={"python_boot_id": python_boot_id, "coordinator_boot_id": self.boot_id},
-            source_policy=deepcopy(self.policy),
             continuation={
                 "candidate_bundle": deepcopy(entry["bundle"]),
                 "candidates": rows,
@@ -401,29 +389,6 @@ class JavaControlDouble:
             "cached_input_tokens": total("cached_input_tokens"),
         }
 
-    def permits(self, url: str, use: str) -> bool:
-        policy = self.policy
-        if (
-            policy is None
-            or datetime.fromisoformat(policy["valid_until"].replace("Z", "+00:00")) <= self.now()
-        ):
-            return False
-        host = (urlsplit(url).hostname or "").lower()
-        matches = [
-            rule
-            for rule in policy["rules"]
-            if use in rule["uses"]
-            and (
-                host == rule["match"]["domain_suffix"]
-                or host.endswith("." + rule["match"]["domain_suffix"])
-            )
-        ]
-        return (
-            not any(rule["decision"] == "DENY" for rule in matches)
-            if matches
-            else policy["default_decision"] == "ALLOW"
-        )
-
     async def request(
         self, execution_id: str, operation: str, payload: dict[str, Any]
     ) -> dict[str, Any]:
@@ -447,8 +412,6 @@ class JavaControlDouble:
     def _handle(self, execution_id: str, operation: str, payload: dict[str, Any]) -> dict[str, Any]:
         entry = self.executions[execution_id]
         start = entry["start"]
-        if operation == "source-policy":
-            return self.policy
         if operation == "budget-state":
             return self._budget_state(execution_id)
         if operation == "invocation-grants":
@@ -460,21 +423,19 @@ class JavaControlDouble:
             validate_definition("ReadAuthorization", payload)
             key = execution_id, payload["read_id"], digest(payload["url"])
             budget = self.rounds[start["budget"]["round_budget_scope_id"]]
-            decision, reason = "DENIED", "SOURCE_NOT_PERMITTED"
+            decision, reason = "DENIED", "READ_UNKNOWN"
             if key in self.read_claims:
                 decision, reason = "ALREADY_CLAIMED", None
             elif budget.calls["READ"] >= start["budget"]["limits"]["read_calls"]:
                 reason = "CALL_LIMIT"
             else:
                 budget.calls["READ"] += 1
-                if self.permits(payload["url"], "READ"):
-                    self.read_claims.add(key)
-                    decision, reason = "GRANTED", None
+                self.read_claims.add(key)
+                decision, reason = "GRANTED", None
             return {
                 "read_id": payload["read_id"],
                 "decision": decision,
                 "reason": reason,
-                "policy_epoch": self.policy["policy_epoch"],
             }
         if operation == "read-receipts":
             validate_definition("ReadReceipts", payload)
@@ -497,12 +458,7 @@ class JavaControlDouble:
                     receipt["read_id"],
                     digest(receipt["final_url"]),
                 ) in self.read_claims
-                allowed = (
-                    receipt["status"] == "READ_OK"
-                    and claimed
-                    and self.permits(receipt["final_url"], "READ")
-                    and self.permits(receipt["final_url"], "STORE_LOCATOR")
-                )
+                allowed = receipt["status"] == "READ_OK" and claimed
                 self.ledger.record(key, receipt, allowed)
                 if allowed:
                     self.reads[receipt["read_id"]] = {
@@ -635,7 +591,6 @@ class JavaControlDouble:
             for identifier in plan["read_ids"]
             if identifier not in self.reads
             or self.reads[identifier]["round_id"] != start["round_id"]
-            or not self.permits(self.reads[identifier]["receipt"]["final_url"], "AI_PROCESS")
         ]
         reason = None
         existing = self.invocations.get(plan["invocation_id"])
@@ -646,15 +601,10 @@ class JavaControlDouble:
         else:
             purpose_scope = plan["run_id"] if plan["lane"] == "FOREGROUND" else "BACKGROUND"
             limit_key = "model_calls" if plan["cost_class"] == "MODEL" else "search_calls"
-            if (
-                plan["purpose"] == "SEARCH"
-                and plan["source_policy_epoch"] != self.policy["policy_epoch"]
-            ):
-                reason = "SOURCE_POLICY_CHANGED"
-            elif self.price_violation:
+            if self.price_violation:
                 reason = "EXECUTION_NOT_ACTIVE"
             elif denied_reads:
-                reason = "SOURCE_NOT_PERMITTED"
+                reason = "READ_UNKNOWN"
             elif session.remaining < amount:
                 reason = "SESSION_BUDGET_EXHAUSTED"
             elif budget.total.remaining < amount:
@@ -692,7 +642,6 @@ class JavaControlDouble:
             "not_permitted_read_ids": denied_reads,
             "lane_remaining_microusd": lane.remaining,
             "session_remaining_microusd": session.remaining,
-            "policy_epoch": self.policy["policy_epoch"],
         }
 
     def _settle(self, execution_id: str, receipt: dict[str, Any]) -> dict[str, Any]:
@@ -883,12 +832,6 @@ class JavaControlDouble:
                     reason = "READ_UNKNOWN"
                 elif not reads or any(item["receipt"]["near_duplicate_of"] for item in reads):
                     reason = "ADMISSION_UNVERIFIED"
-                elif any(
-                    not self.permits(item["receipt"]["final_url"], "AI_PROCESS")
-                    or not self.permits(item["receipt"]["final_url"], "STORE_LOCATOR")
-                    for item in reads
-                ):
-                    reason = "READ_NOT_PERMITTED"
                 elif (
                     screening is None
                     or screening["screen"]["status"] != "OK"
@@ -1031,12 +974,7 @@ class JavaControlDouble:
                     card is not None
                     and identifier not in entry["display"]["heard_candidate_ids"]
                     and all(
-                        read_id in self.reads
-                        and self.permits(self.reads[read_id]["receipt"]["final_url"], "AI_PROCESS")
-                        and self.permits(
-                            self.reads[read_id]["receipt"]["final_url"], "STORE_LOCATOR"
-                        )
-                        for read_id in card["admission"]["qualified_read_ids"]
+                        read_id in self.reads for read_id in card["admission"]["qualified_read_ids"]
                     )
                 )
                 if permitted:
@@ -1082,11 +1020,6 @@ class JavaControlDouble:
                         or read["receipt"]["candidate_id"] != identifier
                     ):
                         reason = "READ_UNKNOWN"
-                        break
-                    if not self.permits(
-                        read["receipt"]["final_url"], "AI_PROCESS"
-                    ) or not self.permits(read["receipt"]["final_url"], "STORE_LOCATOR"):
-                        reason = "READ_NOT_PERMITTED"
                         break
             candidate_key = entry["start"]["round_id"], identifier
             items = [

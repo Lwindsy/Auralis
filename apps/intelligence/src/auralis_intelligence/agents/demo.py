@@ -366,29 +366,13 @@ class DemoHarness:
                 "window": "synthetic",
                 "weights_digest": digest(asdict(WeightConfig())),
             },
-            "source_policy": {
-                "policy_epoch": 1,
-                "valid_until": (datetime.now(timezone.utc) + timedelta(hours=1))
-                .isoformat()
-                .replace("+00:00", "Z"),
-                "rules": [
-                    {
-                        "match": {"domain_suffix": domain},
-                        "decision": "ALLOW",
-                        "uses": ["READ", "AI_PROCESS", "STORE_LOCATOR"],
-                        "reason": "synthetic-only",
-                    }
-                    for domain in ("one.example", "two.example")
-                ],
-                "default_decision": "DENY",
-                "guards": {
-                    "https_only": True,
-                    "deny_ip_literals": True,
-                    "deny_private_networks": True,
-                    "max_redirects": 2,
-                    "max_bytes": 20000,
-                    "read_timeout_ms": 1000,
-                },
+            "web_guards": {
+                "https_only": True,
+                "deny_ip_literals": True,
+                "deny_private_networks": True,
+                "max_redirects": 2,
+                "max_bytes": 20000,
+                "read_timeout_ms": 1000,
             },
             "input": {
                 "raw": raw,
