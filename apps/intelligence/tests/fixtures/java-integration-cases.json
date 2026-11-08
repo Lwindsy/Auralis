@@ -1,0 +1,1580 @@
+[
+  {
+    "name": "three-active-executions",
+    "definition": "RuntimeView",
+    "payload": {
+      "boot_id": "python-1",
+      "status": "READY",
+      "execution_capacity": 3,
+      "active": [
+        {
+          "execution_id": "execution-1",
+          "round_id": "round-1",
+          "boot_id": "python-1",
+          "status": "RUNNING",
+          "phase": "FOREGROUND",
+          "foreground": true,
+          "slot_released": false,
+          "last_delivery_seq": 0,
+          "undelivered_count": 0,
+          "counters": {
+            "researched": 0,
+            "qualified": 0,
+            "shortlisted": 0,
+            "ready": 0,
+            "long_ready": 0,
+            "long_generating": 0
+          },
+          "uncertain_invocations": [],
+          "lanes": null,
+          "updated_seq": 1
+        },
+        {
+          "execution_id": "execution-2",
+          "round_id": "round-2",
+          "boot_id": "python-1",
+          "status": "RUNNING",
+          "phase": "FOREGROUND",
+          "foreground": true,
+          "slot_released": false,
+          "last_delivery_seq": 0,
+          "undelivered_count": 0,
+          "counters": {
+            "researched": 0,
+            "qualified": 0,
+            "shortlisted": 0,
+            "ready": 0,
+            "long_ready": 0,
+            "long_generating": 0
+          },
+          "uncertain_invocations": [],
+          "lanes": null,
+          "updated_seq": 1
+        },
+        {
+          "execution_id": "execution-3",
+          "round_id": "round-3",
+          "boot_id": "python-1",
+          "status": "RUNNING",
+          "phase": "FOREGROUND",
+          "foreground": true,
+          "slot_released": false,
+          "last_delivery_seq": 0,
+          "undelivered_count": 0,
+          "counters": {
+            "researched": 0,
+            "qualified": 0,
+            "shortlisted": 0,
+            "ready": 0,
+            "long_ready": 0,
+            "long_generating": 0
+          },
+          "uncertain_invocations": [],
+          "lanes": null,
+          "updated_seq": 1
+        }
+      ]
+    },
+    "structural_valid": true,
+    "semantic_valid": true
+  },
+  {
+    "name": "four-active-rejected",
+    "definition": "RuntimeView",
+    "payload": {
+      "boot_id": "python-1",
+      "status": "READY",
+      "execution_capacity": 3,
+      "active": [
+        {
+          "execution_id": "execution-1",
+          "round_id": "round-1",
+          "boot_id": "python-1",
+          "status": "RUNNING",
+          "phase": "FOREGROUND",
+          "foreground": true,
+          "slot_released": false,
+          "last_delivery_seq": 0,
+          "undelivered_count": 0,
+          "counters": {
+            "researched": 0,
+            "qualified": 0,
+            "shortlisted": 0,
+            "ready": 0,
+            "long_ready": 0,
+            "long_generating": 0
+          },
+          "uncertain_invocations": [],
+          "lanes": null,
+          "updated_seq": 1
+        },
+        {
+          "execution_id": "execution-2",
+          "round_id": "round-2",
+          "boot_id": "python-1",
+          "status": "RUNNING",
+          "phase": "FOREGROUND",
+          "foreground": true,
+          "slot_released": false,
+          "last_delivery_seq": 0,
+          "undelivered_count": 0,
+          "counters": {
+            "researched": 0,
+            "qualified": 0,
+            "shortlisted": 0,
+            "ready": 0,
+            "long_ready": 0,
+            "long_generating": 0
+          },
+          "uncertain_invocations": [],
+          "lanes": null,
+          "updated_seq": 1
+        },
+        {
+          "execution_id": "execution-3",
+          "round_id": "round-3",
+          "boot_id": "python-1",
+          "status": "RUNNING",
+          "phase": "FOREGROUND",
+          "foreground": true,
+          "slot_released": false,
+          "last_delivery_seq": 0,
+          "undelivered_count": 0,
+          "counters": {
+            "researched": 0,
+            "qualified": 0,
+            "shortlisted": 0,
+            "ready": 0,
+            "long_ready": 0,
+            "long_generating": 0
+          },
+          "uncertain_invocations": [],
+          "lanes": null,
+          "updated_seq": 1
+        },
+        {
+          "execution_id": "execution-4",
+          "round_id": "round-1",
+          "boot_id": "python-1",
+          "status": "RUNNING",
+          "phase": "FOREGROUND",
+          "foreground": true,
+          "slot_released": false,
+          "last_delivery_seq": 0,
+          "undelivered_count": 0,
+          "counters": {
+            "researched": 0,
+            "qualified": 0,
+            "shortlisted": 0,
+            "ready": 0,
+            "long_ready": 0,
+            "long_generating": 0
+          },
+          "uncertain_invocations": [],
+          "lanes": null,
+          "updated_seq": 1
+        }
+      ]
+    },
+    "structural_valid": false,
+    "semantic_valid": false
+  },
+  {
+    "name": "duplicate-active-rejected",
+    "definition": "RuntimeView",
+    "payload": {
+      "boot_id": "python-1",
+      "status": "READY",
+      "execution_capacity": 3,
+      "active": [
+        {
+          "execution_id": "execution-1",
+          "round_id": "round-1",
+          "boot_id": "python-1",
+          "status": "RUNNING",
+          "phase": "FOREGROUND",
+          "foreground": true,
+          "slot_released": false,
+          "last_delivery_seq": 0,
+          "undelivered_count": 0,
+          "counters": {
+            "researched": 0,
+            "qualified": 0,
+            "shortlisted": 0,
+            "ready": 0,
+            "long_ready": 0,
+            "long_generating": 0
+          },
+          "uncertain_invocations": [],
+          "lanes": null,
+          "updated_seq": 1
+        },
+        {
+          "execution_id": "execution-1",
+          "round_id": "round-1",
+          "boot_id": "python-1",
+          "status": "RUNNING",
+          "phase": "FOREGROUND",
+          "foreground": true,
+          "slot_released": false,
+          "last_delivery_seq": 0,
+          "undelivered_count": 0,
+          "counters": {
+            "researched": 0,
+            "qualified": 0,
+            "shortlisted": 0,
+            "ready": 0,
+            "long_ready": 0,
+            "long_generating": 0
+          },
+          "uncertain_invocations": [],
+          "lanes": null,
+          "updated_seq": 1
+        }
+      ]
+    },
+    "structural_valid": true,
+    "semantic_valid": false
+  },
+  {
+    "name": "boot-mismatch-rejected",
+    "definition": "RuntimeView",
+    "payload": {
+      "boot_id": "python-1",
+      "status": "READY",
+      "execution_capacity": 3,
+      "active": [
+        {
+          "execution_id": "execution-1",
+          "round_id": "round-1",
+          "boot_id": "old-boot",
+          "status": "RUNNING",
+          "phase": "FOREGROUND",
+          "foreground": true,
+          "slot_released": false,
+          "last_delivery_seq": 0,
+          "undelivered_count": 0,
+          "counters": {
+            "researched": 0,
+            "qualified": 0,
+            "shortlisted": 0,
+            "ready": 0,
+            "long_ready": 0,
+            "long_generating": 0
+          },
+          "uncertain_invocations": [],
+          "lanes": null,
+          "updated_seq": 1
+        },
+        {
+          "execution_id": "execution-2",
+          "round_id": "round-2",
+          "boot_id": "python-1",
+          "status": "RUNNING",
+          "phase": "FOREGROUND",
+          "foreground": true,
+          "slot_released": false,
+          "last_delivery_seq": 0,
+          "undelivered_count": 0,
+          "counters": {
+            "researched": 0,
+            "qualified": 0,
+            "shortlisted": 0,
+            "ready": 0,
+            "long_ready": 0,
+            "long_generating": 0
+          },
+          "uncertain_invocations": [],
+          "lanes": null,
+          "updated_seq": 1
+        },
+        {
+          "execution_id": "execution-3",
+          "round_id": "round-3",
+          "boot_id": "python-1",
+          "status": "RUNNING",
+          "phase": "FOREGROUND",
+          "foreground": true,
+          "slot_released": false,
+          "last_delivery_seq": 0,
+          "undelivered_count": 0,
+          "counters": {
+            "researched": 0,
+            "qualified": 0,
+            "shortlisted": 0,
+            "ready": 0,
+            "long_ready": 0,
+            "long_generating": 0
+          },
+          "uncertain_invocations": [],
+          "lanes": null,
+          "updated_seq": 1
+        }
+      ]
+    },
+    "structural_valid": true,
+    "semantic_valid": false
+  },
+  {
+    "name": "released-slot-not-active",
+    "definition": "RuntimeView",
+    "payload": {
+      "boot_id": "python-1",
+      "status": "READY",
+      "execution_capacity": 3,
+      "active": [
+        {
+          "execution_id": "execution-1",
+          "round_id": "round-1",
+          "boot_id": "python-1",
+          "status": "RUNNING",
+          "phase": "FOREGROUND",
+          "foreground": true,
+          "slot_released": true,
+          "last_delivery_seq": 0,
+          "undelivered_count": 0,
+          "counters": {
+            "researched": 0,
+            "qualified": 0,
+            "shortlisted": 0,
+            "ready": 0,
+            "long_ready": 0,
+            "long_generating": 0
+          },
+          "uncertain_invocations": [],
+          "lanes": null,
+          "updated_seq": 1
+        },
+        {
+          "execution_id": "execution-2",
+          "round_id": "round-2",
+          "boot_id": "python-1",
+          "status": "RUNNING",
+          "phase": "FOREGROUND",
+          "foreground": true,
+          "slot_released": false,
+          "last_delivery_seq": 0,
+          "undelivered_count": 0,
+          "counters": {
+            "researched": 0,
+            "qualified": 0,
+            "shortlisted": 0,
+            "ready": 0,
+            "long_ready": 0,
+            "long_generating": 0
+          },
+          "uncertain_invocations": [],
+          "lanes": null,
+          "updated_seq": 1
+        },
+        {
+          "execution_id": "execution-3",
+          "round_id": "round-3",
+          "boot_id": "python-1",
+          "status": "RUNNING",
+          "phase": "FOREGROUND",
+          "foreground": true,
+          "slot_released": false,
+          "last_delivery_seq": 0,
+          "undelivered_count": 0,
+          "counters": {
+            "researched": 0,
+            "qualified": 0,
+            "shortlisted": 0,
+            "ready": 0,
+            "long_ready": 0,
+            "long_generating": 0
+          },
+          "uncertain_invocations": [],
+          "lanes": null,
+          "updated_seq": 1
+        }
+      ]
+    },
+    "structural_valid": true,
+    "semantic_valid": false
+  },
+  {
+    "name": "capacity-not-inferred",
+    "definition": "RuntimeView",
+    "payload": {
+      "boot_id": "python-1",
+      "status": "READY",
+      "execution_capacity": 1,
+      "active": [
+        {
+          "execution_id": "execution-1",
+          "round_id": "round-1",
+          "boot_id": "python-1",
+          "status": "RUNNING",
+          "phase": "FOREGROUND",
+          "foreground": true,
+          "slot_released": false,
+          "last_delivery_seq": 0,
+          "undelivered_count": 0,
+          "counters": {
+            "researched": 0,
+            "qualified": 0,
+            "shortlisted": 0,
+            "ready": 0,
+            "long_ready": 0,
+            "long_generating": 0
+          },
+          "uncertain_invocations": [],
+          "lanes": null,
+          "updated_seq": 1
+        },
+        {
+          "execution_id": "execution-2",
+          "round_id": "round-2",
+          "boot_id": "python-1",
+          "status": "RUNNING",
+          "phase": "FOREGROUND",
+          "foreground": true,
+          "slot_released": false,
+          "last_delivery_seq": 0,
+          "undelivered_count": 0,
+          "counters": {
+            "researched": 0,
+            "qualified": 0,
+            "shortlisted": 0,
+            "ready": 0,
+            "long_ready": 0,
+            "long_generating": 0
+          },
+          "uncertain_invocations": [],
+          "lanes": null,
+          "updated_seq": 1
+        },
+        {
+          "execution_id": "execution-3",
+          "round_id": "round-3",
+          "boot_id": "python-1",
+          "status": "RUNNING",
+          "phase": "FOREGROUND",
+          "foreground": true,
+          "slot_released": false,
+          "last_delivery_seq": 0,
+          "undelivered_count": 0,
+          "counters": {
+            "researched": 0,
+            "qualified": 0,
+            "shortlisted": 0,
+            "ready": 0,
+            "long_ready": 0,
+            "long_generating": 0
+          },
+          "uncertain_invocations": [],
+          "lanes": null,
+          "updated_seq": 1
+        }
+      ]
+    },
+    "structural_valid": true,
+    "semantic_valid": false
+  },
+  {
+    "name": "accepted-running",
+    "definition": "ExecutionAdmission",
+    "payload": {
+      "execution_id": "execution-1",
+      "boot_id": "python-1",
+      "payload_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "status": "ACTIVE",
+      "dedup_until": "2099-11-08T12:00:30Z",
+      "execution": {
+        "execution_id": "execution-1",
+        "round_id": "round-1",
+        "boot_id": "python-1",
+        "status": "RUNNING",
+        "phase": "FOREGROUND",
+        "foreground": true,
+        "slot_released": false,
+        "last_delivery_seq": 0,
+        "undelivered_count": 0,
+        "counters": {
+          "researched": 0,
+          "qualified": 0,
+          "shortlisted": 0,
+          "ready": 0,
+          "long_ready": 0,
+          "long_generating": 0
+        },
+        "uncertain_invocations": [],
+        "lanes": null,
+        "updated_seq": 1
+      }
+    },
+    "structural_valid": true,
+    "semantic_valid": true
+  },
+  {
+    "name": "accepted-terminal",
+    "definition": "ExecutionAdmission",
+    "payload": {
+      "execution_id": "execution-1",
+      "boot_id": "python-1",
+      "payload_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "status": "TERMINAL",
+      "dedup_until": "2099-11-08T12:00:30Z",
+      "execution": {
+        "execution_id": "execution-1",
+        "round_id": "round-1",
+        "boot_id": "python-1",
+        "status": "CLOSED",
+        "phase": "FOREGROUND",
+        "foreground": false,
+        "slot_released": true,
+        "last_delivery_seq": 0,
+        "undelivered_count": 0,
+        "counters": {
+          "researched": 0,
+          "qualified": 0,
+          "shortlisted": 0,
+          "ready": 0,
+          "long_ready": 0,
+          "long_generating": 0
+        },
+        "uncertain_invocations": [],
+        "lanes": null,
+        "updated_seq": 1
+      }
+    },
+    "structural_valid": true,
+    "semantic_valid": true
+  },
+  {
+    "name": "admission-not_accepted",
+    "definition": "ExecutionAdmission",
+    "payload": {
+      "execution_id": "execution-1",
+      "boot_id": "python-1",
+      "payload_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "status": "NOT_ACCEPTED",
+      "dedup_until": "2099-11-08T12:00:30Z",
+      "execution": null
+    },
+    "structural_valid": true,
+    "semantic_valid": true
+  },
+  {
+    "name": "admission-cleared",
+    "definition": "ExecutionAdmission",
+    "payload": {
+      "execution_id": "execution-1",
+      "boot_id": "python-1",
+      "payload_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "status": "CLEARED",
+      "dedup_until": "2099-11-08T12:00:30Z",
+      "execution": null
+    },
+    "structural_valid": true,
+    "semantic_valid": true
+  },
+  {
+    "name": "admission-unknown",
+    "definition": "ExecutionAdmission",
+    "payload": {
+      "execution_id": "execution-1",
+      "boot_id": "python-1",
+      "payload_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "status": "UNKNOWN",
+      "dedup_until": null,
+      "execution": null
+    },
+    "structural_valid": true,
+    "semantic_valid": true
+  },
+  {
+    "name": "false-never-accepted-proof",
+    "definition": "ExecutionAdmission",
+    "payload": {
+      "execution_id": "execution-1",
+      "boot_id": "python-1",
+      "payload_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "status": "NOT_ACCEPTED",
+      "dedup_until": "2099-11-08T12:00:30Z",
+      "execution": {
+        "execution_id": "execution-1",
+        "round_id": "round-1",
+        "boot_id": "python-1",
+        "status": "RUNNING",
+        "phase": "FOREGROUND",
+        "foreground": true,
+        "slot_released": false,
+        "last_delivery_seq": 0,
+        "undelivered_count": 0,
+        "counters": {
+          "researched": 0,
+          "qualified": 0,
+          "shortlisted": 0,
+          "ready": 0,
+          "long_ready": 0,
+          "long_generating": 0
+        },
+        "uncertain_invocations": [],
+        "lanes": null,
+        "updated_seq": 1
+      }
+    },
+    "structural_valid": true,
+    "semantic_valid": false
+  },
+  {
+    "name": "fourth-request-waiting",
+    "definition": "ProductState",
+    "payload": {
+      "session_id": "session-4",
+      "round_id": null,
+      "run_id": "run-4",
+      "revision": 1,
+      "status": "WAITING",
+      "analysis_mode": null,
+      "recommendation_target_count": 3,
+      "slots": [],
+      "supply_state": "SUPPLYING",
+      "message_key": "recommendation.waiting",
+      "input_issues": [],
+      "editable_input": null,
+      "expires_at": "2099-12-08T12:00:00Z",
+      "restored": false,
+      "admission": {
+        "intent_id": "intent-4",
+        "status": "WAITING",
+        "accepted_at": "2099-11-08T12:00:00Z",
+        "queue_deadline": "2099-11-08T12:00:30Z",
+        "input_revision": 1
+      }
+    },
+    "structural_valid": true,
+    "semantic_valid": true
+  },
+  {
+    "name": "waiting-without-admission",
+    "definition": "ProductState",
+    "payload": {
+      "session_id": "session-4",
+      "round_id": null,
+      "run_id": "run-4",
+      "revision": 1,
+      "status": "WAITING",
+      "analysis_mode": null,
+      "recommendation_target_count": 3,
+      "slots": [],
+      "supply_state": "SUPPLYING",
+      "message_key": "recommendation.waiting",
+      "input_issues": [],
+      "editable_input": null,
+      "expires_at": "2099-12-08T12:00:00Z",
+      "restored": false,
+      "admission": null
+    },
+    "structural_valid": true,
+    "semantic_valid": false
+  },
+  {
+    "name": "deadline-before-acceptance",
+    "definition": "ProductState",
+    "payload": {
+      "session_id": "session-4",
+      "round_id": null,
+      "run_id": "run-4",
+      "revision": 1,
+      "status": "WAITING",
+      "analysis_mode": null,
+      "recommendation_target_count": 3,
+      "slots": [],
+      "supply_state": "SUPPLYING",
+      "message_key": "recommendation.waiting",
+      "input_issues": [],
+      "editable_input": null,
+      "expires_at": "2099-12-08T12:00:00Z",
+      "restored": false,
+      "admission": {
+        "intent_id": "intent-4",
+        "status": "WAITING",
+        "accepted_at": "2099-11-08T12:00:00Z",
+        "queue_deadline": "2099-11-08T11:59:59Z",
+        "input_revision": 1
+      }
+    },
+    "structural_valid": true,
+    "semantic_valid": false
+  },
+  {
+    "name": "slot-release-auto-dispatch",
+    "definition": "ProductState",
+    "payload": {
+      "session_id": "session-4",
+      "round_id": "round-4",
+      "run_id": "run-4",
+      "revision": 2,
+      "status": "RUNNING",
+      "analysis_mode": null,
+      "recommendation_target_count": 3,
+      "slots": [],
+      "supply_state": "SUPPLYING",
+      "message_key": "recommendation.waiting",
+      "input_issues": [],
+      "editable_input": null,
+      "expires_at": "2099-12-08T12:00:00Z",
+      "restored": false,
+      "admission": {
+        "intent_id": "intent-4",
+        "status": "RUNNING",
+        "accepted_at": "2099-11-08T12:00:00Z",
+        "queue_deadline": "2099-11-08T12:00:30Z",
+        "input_revision": 1
+      }
+    },
+    "structural_valid": true,
+    "semantic_valid": true
+  },
+  {
+    "name": "queue-full-no-mutation",
+    "definition": "ProductError",
+    "payload": {
+      "code": "QUEUE_FULL",
+      "request_id": "http-4",
+      "message_key": "recommendation.busy",
+      "retryable": true,
+      "idempotency_consumed": false,
+      "current_revision": 7,
+      "retry_disposition": "RETRY_SAME_KEY"
+    },
+    "structural_valid": true,
+    "semantic_valid": true
+  },
+  {
+    "name": "queue-full-cannot-consume-key",
+    "definition": "ProductError",
+    "payload": {
+      "code": "QUEUE_FULL",
+      "request_id": "http-4",
+      "message_key": "recommendation.busy",
+      "retryable": true,
+      "idempotency_consumed": true,
+      "current_revision": 7,
+      "retry_disposition": "RETRY_SAME_KEY"
+    },
+    "structural_valid": false,
+    "semantic_valid": false
+  },
+  {
+    "name": "queue-timeout-explicit-retry",
+    "definition": "ProductError",
+    "payload": {
+      "code": "QUEUE_TIMEOUT",
+      "request_id": "http-4",
+      "message_key": "recommendation.queue_timeout",
+      "retryable": false,
+      "idempotency_consumed": true,
+      "current_revision": 7,
+      "retry_disposition": "NEW_EXPLICIT_INTENT"
+    },
+    "structural_valid": true,
+    "semantic_valid": true
+  },
+  {
+    "name": "supplier-rate-limit-distinct",
+    "definition": "ProductError",
+    "payload": {
+      "code": "PROVIDER_RATE_LIMITED",
+      "request_id": "http-4",
+      "message_key": "recommendation.provider_limited",
+      "retryable": false,
+      "idempotency_consumed": true,
+      "current_revision": 7,
+      "retry_disposition": "NEW_EXPLICIT_INTENT"
+    },
+    "structural_valid": true,
+    "semantic_valid": true
+  },
+  {
+    "name": "bootstrap-no-client-identity",
+    "definition": "BootstrapRequest",
+    "payload": {},
+    "structural_valid": true,
+    "semantic_valid": true
+  },
+  {
+    "name": "bootstrap-forged-subject",
+    "definition": "BootstrapRequest",
+    "payload": {
+      "subject_id": "forged"
+    },
+    "structural_valid": false,
+    "semantic_valid": false
+  },
+  {
+    "name": "bootstrap-restores-waiting",
+    "definition": "BootstrapState",
+    "payload": {
+      "csrf_token": "tttttttttttttttttttttttttttttttt",
+      "state": {
+        "session_id": "session-4",
+        "round_id": null,
+        "run_id": "run-4",
+        "revision": 1,
+        "status": "WAITING",
+        "analysis_mode": null,
+        "recommendation_target_count": 3,
+        "slots": [],
+        "supply_state": "SUPPLYING",
+        "message_key": "recommendation.waiting",
+        "input_issues": [],
+        "editable_input": null,
+        "expires_at": "2099-12-08T12:00:00Z",
+        "restored": true,
+        "admission": {
+          "intent_id": "intent-4",
+          "status": "WAITING",
+          "accepted_at": "2099-11-08T12:00:00Z",
+          "queue_deadline": "2099-11-08T12:00:30Z",
+          "input_revision": 1
+        }
+      }
+    },
+    "structural_valid": true,
+    "semantic_valid": true
+  },
+  {
+    "name": "outside-core-genre-mapping",
+    "definition": "ResolvedAlbum",
+    "payload": {
+      "album": {
+        "mb_release_group_id": "11111111-1111-4111-8111-111111111111",
+        "identity": {
+          "title": "Synthetic 外部专辑",
+          "artist_credit": "Synthetic Artist",
+          "first_release_year": 2020,
+          "release_type": "Album",
+          "primary_genres": [
+            {
+              "genre_id": "jazz",
+              "name": "Jazz"
+            }
+          ]
+        },
+        "in_core_catalog": false
+      },
+      "catalog_revision": "catalog-1",
+      "input": {
+        "release_group_id": null,
+        "external": {
+          "mb_release_group_id": "11111111-1111-4111-8111-111111111111",
+          "mapped_genre_ids": [
+            "jazz"
+          ]
+        },
+        "strength": "normal",
+        "focused": false
+      }
+    },
+    "structural_valid": true,
+    "semantic_valid": true
+  },
+  {
+    "name": "outside-core-not-fake-seed",
+    "definition": "ResolvedAlbum",
+    "payload": {
+      "album": {
+        "mb_release_group_id": "11111111-1111-4111-8111-111111111111",
+        "identity": {
+          "title": "Synthetic 外部专辑",
+          "artist_credit": "Synthetic Artist",
+          "first_release_year": 2020,
+          "release_type": "Album",
+          "primary_genres": [
+            {
+              "genre_id": "jazz",
+              "name": "Jazz"
+            }
+          ]
+        },
+        "in_core_catalog": false
+      },
+      "catalog_revision": "catalog-1",
+      "input": {
+        "release_group_id": "11111111-1111-4111-8111-111111111111",
+        "external": {
+          "mb_release_group_id": "11111111-1111-4111-8111-111111111111",
+          "mapped_genre_ids": [
+            "jazz"
+          ]
+        },
+        "strength": "normal",
+        "focused": false
+      }
+    },
+    "structural_valid": true,
+    "semantic_valid": false
+  },
+  {
+    "name": "outside-core-forged-genre",
+    "definition": "ResolvedAlbum",
+    "payload": {
+      "album": {
+        "mb_release_group_id": "11111111-1111-4111-8111-111111111111",
+        "identity": {
+          "title": "Synthetic 外部专辑",
+          "artist_credit": "Synthetic Artist",
+          "first_release_year": 2020,
+          "release_type": "Album",
+          "primary_genres": [
+            {
+              "genre_id": "jazz",
+              "name": "Jazz"
+            }
+          ]
+        },
+        "in_core_catalog": false
+      },
+      "catalog_revision": "catalog-1",
+      "input": {
+        "release_group_id": null,
+        "external": {
+          "mb_release_group_id": "11111111-1111-4111-8111-111111111111",
+          "mapped_genre_ids": [
+            "metal"
+          ]
+        },
+        "strength": "normal",
+        "focused": false
+      }
+    },
+    "structural_valid": true,
+    "semantic_valid": false
+  },
+  {
+    "name": "outside-core-no-positive-signal",
+    "definition": "ResolvedAlbum",
+    "payload": {
+      "album": {
+        "mb_release_group_id": "11111111-1111-4111-8111-111111111111",
+        "identity": {
+          "title": "Synthetic 外部专辑",
+          "artist_credit": "Synthetic Artist",
+          "first_release_year": 2020,
+          "release_type": "Album",
+          "primary_genres": []
+        },
+        "in_core_catalog": false
+      },
+      "catalog_revision": "catalog-1",
+      "input": {
+        "release_group_id": null,
+        "external": {
+          "mb_release_group_id": "11111111-1111-4111-8111-111111111111",
+          "mapped_genre_ids": []
+        },
+        "strength": "normal",
+        "focused": false
+      }
+    },
+    "structural_valid": true,
+    "semantic_valid": true
+  },
+  {
+    "name": "search-empty-is-not-timeout",
+    "definition": "AlbumSearchResult",
+    "payload": {
+      "items": [],
+      "offset": 0,
+      "limit": 20,
+      "next_offset": null
+    },
+    "structural_valid": true,
+    "semantic_valid": true
+  },
+  {
+    "name": "search-deduplicated-mbid",
+    "definition": "AlbumSearchResult",
+    "payload": {
+      "items": [
+        {
+          "mb_release_group_id": "11111111-1111-4111-8111-111111111111",
+          "identity": {
+            "title": "Synthetic 外部专辑",
+            "artist_credit": "Synthetic Artist",
+            "first_release_year": 2020,
+            "release_type": "Album",
+            "primary_genres": [
+              {
+                "genre_id": "jazz",
+                "name": "Jazz"
+              }
+            ]
+          },
+          "in_core_catalog": false
+        }
+      ],
+      "offset": 0,
+      "limit": 20,
+      "next_offset": null
+    },
+    "structural_valid": true,
+    "semantic_valid": true
+  },
+  {
+    "name": "search-duplicate-mbid",
+    "definition": "AlbumSearchResult",
+    "payload": {
+      "items": [
+        {
+          "mb_release_group_id": "11111111-1111-4111-8111-111111111111",
+          "identity": {
+            "title": "Synthetic 外部专辑",
+            "artist_credit": "Synthetic Artist",
+            "first_release_year": 2020,
+            "release_type": "Album",
+            "primary_genres": [
+              {
+                "genre_id": "jazz",
+                "name": "Jazz"
+              }
+            ]
+          },
+          "in_core_catalog": false
+        },
+        {
+          "mb_release_group_id": "11111111-1111-4111-8111-111111111111",
+          "identity": {
+            "title": "Synthetic 外部专辑",
+            "artist_credit": "Synthetic Artist",
+            "first_release_year": 2020,
+            "release_type": "Album",
+            "primary_genres": [
+              {
+                "genre_id": "jazz",
+                "name": "Jazz"
+              }
+            ]
+          },
+          "in_core_catalog": false
+        }
+      ],
+      "offset": 0,
+      "limit": 20,
+      "next_offset": null
+    },
+    "structural_valid": true,
+    "semantic_valid": false
+  },
+  {
+    "name": "browser-selection-mbid-only",
+    "definition": "DiscoverySubmission",
+    "payload": {
+      "input": {
+        "liked_genres": [],
+        "disliked_genre_ids": [],
+        "liked_albums": [
+          {
+            "mb_release_group_id": "11111111-1111-4111-8111-111111111111",
+            "strength": "special",
+            "focused": true
+          }
+        ],
+        "mode": "explore",
+        "request_text": "",
+        "language": "zh"
+      },
+      "expected_revision": 0,
+      "expected_session_id": null
+    },
+    "structural_valid": true,
+    "semantic_valid": true
+  },
+  {
+    "name": "browser-cannot-submit-authoritative-tags",
+    "definition": "DiscoverySubmission",
+    "payload": {
+      "input": {
+        "liked_genres": [],
+        "disliked_genre_ids": [],
+        "liked_albums": [
+          {
+            "mb_release_group_id": "11111111-1111-4111-8111-111111111111",
+            "strength": "special",
+            "focused": true,
+            "mapped_genre_ids": [
+              "jazz"
+            ]
+          }
+        ],
+        "mode": "explore",
+        "request_text": "",
+        "language": "zh"
+      },
+      "expected_revision": 0,
+      "expected_session_id": null
+    },
+    "structural_valid": false,
+    "semantic_valid": false
+  },
+  {
+    "name": "same-subject-new-session-derivation",
+    "definition": "SeedEvidenceCopy",
+    "payload": {
+      "source": {
+        "subject_id": "subject-1",
+        "session_id": "session-old",
+        "expires_at": "2099-12-01T00:00:00Z",
+        "subject_status": "ACTIVE",
+        "session_status": "SUPERSEDED"
+      },
+      "target": {
+        "subject_id": "subject-1",
+        "session_id": "session-new",
+        "expires_at": "2099-12-08T00:00:00Z",
+        "subject_status": "ACTIVE",
+        "session_status": "ACTIVE"
+      },
+      "copied_at": "2099-11-08T12:00:00Z",
+      "items": [
+        {
+          "seed_id": "11111111-1111-4111-8111-111111111111",
+          "identity_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "source_read_id": "read-old",
+          "target_read_id": "read-new",
+          "read_at": "2099-11-07T12:00:00Z",
+          "expires_at": "2099-12-01T00:00:00Z",
+          "text_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+        }
+      ]
+    },
+    "structural_valid": true,
+    "semantic_valid": true
+  },
+  {
+    "name": "cross-subject-copy-rejected",
+    "definition": "SeedEvidenceCopy",
+    "payload": {
+      "source": {
+        "subject_id": "subject-1",
+        "session_id": "session-old",
+        "expires_at": "2099-12-01T00:00:00Z",
+        "subject_status": "ACTIVE",
+        "session_status": "SUPERSEDED"
+      },
+      "target": {
+        "subject_id": "subject-other",
+        "session_id": "session-new",
+        "expires_at": "2099-12-08T00:00:00Z",
+        "subject_status": "ACTIVE",
+        "session_status": "ACTIVE"
+      },
+      "copied_at": "2099-11-08T12:00:00Z",
+      "items": [
+        {
+          "seed_id": "11111111-1111-4111-8111-111111111111",
+          "identity_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "source_read_id": "read-old",
+          "target_read_id": "read-new",
+          "read_at": "2099-11-07T12:00:00Z",
+          "expires_at": "2099-12-01T00:00:00Z",
+          "text_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+        }
+      ]
+    },
+    "structural_valid": true,
+    "semantic_valid": false
+  },
+  {
+    "name": "old-read-id-cannot-authorize-new-session",
+    "definition": "SeedEvidenceCopy",
+    "payload": {
+      "source": {
+        "subject_id": "subject-1",
+        "session_id": "session-old",
+        "expires_at": "2099-12-01T00:00:00Z",
+        "subject_status": "ACTIVE",
+        "session_status": "SUPERSEDED"
+      },
+      "target": {
+        "subject_id": "subject-1",
+        "session_id": "session-new",
+        "expires_at": "2099-12-08T00:00:00Z",
+        "subject_status": "ACTIVE",
+        "session_status": "ACTIVE"
+      },
+      "copied_at": "2099-11-08T12:00:00Z",
+      "items": [
+        {
+          "seed_id": "11111111-1111-4111-8111-111111111111",
+          "identity_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "source_read_id": "read-old",
+          "target_read_id": "read-old",
+          "read_at": "2099-11-07T12:00:00Z",
+          "expires_at": "2099-12-01T00:00:00Z",
+          "text_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+        }
+      ]
+    },
+    "structural_valid": true,
+    "semantic_valid": false
+  },
+  {
+    "name": "copy-cannot-extend-source-expiry",
+    "definition": "SeedEvidenceCopy",
+    "payload": {
+      "source": {
+        "subject_id": "subject-1",
+        "session_id": "session-old",
+        "expires_at": "2099-12-01T00:00:00Z",
+        "subject_status": "ACTIVE",
+        "session_status": "SUPERSEDED"
+      },
+      "target": {
+        "subject_id": "subject-1",
+        "session_id": "session-new",
+        "expires_at": "2099-12-08T00:00:00Z",
+        "subject_status": "ACTIVE",
+        "session_status": "ACTIVE"
+      },
+      "copied_at": "2099-11-08T12:00:00Z",
+      "items": [
+        {
+          "seed_id": "11111111-1111-4111-8111-111111111111",
+          "identity_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "source_read_id": "read-old",
+          "target_read_id": "read-new",
+          "read_at": "2099-11-07T12:00:00Z",
+          "expires_at": "2099-12-08T00:00:00Z",
+          "text_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+        }
+      ]
+    },
+    "structural_valid": true,
+    "semantic_valid": false
+  },
+  {
+    "name": "deleted-source-cannot-resurrect",
+    "definition": "SeedEvidenceCopy",
+    "payload": {
+      "source": {
+        "subject_id": "subject-1",
+        "session_id": "session-old",
+        "expires_at": "2099-12-01T00:00:00Z",
+        "subject_status": "ACTIVE",
+        "session_status": "DELETED"
+      },
+      "target": {
+        "subject_id": "subject-1",
+        "session_id": "session-new",
+        "expires_at": "2099-12-08T00:00:00Z",
+        "subject_status": "ACTIVE",
+        "session_status": "ACTIVE"
+      },
+      "copied_at": "2099-11-08T12:00:00Z",
+      "items": [
+        {
+          "seed_id": "11111111-1111-4111-8111-111111111111",
+          "identity_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "source_read_id": "read-old",
+          "target_read_id": "read-new",
+          "read_at": "2099-11-07T12:00:00Z",
+          "expires_at": "2099-12-01T00:00:00Z",
+          "text_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+        }
+      ]
+    },
+    "structural_valid": true,
+    "semantic_valid": false
+  },
+  {
+    "name": "revoked-subject-late-copy-rejected",
+    "definition": "SeedEvidenceCopy",
+    "payload": {
+      "source": {
+        "subject_id": "subject-1",
+        "session_id": "session-old",
+        "expires_at": "2099-12-01T00:00:00Z",
+        "subject_status": "ACTIVE",
+        "session_status": "SUPERSEDED"
+      },
+      "target": {
+        "subject_id": "subject-1",
+        "session_id": "session-new",
+        "expires_at": "2099-12-08T00:00:00Z",
+        "subject_status": "REVOKED",
+        "session_status": "ACTIVE"
+      },
+      "copied_at": "2099-11-08T12:00:00Z",
+      "items": [
+        {
+          "seed_id": "11111111-1111-4111-8111-111111111111",
+          "identity_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "source_read_id": "read-old",
+          "target_read_id": "read-new",
+          "read_at": "2099-11-07T12:00:00Z",
+          "expires_at": "2099-12-01T00:00:00Z",
+          "text_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+        }
+      ]
+    },
+    "structural_valid": true,
+    "semantic_valid": false
+  },
+  {
+    "name": "expired-source-copy-rejected",
+    "definition": "SeedEvidenceCopy",
+    "payload": {
+      "source": {
+        "subject_id": "subject-1",
+        "session_id": "session-old",
+        "expires_at": "2099-11-01T00:00:00Z",
+        "subject_status": "ACTIVE",
+        "session_status": "SUPERSEDED"
+      },
+      "target": {
+        "subject_id": "subject-1",
+        "session_id": "session-new",
+        "expires_at": "2099-12-08T00:00:00Z",
+        "subject_status": "ACTIVE",
+        "session_status": "ACTIVE"
+      },
+      "copied_at": "2099-11-08T12:00:00Z",
+      "items": [
+        {
+          "seed_id": "11111111-1111-4111-8111-111111111111",
+          "identity_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "source_read_id": "read-old",
+          "target_read_id": "read-new",
+          "read_at": "2099-11-07T12:00:00Z",
+          "expires_at": "2099-12-01T00:00:00Z",
+          "text_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+        }
+      ]
+    },
+    "structural_valid": true,
+    "semantic_valid": false
+  },
+  {
+    "name": "audience-49-50-boundary-artifact",
+    "definition": "AudienceSnapshot",
+    "payload": {
+      "format_version": 1,
+      "recall_binding": {
+        "strategy_revision": "A-V2",
+        "data_snapshot_id": "synthetic-1",
+        "weights_digest": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+        "window": "all"
+      },
+      "snapshot_fingerprint": "5555555555555555555555555555555555555555555555555555555555555555",
+      "source": "LISTENBRAINZ_SAMPLE",
+      "dataset_id": "synthetic-1",
+      "window": "all",
+      "sample_listeners": 100,
+      "counts": [
+        {
+          "release_group_id": "11111111-1111-4111-8111-111111111111",
+          "listeners": 49
+        },
+        {
+          "release_group_id": "22222222-2222-4222-8222-222222222222",
+          "listeners": 50
+        }
+      ],
+      "digest": "sha256:a2e1ccafa44fb07f93a3ee6b092052a5da8997dd2303829f3590d9eac0dc4790"
+    },
+    "structural_valid": true,
+    "semantic_valid": true
+  },
+  {
+    "name": "audience-count-tampered",
+    "definition": "AudienceSnapshot",
+    "payload": {
+      "format_version": 1,
+      "recall_binding": {
+        "strategy_revision": "A-V2",
+        "data_snapshot_id": "synthetic-1",
+        "weights_digest": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+        "window": "all"
+      },
+      "snapshot_fingerprint": "5555555555555555555555555555555555555555555555555555555555555555",
+      "source": "LISTENBRAINZ_SAMPLE",
+      "dataset_id": "synthetic-1",
+      "window": "all",
+      "sample_listeners": 100,
+      "counts": [
+        {
+          "release_group_id": "11111111-1111-4111-8111-111111111111",
+          "listeners": 50
+        },
+        {
+          "release_group_id": "22222222-2222-4222-8222-222222222222",
+          "listeners": 50
+        }
+      ],
+      "digest": "sha256:a2e1ccafa44fb07f93a3ee6b092052a5da8997dd2303829f3590d9eac0dc4790"
+    },
+    "structural_valid": true,
+    "semantic_valid": false
+  },
+  {
+    "name": "audience-recomputed-wrong-window",
+    "definition": "AudienceSnapshot",
+    "payload": {
+      "format_version": 1,
+      "recall_binding": {
+        "strategy_revision": "A-V2",
+        "data_snapshot_id": "synthetic-1",
+        "weights_digest": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+        "window": "all"
+      },
+      "snapshot_fingerprint": "5555555555555555555555555555555555555555555555555555555555555555",
+      "source": "LISTENBRAINZ_SAMPLE",
+      "dataset_id": "synthetic-1",
+      "window": "2026",
+      "sample_listeners": 100,
+      "counts": [
+        {
+          "release_group_id": "11111111-1111-4111-8111-111111111111",
+          "listeners": 49
+        },
+        {
+          "release_group_id": "22222222-2222-4222-8222-222222222222",
+          "listeners": 50
+        }
+      ],
+      "digest": "sha256:5f931deff298183c7950aa12975f683ab29a81a4ab91fc519eb1ae09546bd320"
+    },
+    "structural_valid": true,
+    "semantic_valid": false
+  },
+  {
+    "name": "audience-exceeds-population",
+    "definition": "AudienceSnapshot",
+    "payload": {
+      "format_version": 1,
+      "recall_binding": {
+        "strategy_revision": "A-V2",
+        "data_snapshot_id": "synthetic-1",
+        "weights_digest": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+        "window": "all"
+      },
+      "snapshot_fingerprint": "5555555555555555555555555555555555555555555555555555555555555555",
+      "source": "LISTENBRAINZ_SAMPLE",
+      "dataset_id": "synthetic-1",
+      "window": "all",
+      "sample_listeners": 100,
+      "counts": [
+        {
+          "release_group_id": "11111111-1111-4111-8111-111111111111",
+          "listeners": 101
+        },
+        {
+          "release_group_id": "22222222-2222-4222-8222-222222222222",
+          "listeners": 50
+        }
+      ],
+      "digest": "sha256:de1c5cefd9974da47a968faf5468496f52b210a3725bb8b6664872c8c0ccefcd"
+    },
+    "structural_valid": true,
+    "semantic_valid": false
+  },
+  {
+    "name": "accepted-wait-timeout-state",
+    "definition": "ProductState",
+    "payload": {
+      "session_id": "session-4",
+      "round_id": null,
+      "run_id": "run-4",
+      "revision": 2,
+      "status": "FAILED",
+      "analysis_mode": null,
+      "recommendation_target_count": 3,
+      "slots": [],
+      "supply_state": "PAUSED",
+      "message_key": "recommendation.queue_timeout",
+      "input_issues": [],
+      "editable_input": null,
+      "expires_at": "2099-12-08T12:00:00Z",
+      "restored": false,
+      "admission": {
+        "intent_id": "intent-4",
+        "status": "EXPIRED",
+        "accepted_at": "2099-11-08T12:00:00Z",
+        "queue_deadline": "2099-11-08T12:00:30Z",
+        "input_revision": 1
+      }
+    },
+    "structural_valid": true,
+    "semantic_valid": true
+  },
+  {
+    "name": "old-singular-runtime-rejected",
+    "definition": "RuntimeView",
+    "payload": {
+      "boot_id": "python-1",
+      "status": "READY",
+      "execution_id": null,
+      "foreground": false
+    },
+    "structural_valid": false,
+    "semantic_valid": false
+  },
+  {
+    "name": "initial-submit-revision-mismatch",
+    "definition": "DiscoverySubmission",
+    "payload": {
+      "input": {
+        "liked_genres": [],
+        "disliked_genre_ids": [],
+        "liked_albums": [
+          {
+            "mb_release_group_id": "11111111-1111-4111-8111-111111111111",
+            "strength": "special",
+            "focused": true
+          }
+        ],
+        "mode": "explore",
+        "request_text": "",
+        "language": "zh"
+      },
+      "expected_revision": 1,
+      "expected_session_id": null
+    },
+    "structural_valid": true,
+    "semantic_valid": false
+  },
+  {
+    "name": "mode-only-not-input",
+    "definition": "DiscoverySubmission",
+    "payload": {
+      "input": {
+        "liked_genres": [],
+        "disliked_genre_ids": [],
+        "liked_albums": [],
+        "mode": "explore",
+        "request_text": " \t ",
+        "language": "zh"
+      },
+      "expected_revision": 0,
+      "expected_session_id": null
+    },
+    "structural_valid": true,
+    "semantic_valid": false
+  },
+  {
+    "name": "negative-only-valid-input",
+    "definition": "DiscoverySubmission",
+    "payload": {
+      "input": {
+        "liked_genres": [],
+        "disliked_genre_ids": [
+          "metal"
+        ],
+        "liked_albums": [],
+        "mode": "explore",
+        "request_text": " \t ",
+        "language": "zh"
+      },
+      "expected_revision": 0,
+      "expected_session_id": null
+    },
+    "structural_valid": true,
+    "semantic_valid": true
+  }
+]

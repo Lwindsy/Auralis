@@ -2,6 +2,7 @@
 
 import json
 from copy import deepcopy
+from datetime import datetime
 from functools import lru_cache
 from hashlib import sha256
 from importlib.resources import files
@@ -58,7 +59,7 @@ def envelope(
 ) -> dict[str, Any]:
     result = {
         "schema_version": "intel.v1",
-        "contract_revision": "0.25",
+        "contract_revision": "0.26",
         "request_id": request_id,
         "trace_context": {"trace_id": trace_id, "span_id": span_id},
         "message_type": name,
@@ -80,7 +81,108 @@ def _unique(rows: list[dict[str, Any]], key: str) -> None:
 
 
 def _semantic(name: str, value: Any) -> None:
-    if name == "RoundStart":
+    if name == "RuntimeView":
+        _unique(value["active"], "execution_id")
+        if len(value["active"]) > value["execution_capacity"] or any(
+            row["slot_released"] or row["boot_id"] != value["boot_id"] for row in value["active"]
+        ):
+            raise ContractError("BINDING_MISMATCH")
+    elif name == "ExecutionAdmission":
+        view = value["execution"]
+        status = value["status"]
+        if (status in {"ACTIVE", "TERMINAL"}) != (view is not None):
+            raise ContractError("BINDING_MISMATCH")
+        if (status == "UNKNOWN") != (value["dedup_until"] is None):
+            raise ContractError("BINDING_MISMATCH")
+        if view is not None and (
+            view["execution_id"] != value["execution_id"]
+            or view["boot_id"] != value["boot_id"]
+            or (status == "TERMINAL") != view["slot_released"]
+        ):
+            raise ContractError("BINDING_MISMATCH")
+    elif name == "ProductState":
+        admission = value["admission"]
+        if (value["status"] == "WAITING") != (
+            admission is not None and admission["status"] == "WAITING"
+        ):
+            raise ContractError("BINDING_MISMATCH")
+        if admission is not None:
+            _semantic("ProductAdmission", admission)
+    elif name == "ProductAdmission":
+        if _time(value["accepted_at"]) >= _time(value["queue_deadline"]):
+            raise ContractError("INVALID_DEADLINE")
+    elif name == "BootstrapState":
+        _semantic("ProductState", value["state"])
+    elif name == "DiscoverySubmission":
+        if value["expected_session_id"] is None and value["expected_revision"] != 0:
+            raise ContractError("BINDING_MISMATCH")
+        _semantic("DiscoveryInput", value["input"])
+    elif name == "DiscoveryInput":
+        if not (
+            value["liked_genres"]
+            or value["disliked_genre_ids"]
+            or value["liked_albums"]
+            or value["request_text"].strip()
+        ):
+            raise ContractError("MISSING_INPUT")
+    elif name in {"AlbumSearchResult", "GenreSearchResult"}:
+        key = "mb_release_group_id" if name == "AlbumSearchResult" else "genre_id"
+        _unique(value["items"], key)
+        if len(value["items"]) > value["limit"] or (
+            value["next_offset"] is not None and value["next_offset"] <= value["offset"]
+        ):
+            raise ContractError("COUNT_MISMATCH")
+    elif name == "ResolvedAlbum":
+        album, raw = value["album"], value["input"]
+        if album["in_core_catalog"]:
+            valid = (
+                raw["release_group_id"] == album["mb_release_group_id"] and raw["external"] is None
+            )
+        else:
+            valid = (
+                raw["release_group_id"] is None
+                and raw["external"] is not None
+                and raw["external"]["mb_release_group_id"] == album["mb_release_group_id"]
+                and set(raw["external"]["mapped_genre_ids"]).issubset(
+                    row["genre_id"] for row in album["identity"]["primary_genres"]
+                )
+            )
+        if not valid:
+            raise ContractError("BINDING_MISMATCH")
+    elif name == "SeedEvidenceCopy":
+        source, target = value["source"], value["target"]
+        copied = _time(value["copied_at"])
+        if (
+            source["subject_id"] != target["subject_id"]
+            or source["session_id"] == target["session_id"]
+            or any(owner["subject_status"] != "ACTIVE" for owner in (source, target))
+            or source["session_status"] not in {"ACTIVE", "SUPERSEDED"}
+            or target["session_status"] != "ACTIVE"
+            or copied >= min(_time(source["expires_at"]), _time(target["expires_at"]))
+        ):
+            raise ContractError("BINDING_MISMATCH")
+        _unique(value["items"], "seed_id")
+        _unique(value["items"], "target_read_id")
+        for row in value["items"]:
+            if (
+                row["source_read_id"] == row["target_read_id"]
+                or not _time(row["read_at"]) <= copied < _time(row["expires_at"])
+                or _time(row["expires_at"])
+                > min(_time(source["expires_at"]), _time(target["expires_at"]))
+            ):
+                raise ContractError("BINDING_MISMATCH")
+    elif name == "AudienceSnapshot":
+        _unique(value["counts"], "release_group_id")
+        ids = [row["release_group_id"] for row in value["counts"]]
+        if (
+            ids != sorted(ids)
+            or any(row["listeners"] > value["sample_listeners"] for row in value["counts"])
+            or value["dataset_id"] != value["recall_binding"]["data_snapshot_id"]
+            or value["window"] != value["recall_binding"]["window"]
+            or content_digest(value, "digest") != value["digest"]
+        ):
+            raise ContractError("BINDING_MISMATCH")
+    elif name == "RoundStart":
         config = value["selection_config"]
         if (
             not config["recommendation_target_count"]
@@ -229,6 +331,10 @@ def _semantic(name: str, value: Any) -> None:
             or value["text_chars"] == 0
         ):
             raise ContractError("INCOMPLETE_READ")
+
+
+def _time(value: str) -> datetime:
+    return datetime.fromisoformat(value.replace("Z", "+00:00"))
 
 
 class IdempotencyLedger:

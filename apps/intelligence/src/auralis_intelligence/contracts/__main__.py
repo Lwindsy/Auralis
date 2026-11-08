@@ -3,7 +3,7 @@
 import json
 import sys
 
-from . import ContractError, validate_message
+from . import ContractError, validate_definition, validate_message
 
 
 def main() -> int:
@@ -11,7 +11,10 @@ def main() -> int:
     results = []
     for message in messages:
         try:
-            validate_message(message)
+            if sys.argv[1:] == ["--definitions"]:
+                validate_definition(message["definition"], message["payload"])
+            else:
+                validate_message(message)
         except ContractError as error:
             results.append({"accepted": False, "code": str(error)})
         else:
