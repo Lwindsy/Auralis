@@ -14,9 +14,10 @@ from uuid import uuid4
 import aiohttp
 import tldextract
 from auralis_intelligence.agents import CallDenied, Execution
-from auralis_intelligence.contracts import validate_definition
+from auralis_intelligence.contracts import digest, validate_definition
 from bs4 import BeautifulSoup
 
+from .excerpts import excerpt
 from .gateway import ModelGateway
 from .types import ReadResult, SearchAdapter, SearchHit
 
@@ -253,6 +254,9 @@ class ToolGateway:
                             raise CallDenied("READ_AUTHORIZATION_MISMATCH")
                         if authorization["decision"] != "GRANTED":
                             raise CallDenied(authorization["reason"] or "READ_ALREADY_CLAIMED")
+                        receipt["read_at"] = (
+                            datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+                        )
                         with execution.clock.measure("read"):
                             return await self.fetcher.fetch(
                                 current, guards["max_bytes"], guards["read_timeout_ms"] / 1000
@@ -299,6 +303,7 @@ class ToolGateway:
                         status="READ_OK",
                         content_digest="sha256:" + sha256(text.encode("utf-8")).hexdigest(),
                         text_chars=len(text),
+                        excerpt_digest=digest(excerpt(text, 3500)),
                         checks={
                             "mentions_title": title.casefold() in text.casefold(),
                             "mentions_artist": artist.casefold() in text.casefold(),

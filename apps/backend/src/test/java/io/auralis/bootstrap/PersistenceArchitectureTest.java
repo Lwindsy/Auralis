@@ -29,7 +29,13 @@ class PersistenceArchitectureTest {
                                         "execution_slot",
                                         "execution"),
                         "budget", Set.of("budget_scope", "invocation", "usage_receipt"),
-                        "evidence", Set.of("read_claim", "read_receipt", "seed_evidence"),
+                        "evidence",
+                                Set.of(
+                                        "read_claim",
+                                        "read_receipt",
+                                        "seed_evidence",
+                                        "read_ticket",
+                                        "seed_read_binding"),
                         "preference", Set.of("effective_preference"),
                         "publication",
                                 Set.of(
