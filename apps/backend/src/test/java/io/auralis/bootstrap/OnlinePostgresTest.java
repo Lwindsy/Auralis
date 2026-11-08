@@ -59,6 +59,9 @@ class OnlinePostgresTest {
                     "CREATE TABLE IF NOT EXISTS public.bootstrap_probe (id bigint primary key, value varchar(255))");
             s.execute("TRUNCATE public.bootstrap_probe");
             s.execute("GRANT SELECT ON public.flyway_schema_history TO auralis_online");
+            s.execute("GRANT USAGE ON SCHEMA discovery TO auralis_online");
+            s.execute(
+                    "GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA discovery TO auralis_online");
             s.execute("GRANT SELECT, INSERT, DELETE ON public.bootstrap_probe TO auralis_online");
         }
     }
@@ -158,6 +161,9 @@ class OnlinePostgresTest {
             assertThrows(
                     org.springframework.dao.DataAccessException.class,
                     () -> jdbc.execute("CREATE TABLE should_not_exist(id int)"));
+            assertThrows(
+                    org.springframework.dao.DataAccessException.class,
+                    () -> jdbc.execute("CREATE TABLE discovery.should_not_exist(id int)"));
         }
         assertTrue(pool.isClosed());
     }

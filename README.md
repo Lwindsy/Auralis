@@ -10,6 +10,12 @@ A standalone Python agent demo and an internal execution service are available. 
 
 The Java online bootstrap can be built with `mvn -f apps/backend/pom.xml verify` and started with `java -jar apps/backend/target/auralis-core-database-0.1.0-SNAPSHOT-online.jar`. It requires explicit `AURALIS_JDBC_URL`, `AURALIS_DATABASE_USER`, `AURALIS_DATABASE_PASSWORD`, `AURALIS_PRODUCT_ORIGIN`, `AURALIS_PYTHON_URL`, `AURALIS_SERVICE_TOKEN` and `AURALIS_CONTRACT_REVISION` environment variables. Use PostgreSQL 18 with the existing migrations applied by the offline CLI and a non-DDL runtime role. The service exposes liveness/readiness probes; product session APIs are not implemented yet.
 
+## Persistence development
+
+The backend includes a V7 discovery-state migration and module-owned storage ports for sessions, executions, budgets, evidence, publication, preferences and audience counts. Apply migrations with the offline migration identity before starting the online application; the runtime identity only validates the schema and uses explicitly granted table permissions. This storage foundation does not yet implement the product APIs or scheduling policy. Never edit an applied migration or roll a V7 database back by deleting its tables.
+
+`mvn -f apps/backend/pom.xml verify` runs formatting, unit/contract tests and the database integration suite. For the latter, explicitly provide `AURALIS_TEST_POSTGRES_URL=jdbc:postgresql://127.0.0.1:<port>/auralis_core_verify` and `AURALIS_TEST_POSTGRES_ADMIN_PASSWORD` for a **fresh disposable PostgreSQL 18 instance**. The suite creates synthetic databases and roles and tests migration-checksum rejection; destroy that instance after each run. Without these variables, database tests are skipped. Set `AURALIS_RECALL_PYTHON` to the existing intelligence Python environment when working in a separate worktree. No paid model calls are made.
+
 ## Agent development
 
 Use Python 3.10+ with the dependencies in [pyproject.toml](apps/intelligence/pyproject.toml). From the repository root, run the complete first-batch flow with synthetic models and pages and the local A-V2 implementation. This performs no paid requests.
