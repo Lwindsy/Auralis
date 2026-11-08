@@ -19,7 +19,8 @@ class PersistenceArchitectureTest {
                                         "session",
                                         "heard_album",
                                         "command_receipt",
-                                        "deletion_job"),
+                                        "deletion_job",
+                                        "subject_revocation"),
                         "discovery",
                                 Set.of(
                                         "recommendation_round",
@@ -36,7 +37,8 @@ class PersistenceArchitectureTest {
                                         "recommendation_card",
                                         "card_slot",
                                         "long_review",
-                                        "delivery_receipt"),
+                                        "delivery_receipt",
+                                        "recovery_projection"),
                         "catalog", Set.of("audience_snapshot", "audience_count"));
         Path source = Path.of(System.getProperty("basedir"), "src/main/java/io/auralis");
         for (var entry : owners.entrySet()) {

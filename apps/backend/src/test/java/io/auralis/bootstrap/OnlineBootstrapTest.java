@@ -82,6 +82,8 @@ class OnlineBootstrapTest {
         p.setPythonUrl("http://127.0.0.1:1");
         p.setServiceToken(TOKEN);
         p.setContractRevision("0.26");
+        p.setSubjectSecret("test-subject-secret-abcdefghijklmnopqrstuvwxyz0123456789");
+        p.setAllowInsecureCookie(true);
         return p;
     }
 
@@ -110,7 +112,11 @@ class OnlineBootstrapTest {
     @Test
     void internalAuthenticationAndProductOriginUseSafeSchemaErrors() throws Exception {
         var protocol = new WireProtocol(JSON);
-        var boundary = new HttpBoundary(properties(), new HttpErrors(JSON, protocol));
+        var boundary =
+                new HttpBoundary(
+                        properties(),
+                        new HttpErrors(JSON, protocol),
+                        org.mockito.Mockito.mock(io.auralis.session.api.SubjectSession.class));
         var request =
                 new MockHttpServletRequest(
                         "POST", "/internal/v1/executions/test/preference-resolution");

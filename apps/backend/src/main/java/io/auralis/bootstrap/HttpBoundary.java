@@ -19,10 +19,15 @@ import org.springframework.web.filter.OncePerRequestFilter;
 public final class HttpBoundary extends OncePerRequestFilter {
     private final OnlineProperties properties;
     private final HttpErrors errors;
+    private final io.auralis.session.api.SubjectSession subjects;
 
-    public HttpBoundary(OnlineProperties properties, HttpErrors errors) {
+    public HttpBoundary(
+            OnlineProperties properties,
+            HttpErrors errors,
+            io.auralis.session.api.SubjectSession subjects) {
         this.properties = properties;
         this.errors = errors;
+        this.subjects = subjects;
     }
 
     @Override
@@ -59,13 +64,35 @@ public final class HttpBoundary extends OncePerRequestFilter {
             String origin = request.getHeader("Origin");
             boolean write = !Set.of("GET", "HEAD").contains(request.getMethod());
             if ((write || origin != null) && !properties.getProductOrigin().equals(origin)) {
-                errors.write(request, response, 403, "FORBIDDEN");
+                errors.write(
+                        request, response, path.equals("/v1/bootstrap") ? 403 : 400, "FORBIDDEN");
                 return;
             }
-            // No mutation can be enabled before the credential/CSRF module is installed.
-            if (write && !path.equals("/v1/bootstrap")) {
-                errors.write(request, response, 503, "DEPENDENCY_UNAVAILABLE");
-                return;
+            if (!path.equals("/v1/bootstrap")) {
+                String token;
+                try {
+                    token = SubjectCookies.credential(request);
+                } catch (IllegalArgumentException invalid) {
+                    errors.write(request, response, 400, "UNAUTHENTICATED");
+                    return;
+                }
+                var identity = subjects.authenticate(token);
+                if (identity.isEmpty()) {
+                    errors.write(request, response, 400, "UNAUTHENTICATED");
+                    return;
+                }
+                if (write && !subjects.validCsrf(token, request.getHeader("X-CSRF-Token"))) {
+                    errors.write(request, response, 400, "FORBIDDEN");
+                    return;
+                }
+                if (write
+                        && (request.getHeader("Idempotency-Key") == null
+                                || request.getHeader("Idempotency-Key").isBlank()
+                                || request.getHeader("Idempotency-Key").length() > 160)) {
+                    errors.write(request, response, 400, "INVALID_PAYLOAD");
+                    return;
+                }
+                request.setAttribute(SubjectCookies.IDENTITY_ATTRIBUTE, identity.get());
             }
         } else if (!Set.of(
                         "/actuator/health",

@@ -13,6 +13,10 @@ public class OnlineProperties {
     private String pythonUrl;
     private String serviceToken;
     private String contractRevision;
+    private String subjectSecret;
+    private boolean allowInsecureCookie;
+    private boolean sessionCleanupEnabled = true;
+    private int recommendationTargetCount = 3;
 
     public void validate(String revision) {
         try {
@@ -29,6 +33,9 @@ public class OnlineProperties {
                     || databaseUser.endsWith("_migrator")
                     || databaseUser.endsWith("_importer")) invalid();
             URI origin = URI.create(productOrigin);
+            if (subjectSecret == null || !subjectSecret.matches("[A-Za-z0-9_-]{43,256}")) invalid();
+            if (recommendationTargetCount < 1 || recommendationTargetCount > 1000) invalid();
+            if ("http".equals(origin.getScheme()) && !allowInsecureCookie) invalid();
             if (!origin.equals(
                             new URI(
                                     origin.getScheme(),
@@ -122,5 +129,37 @@ public class OnlineProperties {
 
     public void setContractRevision(String value) {
         contractRevision = value;
+    }
+
+    public String getSubjectSecret() {
+        return subjectSecret;
+    }
+
+    public void setSubjectSecret(String value) {
+        subjectSecret = value;
+    }
+
+    public boolean isAllowInsecureCookie() {
+        return allowInsecureCookie;
+    }
+
+    public void setAllowInsecureCookie(boolean value) {
+        allowInsecureCookie = value;
+    }
+
+    public boolean isSessionCleanupEnabled() {
+        return sessionCleanupEnabled;
+    }
+
+    public void setSessionCleanupEnabled(boolean value) {
+        sessionCleanupEnabled = value;
+    }
+
+    public int getRecommendationTargetCount() {
+        return recommendationTargetCount;
+    }
+
+    public void setRecommendationTargetCount(int value) {
+        recommendationTargetCount = value;
     }
 }
