@@ -276,8 +276,14 @@ class WriteStage:
             )
         return result
 
+    async def additional_records(self, execution, dossier):
+        return []
+
     async def _long_work(self, execution, dossier, preferences, result, priority):
         records = list(dossier.qualified)
+        extra = await self.additional_records(execution, dossier)
+        records.extend(extra)
+        result["extra_read_ids"].extend(r.result.receipt["read_id"] for r in extra)
         available: dict[str, str] = {}
         policy = execution.start["agent_policy"]["writing"]
         searches = reads = 0

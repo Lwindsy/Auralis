@@ -21,6 +21,8 @@ class ColdEvidence:
         self.urls, self.reads = {}, {}
         self.events = []
         self.failed_ids = set()
+        self.keep_background = False
+        self.background = {}
 
     def sources(self, identifier):
         if identifier in self.reads and not self.reads[identifier]:
@@ -29,6 +31,34 @@ class ColdEvidence:
 
     def take_reads(self, identifier):
         return self.reads.pop(identifier, None)
+
+    async def take_background_reads(self, identifier):
+        state = self.background.get(identifier)
+        if state is None:
+            return []
+        reads = []
+        try:
+            await state["done"].wait()
+            reads = list(state["extra"])
+            state["extra"].clear()
+            state["release"].set()
+            await state["task"]
+            return reads
+        except asyncio.CancelledError:
+            for read in reads:
+                read.clear()
+            state["task"].cancel()
+            await asyncio.gather(state["task"], return_exceptions=True)
+            raise
+        finally:
+            self.background.pop(identifier, None)
+
+    async def discard_unselected(self, selected):
+        for identifier, state in list(self.background.items()):
+            if identifier not in selected:
+                state["task"].cancel()
+                await asyncio.gather(state["task"], return_exceptions=True)
+                self.background.pop(identifier, None)
 
     async def prepare(self, execution, candidates, tools):
         origin = time.perf_counter()
@@ -93,7 +123,59 @@ class ColdEvidence:
                     return None
                 return result
 
-            if parallel and self.race and self.sources_per_album == 1:
+            if parallel and self.race and self.sources_per_album == 1 and self.keep_background:
+                first = asyncio.get_running_loop().create_future()
+                state = {"done": asyncio.Event(), "release": asyncio.Event(), "extra": []}
+                self.background[identifier] = state
+
+                async def collect():
+                    tasks = [asyncio.create_task(read(source)) for source in selected]
+                    owned = []
+                    chosen = None
+                    try:
+                        for completed in asyncio.as_completed(tasks):
+                            result = await completed
+                            if result is None:
+                                continue
+                            owned.append(result)
+                            if chosen is None:
+                                chosen = result
+                                self.reads[identifier] = [result]
+                                if not first.done():
+                                    first.set_result(None)
+                            else:
+                                state["extra"].append(result)
+                        if chosen is None:
+                            self.reads[identifier] = []
+                            if not first.done():
+                                first.set_result(None)
+                        state["done"].set()
+                        await state["release"].wait()
+                    finally:
+                        for task in tasks:
+                            if not task.done():
+                                task.cancel()
+                        outcomes = await asyncio.gather(*tasks, return_exceptions=True)
+                        for result in outcomes:
+                            if (
+                                hasattr(result, "clear")
+                                and result is not chosen
+                                and result not in owned
+                            ):
+                                result.clear()
+                        for result in state["extra"]:
+                            result.clear()
+                        state["extra"].clear()
+                        if chosen is not None and chosen in self.reads.get(identifier, []):
+                            chosen.clear()
+                        state["done"].set()
+                        if not first.done():
+                            self.reads[identifier] = []
+                            first.set_result(None)
+
+                state["task"] = execution.spawn(collect)
+                await first
+            elif parallel and self.race and self.sources_per_album == 1:
                 tasks = [asyncio.create_task(read(source)) for source in selected]
                 chosen = None
                 try:
