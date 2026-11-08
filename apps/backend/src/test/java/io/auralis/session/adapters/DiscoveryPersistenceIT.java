@@ -530,7 +530,7 @@ class DiscoveryPersistenceIT {
                             .load();
             flyway.migrate();
             flyway.validate();
-            assertEquals("10", flyway.info().current().getVersion().toString());
+            assertEquals("11", flyway.info().current().getVersion().toString());
             assertEquals(0, flyway.migrate().migrationsExecuted);
             try (var c = DriverManager.getConnection(target, "be005_migrator", PASSWORD);
                     var s = c.createStatement()) {

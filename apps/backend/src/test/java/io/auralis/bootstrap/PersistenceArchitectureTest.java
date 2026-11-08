@@ -27,7 +27,8 @@ class PersistenceArchitectureTest {
                                         "discovery_intent",
                                         "runtime_control",
                                         "execution_slot",
-                                        "execution"),
+                                        "execution",
+                                        "dispatch_command"),
                         "budget", Set.of("budget_scope", "invocation", "usage_receipt"),
                         "evidence",
                                 Set.of(
