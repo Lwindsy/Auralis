@@ -4,8 +4,8 @@
   "properties": {
     "status": {"enum": ["ok", "needs_more_research"]},
     "sections": {"type": "object", "properties": {"production": {"type": "string", "maxLength": 10000}, "instrumentation": {"type": "string", "maxLength": 10000}, "vocals": {"type": "string", "maxLength": 10000}, "mood": {"type": "string", "maxLength": 10000}}, "required": ["production", "instrumentation", "vocals", "mood"], "additionalProperties": false},
-    "refs": {"type": "array", "maxItems": 100, "uniqueItems": true, "items": {"type": "string", "pattern": "^R[1-9][0-9]*$"}},
-    "missing": {"type": "array", "maxItems": 4, "uniqueItems": true, "items": {"enum": ["production", "instrumentation", "vocals", "mood"]}},
+    "refs": {"type": "array", "maxItems": 100, "items": {"type": "string", "pattern": "^R[1-9][0-9]*$"}},
+    "missing": {"type": "array", "maxItems": 4, "items": {"enum": ["production", "instrumentation", "vocals", "mood"]}},
     "tool_requests": {"type": "array", "maxItems": 2, "items": {"type": "object", "properties": {"tool": {"enum": ["web_search", "web_read"]}, "section": {"enum": ["production", "instrumentation", "vocals", "mood"]}, "url": {"type": ["string", "null"], "maxLength": 4096}}, "required": ["tool", "section", "url"], "additionalProperties": false}}
   },
   "required": ["status", "sections", "refs", "missing", "tool_requests"],

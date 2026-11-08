@@ -37,15 +37,16 @@ def recall_request(snapshot: dict, exclusions: list[dict], limit: int) -> Recall
 
 class RecallStage:
     def __init__(self, snapshot: Path, *, binding: dict, weights: WeightConfig,
-                 source_dependencies: tuple[str, ...] = (), engine: RecallEngine | None = None) -> None:
+                 source_dependencies: tuple[str, ...] = (), engine: RecallEngine | None = None, min_listeners: int = 0) -> None:
         validate_definition("RecallBinding", binding)
         if binding["weights_digest"] != digest(asdict(weights)):
             raise ContractError("BINDING_MISMATCH")
         self.snapshot = Path(snapshot)
         self.binding = deepcopy(binding)
         self.weights = weights
-        self.source_dependencies = tuple(source_dependencies)
+        self.source_dependencies = tuple(source_dependencies) + ((f"listenbrainz-distinct-listeners>={min_listeners}",) if min_listeners else ())
         self.engine = engine
+        self.min_listeners = min_listeners
 
     def _compute(self, request: RecallRequest):
         if self.engine is None:
@@ -54,7 +55,7 @@ class RecallStage:
             except (OSError, ValueError, KeyError, TypeError, MemoryError):
                 return "UNAVAILABLE", "artifact_unavailable", None
         try:
-            result = self.engine.recall(request)
+            result = self.engine.recall(request, min_listeners=self.min_listeners) if self.min_listeners else self.engine.recall(request)
         except ValueError:
             return "UNSUPPORTED_INPUT", "unsupported_input", None
         except TimeoutError:
@@ -79,6 +80,8 @@ class RecallStage:
         if execution.start["start_mode"] == "CONTINUE" or execution.start["operation"] == "CURATED_REVIEWS":
             raise ContractError("RECALL_NOT_ALLOWED")
         require_binding(self.binding, execution.start["recall_binding"])
+        if self.min_listeners and execution.start["agent_policy"].get("audience_min_listeners") != self.min_listeners:
+            raise ContractError("BINDING_MISMATCH")
         require_binding(asdict(self.weights), execution.start["agent_policy"]["recall"]["weights"])
         if execution.start["input"]["accepted_preferences"] is None:
             raise ContractError("MISSING_PREFERENCES")

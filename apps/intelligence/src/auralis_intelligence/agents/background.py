@@ -66,7 +66,7 @@ class RoundPipeline(FirstBatchPipeline):
                     raise ContractError("BINDING_MISMATCH")
                 dossier = AlbumDossier(identifier, deepcopy(candidates[identifier]["identity"]), screening=deepcopy(screening))
                 execution.dossiers[identifier] = dossier
-                eligible = screening["screen"]["status"] == "OK" and len(screening["qualified_read_ids"]) >= 2 and screening["screen"]["score"] >= start["agent_policy"]["screening"]["supplement_min_score"]
+                eligible = screening["screen"]["status"] == "OK" and len(screening["qualified_read_ids"]) >= 1 and screening["screen"]["score"] >= start["agent_policy"]["screening"]["supplement_min_score"]
                 work.results[identifier] = ResearchResult(dossier.screening, dossier, eligible)
             if row["state"] == "READY":
                 work.existing_ready.add(identifier)
@@ -85,7 +85,7 @@ class RoundPipeline(FirstBatchPipeline):
         command_task = asyncio.create_task(execution.command_queue.get())
         def launch_publishers():
             for identifier, jobs in work.jobs.items():
-                if identifier not in work.long_delivered and identifier not in publishers:
+                if jobs.long is not None and identifier not in work.long_delivered and identifier not in publishers:
                     work.long_states[identifier] = "GENERATING"
                     publishers[identifier] = execution.spawn(lambda identifier=identifier, jobs=jobs: self.publish_long(execution, work, identifier, jobs.long), start_work=False)
         for identifier in work.shown:
@@ -124,7 +124,7 @@ class RoundPipeline(FirstBatchPipeline):
                 reserve = self.reserves(execution, work)
                 available = bool(reserve) or work.cursor < len(work.candidates)
                 below_watermark = len(work.ready_unshown) < execution.start["agent_policy"]["supply"]["replenish_watermark"]
-                if active is None and not execution.close_requested and not blocked and below_watermark and available:
+                if active is None and not execution.close_requested and not blocked and below_watermark and available and (work.user_waiting or not getattr(self.research, "prepared_decisions", False)):
                     lane = "FOREGROUND" if work.user_waiting else "BACKGROUND"
                     execution.foreground = work.user_waiting
                     execution.phase = "FOREGROUND" if work.user_waiting else "BACKGROUND"
@@ -208,13 +208,13 @@ class RoundPipeline(FirstBatchPipeline):
                 short = jobs.short.result()
                 if short is None or short.status not in {"READY", "BUDGET_EXHAUSTED"}:
                     continue
-            if result.screening["screen"]["status"] == "OK" and len(result.screening["qualified_read_ids"]) >= 2 and (curated or result.screening["screen"]["score"] >= floor) and result.screening["disposition"] in {"RESERVE", "SHORTLISTED", "BELOW_FLOOR"}:
+            if result.screening["screen"]["status"] == "OK" and len(result.screening["qualified_read_ids"]) >= 1 and (curated or result.screening["screen"]["score"] >= floor) and result.screening["disposition"] in {"RESERVE", "SHORTLISTED", "BELOW_FLOOR"}:
                 available.append(result)
         return sorted(available, key=lambda result: (result.screening["recall_rank"],) if curated else (-result.screening["screen"]["score"], result.screening["recall_rank"]))
 
     async def hydrate(self, execution, work, identifier, *, qualification_only=False, lane="BACKGROUND"):
         old = work.results.get(identifier)
-        if old is not None and len(old.dossier.qualified) >= 2 and all(record.excerpt for record in old.dossier.qualified):
+        if old is not None and len(old.dossier.qualified) >= 1 and all(record.excerpt for record in old.dossier.qualified):
             eligible = qualification_only or execution.start["operation"] == "CURATED_REVIEWS" or old.screening["screen"]["score"] >= execution.start["agent_policy"]["screening"]["supplement_min_score"]
             if eligible:
                 old.screening.update(disposition="RESERVE", reason_code=None)
@@ -232,8 +232,15 @@ class RoundPipeline(FirstBatchPipeline):
             work.frozen_ms = work.in_flight_at_freeze = 0
             execution.clock.start_agent(reset_phases=True)
         count = execution.start["agent_policy"]["supply"]["supply_batch_size"]
-        chosen = self.reserves(execution, work)[:count]
-        while len(chosen) < count and work.cursor < len(work.candidates):
+        if getattr(self.research, "prepared_decisions", False):
+            fresh = await self.research.next_batch(execution, work)
+            work.results.update(fresh)
+            chosen = [fresh[i] for i in self.research.order]
+            work.cursor = 0 if any(r.screening["disposition"] == "DEFERRED" for r in fresh.values()) else len(work.candidates)
+            await self.deliver(execution, "SCREENINGS", [r.screening for r in fresh.values()])
+        else:
+            chosen = self.reserves(execution, work)[:count]
+        while len(chosen) < count and work.cursor < len(work.candidates) and not getattr(self.research, "prepared_decisions", False):
             execution.ensure_active()
             candidate = work.candidates[work.cursor]
             work.cursor += 1
@@ -252,7 +259,10 @@ class RoundPipeline(FirstBatchPipeline):
         for result in hydrated:
             result.screening["disposition"] = "SHORTLISTED"
             previous = work.jobs.get(result.dossier.candidate_id)
-            if previous is None:
+            if previous is None and not self.generate_long_reviews:
+                from auralis_intelligence.album_reviews.writing import WritingJobs
+                work.jobs[result.dossier.candidate_id] = WritingJobs(execution.spawn(lambda result=result: self.writing.short(execution, result.dossier, work.preferences, lane=lane)), None)
+            elif previous is None:
                 if work.long_states.get(result.dossier.candidate_id, "NOT_STARTED") != "NOT_STARTED":
                     from auralis_intelligence.album_reviews.writing import WritingJobs
                     known_long = asyncio.get_running_loop().create_future()
@@ -277,7 +287,10 @@ class RoundPipeline(FirstBatchPipeline):
                 result.screening.update(disposition="RESERVE" if short.status == "BUDGET_EXHAUSTED" else "INELIGIBLE", reason_code=None if short.status == "BUDGET_EXHAUSTED" else "SELECT_REJECTED" if identifier in rejected else "WRITE_FAILED")
                 continue
             card = {"candidate_id": identifier, "selection_basis": "CURATED" if curated else "SELECTED" if selection.analysis_mode == "PERSONALIZED" else "SCREEN_ONLY", "short_review": short.review,
-                    "admission": {"qualified_read_ids": result.screening["qualified_read_ids"], "screen_score": result.screening["screen"]["score"], "screen_invocation_id": result.screening["screen"]["invocation_id"]}, "long_review_state": work.long_states.get(identifier, "GENERATING")}
+                    "admission": {"qualified_read_ids": result.screening["qualified_read_ids"], "screen_score": result.screening["screen"]["score"], "screen_invocation_id": result.screening["screen"]["invocation_id"]}, "long_review_state": work.long_states.get(identifier, "GENERATING" if self.generate_long_reviews else "NOT_STARTED")}
+            audience = execution.candidates[identifier].get("audience")
+            if audience is not None:
+                card["admission"]["audience"] = audience
             cards.append(card)
             work.cards[identifier] = card
         if not cards and any(short.status == "BUDGET_EXHAUSTED" for short in shorts):
@@ -285,7 +298,7 @@ class RoundPipeline(FirstBatchPipeline):
         payload = {"batch_kind": "SUPPLY", "outcome": "DISPLAYABLE" if cards else "FAILED", "reason_code": None if cards else "WRITE_FAILED", "input_issues": [],
                    "analysis_mode": selection.analysis_mode, "selection": selection.selection, "screen_order": selection.screen_order, "cards": cards,
                    "screenings": [result.screening for result in hydrated], "timing": self.timing(execution, work, len(hydrated), len(cards)) if lane == "FOREGROUND" and publish else None,
-                   "pending": {"long_reviews_generating": sum(not jobs.long.done() for jobs in work.jobs.values()), "deferred_candidates": len(work.candidates) - work.cursor, "supply_state": "SUPPLYING"}}
+                   "pending": {"long_reviews_generating": sum(jobs.long is not None and not jobs.long.done() for jobs in work.jobs.values()), "deferred_candidates": len(work.candidates) - work.cursor, "supply_state": "SUPPLYING"}}
         receipt = await self.deliver(execution, "CARD_BATCH", payload, run_id=execution.start["run_id"] if lane == "FOREGROUND" and publish else None)
         self.display_result(work, receipt)
         if curated:
@@ -349,7 +362,7 @@ class RoundPipeline(FirstBatchPipeline):
         if identifier not in work.shown | work.existing_ready | set(work.cards):
             raise ContractError("LONG_REVIEW_NOT_AVAILABLE")
         jobs = work.jobs.get(identifier)
-        if jobs is not None and not jobs.long.done():
+        if jobs is not None and jobs.long is not None and not jobs.long.done():
             execution.prioritize_long(identifier)
             return
         if work.long_states.get(identifier) == "READY":
@@ -361,7 +374,7 @@ class RoundPipeline(FirstBatchPipeline):
         async def regenerate():
             result = await self.hydrate(execution, work, identifier, qualification_only=True)
             if not result.eligible:
-                return {"candidate_id": identifier, "status": "NEEDS_MORE_RESEARCH", "sections": None, "citations": [], "han_char_count": 0, "extra_read_ids": [], "missing_sections": ["production", "instrumentation", "vocals", "mood"], "invocation_ids": [], "prompt_version": "long_review.v1", "reason_code": "REVIEW_MATERIAL_INSUFFICIENT"}
+                return {"candidate_id": identifier, "status": "NEEDS_MORE_RESEARCH", "sections": None, "citations": [], "han_char_count": 0, "extra_read_ids": [], "missing_sections": ["production", "instrumentation", "vocals", "mood"], "invocation_ids": [], "prompt_version": "long_review.v1.1", "reason_code": "REVIEW_MATERIAL_INSUFFICIENT"}
             return await self.writing.long(execution, result.dossier, work.preferences, priority=1)
         from auralis_intelligence.album_reviews.writing import WritingJobs
         completed_short = asyncio.get_running_loop().create_future()
@@ -419,7 +432,7 @@ class RoundPipeline(FirstBatchPipeline):
         close = "CANCELLED" if execution.cancelled.is_set() else reason if reason in {"IDLE", "DRAINED", "ROUND_MAX_LIFETIME"} else "CLOSE_COMMAND" if execution.close_requested and reason else "FAILED" if execution.error_code or execution.first_outcome in {"FAILED", "NEEDS_INPUT"} else "DRAINED"
         state = execution.budget_state
         report = {"close_reason": close, "trigger_reason": reason or execution.first_reason or execution.handoff,
-                  "counts": {"researched": len(results), "qualified": sum(result.screening["screen"]["status"] == "OK" and len(result.screening["qualified_read_ids"]) >= 2 for result in results),
+                  "counts": {"researched": len(results), "qualified": sum(result.screening["screen"]["status"] == "OK" and len(result.screening["qualified_read_ids"]) >= 1 for result in results),
                              "shortlisted": len((set(work.cards) | work.existing_ready | work.shown)) if work else 0, "ready": len(work.ready_unshown) if work else 0,
                              "long_ready": sum(value == "READY" for value in work.long_states.values()) if work else 0,
                              "ineligible": sum(result.screening["disposition"] == "INELIGIBLE" for result in results), "below_floor": sum(result.screening["disposition"] == "BELOW_FLOOR" for result in results),

@@ -76,16 +76,16 @@ def test_short_and_long_dispatch_independently_and_short_does_not_wait_for_long(
     asyncio.run(run())
 
 
-@pytest.mark.parametrize("bad", ["short_length", "short_sentence", "forged_alias", "long_missing", "long_length", "long_citation", "partial_citation"])
+@pytest.mark.parametrize("bad", ["short_length", "short_sentence", "forged_alias", "long_missing", "long_nontext", "long_citation", "partial_citation"])
 def test_invalid_form_or_citation_is_rejected_as_a_whole(bad):
     from test_agent_runtime import BASE
     policy = BASE["agent_policy"]["writing"]
     short, long = short_output(), long_output()
     if bad == "short_length": short["text"] = "太短[R1]。真的[R2]。"
-    if bad == "short_sentence": short["text"] = short["text"].replace("。", "，")
+    if bad == "short_sentence": short["text"] = short["text"].replace("。", "。另加一句。再加一句。")
     if bad == "forged_alias": short["text"] += "[S1]"
     if bad == "long_missing": long["sections"].pop("vocals")
-    if bad == "long_length": long["sections"]["vocals"] = "不足[R1]"
+    if bad == "long_nontext": long["sections"]["vocals"] = 42
     if bad == "long_citation": long["sections"]["vocals"] += "[R999]"
     if bad == "partial_citation":
         long = needs_more()

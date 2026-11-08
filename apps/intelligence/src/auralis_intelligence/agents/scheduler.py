@@ -18,8 +18,8 @@ class _Job:
 
 
 class BoundedScheduler:
-    def __init__(self, limits: dict[str, int], *, background_model_limit: int, per_host_limit: int, max_pending: int = 1024) -> None:
-        if any(value < 1 for value in limits.values()) or background_model_limit < 1 or per_host_limit < 1:
+    def __init__(self, limits: dict[str, int | None], *, background_model_limit: int, per_host_limit: int | None, max_pending: int = 1024) -> None:
+        if any(value is not None and value < 1 for value in limits.values()) or background_model_limit < 1 or (per_host_limit is not None and per_host_limit < 1):
             raise ValueError("INVALID_CONCURRENCY")
         self.limits = dict(limits)
         self.background_model_limit = background_model_limit
@@ -59,11 +59,11 @@ class BoundedScheduler:
             raise
 
     def _available(self, job: _Job) -> bool:
-        if self.counts[job.resource] >= self.limits[job.resource]:
+        if self.limits[job.resource] is not None and self.counts[job.resource] >= self.limits[job.resource]:
             return False
         if job.resource == "model" and job.background and self.background_models >= self.background_model_limit:
             return False
-        if job.host and self.hosts.get(job.host, 0) >= self.per_host_limit:
+        if job.host and self.per_host_limit is not None and self.hosts.get(job.host, 0) >= self.per_host_limit:
             return False
         return True
 

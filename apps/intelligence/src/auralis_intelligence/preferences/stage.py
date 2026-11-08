@@ -11,7 +11,7 @@ from .prompts import PASS_ONE_PROMPT, PASS_TWO_PROMPT
 from .reference import PreferenceError, ReferenceCatalog, locate
 from .schemas import PASS_ONE, PASS_TWO
 
-PARSER_REVISION = "preferences-v1-pass1-v0.5-pass2-v0.6"
+PARSER_REVISION = "preferences-v1-pass1-v0.6-pass2-v0.8"
 
 
 class PreferencesStage:
@@ -50,7 +50,7 @@ class PreferencesStage:
         if text.strip():
             execution.phase = "INTERPRETING"
             branches = self.reference.branch_material()
-            first = await self._generate(execution, PASS_ONE_PROMPT, {"request_text": text, "branches": branches}, PASS_ONE, "genre_pass1_v0.5")
+            first = await self._generate(execution, PASS_ONE_PROMPT, {"request_text": text, "branches": branches}, PASS_ONE, "genre_pass1_v0.6")
             ids = [row["id"] for row in first["branches"]]
             if len(set(ids)) != len(ids) or set(ids) - {row["id"] for row in branches}:
                 raise PreferenceError("INTERPRETATION_INVALID_ID")
@@ -58,16 +58,17 @@ class PreferencesStage:
                 locate(text, row["quote"])
             genres = (self.reference.expand(ids) if self.genre_limit is None
                       else self.reference.expand_limited(ids, self.genre_limit, text))
-            second = await self._generate(execution, PASS_TWO_PROMPT, {"request_text": text, "genres": genres}, PASS_TWO, "genre_pass2_v0.6")
+            second = await self._generate(execution, PASS_TWO_PROMPT, {"request_text": text, "genres": genres}, PASS_TWO, "genre_pass2_v0.8")
             if not any(second.values()):
                 raise PreferenceError("INTERPRETATION_INVALID_OUTPUT")
             known = {row["id"] for row in genres}
             for key in ("preferences", "constraints"):
                 seen = set()
                 for row in second[key]:
-                    if row["id"] not in known or row["id"] in seen:
+                    identity = (row["id"], row["kind"])
+                    if row["id"] not in known or identity in seen:
                         raise PreferenceError("INTERPRETATION_INVALID_ID")
-                    seen.add(row["id"])
+                    seen.add(identity)
                     proposal[key].append({**{k: v for k, v in row.items() if k != "quote"}, "text_span": locate(text, row["quote"])})
             proposal["unresolved_constraints"] = [locate(text, quote) for quote in second["unresolved_constraints"]]
             for index, row in enumerate(second["soft_preferences"]):

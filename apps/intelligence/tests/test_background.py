@@ -54,7 +54,7 @@ def test_idle_close_keeps_remaining_candidates_and_round_report(tmp_path):
             await harness.supervisor.wait(execution.id)
             assert execution.status == "CLOSED" and execution.slot_released
             assert execution.final_report["close_reason"] == "IDLE"
-            assert execution.final_report["counts"]["unresearched"] == 1
+            assert execution.final_report["counts"]["unresearched"] == 0
             reports = [item for item in harness.control.deliveries.values() if item["kind"] == "ROUND_REPORT"]
             assert len(reports) == 1
             validate_definition("RoundReport", reports[0]["payload"])
@@ -97,9 +97,9 @@ def test_low_scores_do_not_fill_supply_and_exhaustion_does_not_recall_again(tmp_
             def reply(binding, request):
                 nonlocal screens
                 result = _reply(binding, request)
-                if request.schema_name == "screen_v1":
+                if request.schema_name == "research_v2" and result.output["action"] == "finish":
                     screens += 1
-                    result.output["score"] = 4 if screens == 1 else 2
+                    result.output["assessment"]["score"] = 4 if screens == 1 else 2
                 return result
             harness.adapter.replies = reply
             execution, _ = await start(harness)
@@ -122,7 +122,7 @@ def test_cancellation_preserves_reason_and_waits_for_physical_stop(reason, tmp_p
             stopping, release = asyncio.Event(), asyncio.Event()
             original = harness.adapter.complete
             async def delayed(binding, request):
-                if request.schema_name == "long_review_v1":
+                if request.schema_name.startswith("long_review_v1"):
                     try: await asyncio.Event().wait()
                     except asyncio.CancelledError:
                         stopping.set()
@@ -157,7 +157,7 @@ def test_maintenance_close_drains_started_work_without_new_calls(tmp_path):
             release = asyncio.Event()
             original = harness.adapter.complete
             async def delayed(binding, request):
-                if request.schema_name == "long_review_v1": await release.wait()
+                if request.schema_name.startswith("long_review_v1"): await release.wait()
                 return await original(binding, request)
             harness.adapter.complete = delayed
             execution, _ = await start(harness)
@@ -203,7 +203,7 @@ def test_interrupted_long_is_not_automatic_but_explicit_regeneration_rereads(tmp
         try:
             original = harness.adapter.complete
             async def delayed(binding, request):
-                if request.schema_name == "long_review_v1": await asyncio.Event().wait()
+                if request.schema_name.startswith("long_review_v1"): await asyncio.Event().wait()
                 return await original(binding, request)
             harness.adapter.complete = delayed
             first, _ = await start(harness)
@@ -264,7 +264,7 @@ def test_revocation_push_loss_rejects_late_long_but_settles_usage(tmp_path):
             release = asyncio.Event()
             original = harness.adapter.complete
             async def delayed(binding, request):
-                if request.schema_name == "long_review_v1": await release.wait()
+                if request.schema_name.startswith("long_review_v1"): await release.wait()
                 return await original(binding, request)
             harness.adapter.complete = delayed
             execution, _ = await start(harness)
@@ -314,7 +314,7 @@ def test_displayed_long_priority_and_user_boost_reorder_only_pending_work(tmp_pa
             order, release = [], asyncio.Event()
             original = harness.adapter.complete
             async def delayed(binding, request):
-                if request.schema_name == "long_review_v1":
+                if request.schema_name.startswith("long_review_v1"):
                     identifier = request.input["album"]["title"].replace("Synthetic Album ", "")
                     order.append(identifier)
                     if len(order) == 1: await release.wait()
@@ -346,7 +346,7 @@ def test_background_exhaustion_waits_for_explicit_budget_and_regeneration(tmp_pa
             execution, _ = await start(harness)
             await until(lambda: any(state == "BUDGET_EXHAUSTED" for state in harness.control.long_states.values()))
             target = harness.control.executions[execution.id]["display"]["shown_candidate_ids"][0]
-            before = len([request for _, request in harness.adapter.requests if request.schema_name == "long_review_v1"])
+            before = len([request for _, request in harness.adapter.requests if request.schema_name.startswith("long_review_v1")])
             assert before == 0
             update = await command(harness, execution, "BUDGET_UPDATE", {"FOREGROUND": 0, "BACKGROUND": 10000}, identifier="money-once")
             harness.control.issue_command(execution.id, update)
@@ -358,7 +358,7 @@ def test_background_exhaustion_waits_for_explicit_budget_and_regeneration(tmp_pa
             budget = harness.control.rounds[harness.request["budget"]["round_budget_scope_id"]]
             assert budget.lanes["BACKGROUND"].cap == 10001
             assert sum(account.cap for account in budget.lanes.values()) == 60000
-            assert len([request for _, request in harness.adapter.requests if request.schema_name == "long_review_v1"]) == 1
+            assert len([request for _, request in harness.adapter.requests if request.schema_name.startswith("long_review_v1")]) == 1
         finally: harness.close()
     asyncio.run(run())
 
@@ -369,8 +369,8 @@ def test_background_repair_allowance_survives_continuation(tmp_path):
         try:
             def bad_long(binding, request):
                 result = _reply(binding, request)
-                if request.schema_name == "long_review_v1":
-                    result.output["sections"]["vocals"] = "不足[R1]"
+                if request.schema_name.startswith("long_review_v1"):
+                    result.output["sections"]["vocals"] = "伪造引用[R999]"
                 return result
             harness.adapter.replies = bad_long
             first, _ = await start(harness)
@@ -495,7 +495,7 @@ def test_policy_push_purges_dossier_excerpts_before_late_output(tmp_path):
             release = asyncio.Event()
             original = harness.adapter.complete
             async def delayed(binding, request):
-                if request.schema_name == "long_review_v1": await release.wait()
+                if request.schema_name.startswith("long_review_v1"): await release.wait()
                 return await original(binding, request)
             harness.adapter.complete = delayed
             execution, _ = await start(harness)

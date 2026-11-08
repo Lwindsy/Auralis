@@ -30,19 +30,23 @@ def _reply(binding, request):
     elif name.startswith("genre_pass2"):
         output = {"preferences": [{"id": "jazz", "kind": "prefer", "basis": "explicit", "quote": payload["request_text"]}], "constraints": [], "unresolved_constraints": [],
                   "soft_preferences": [{"description": "希望安静、适合深夜独处的音乐", "kind": "context", "basis": "explicit", "quote": payload["request_text"]}]}
-    elif name == "screen_v1":
+    elif name == "research_v2" and not payload["sources"]:
+        output = {"action": "read", "query": "", "urls": [x["url"] for x in payload["available_sources"]], "reason": "Read independently discovered synthetic sources", "assessment": None}
+    elif name in {"screen_v1", "research_v2"}:
         refs = [item["ref"] for item in payload["sources"]]
         output = {"reads": [{"ref": ref, "about_target": "yes", "substantive": "yes"} for ref in refs], "score": 4,
                   "matches": [{"pref": payload["preferences"][0]["ref"], "refs": refs, "note": "合成资料中的克制编配与当前听感需求相关"}], "tensions": [], "unknowns": ["真实音乐效果未测"], "summary": "合成资料讨论克制编配、空间感与演奏细节，未提供真实音乐质量证据。"}
-    elif name == "short_review_v1":
+    elif name.startswith("short_review_v1"):
         output = {"text": "这张专辑在合成测试资料中呈现克制的编配，钢琴与轻缓鼓点之间留有清晰空间，旋律以渐进的方式展开而不过度依赖厚重音墙[R1]。另一份资料强调人声与吉他的亲近感；如果这次想在深夜安静地听，可以留意这种舒缓而细致的安排，这里只验证程序流程而不代表真实试听评价[R2]。", "refs": ["R1", "R2"]}
-    elif name == "long_review_v1":
+    elif name.startswith("long_review_v1"):
         paragraph = "这是明确的合成长评材料，用于验证程序篇幅、引用和并行交付，不能当作实际专辑的音乐评价。资料描述演奏间保留的空间、声音缓慢推进时的变化，以及不同评论对这种处理的分歧。我们仍需真实模型和实际网页测试，才能判断最后写出的乐评是否自然准确。"
         output = {"status": "ok", "sections": {key: paragraph * 4 + ("[R1]" if index % 2 == 0 else "[R2]") for index, key in enumerate(("production", "instrumentation", "vocals", "mood"))}, "refs": ["R1", "R2"], "missing": [], "tool_requests": []}
     elif name == "select_v1":
         output = {"order": [{"c": item["c"], "verdict": "recommend" if index < payload["target_count"] else "reserve", "note": "仅为合成排列，用于验证完整候选与交付"} for index, item in enumerate(payload["candidates"])]}
     else:
         raise ValueError("UNKNOWN_DEMO_PROMPT")
+    if name == "research_v2" and "action" not in output:
+        output = {"action": "finish", "query": "", "urls": [], "reason": "Evidence sufficient", "assessment": output}
     return CallResult(output, usage=Usage(10, 10, 0))
 
 
@@ -58,7 +62,7 @@ class DemoPages:
 
 
 class DemoHarness:
-    def __init__(self, *, scenario="mixed", r=20, k=8, n=3, root: Path | None = None) -> None:
+    def __init__(self, *, scenario="mixed", r=50, k=15, n=3, root: Path | None = None) -> None:
         if not 1 <= n <= k <= r <= 100:
             raise ValueError("DEMO_COUNTS_REQUIRE_1_LE_N_LE_K_LE_R_LE_100")
         self.temp_root = (root or Path.cwd() / "tmp").resolve()
@@ -75,7 +79,7 @@ class DemoHarness:
         self.control = JavaControlDouble("synthetic-java", catalog={identifier: {"title": "Synthetic Album " + identifier, "artist_credit": "Synthetic Artist", "first_release_year": 2000, "release_type": "Album", "primary_genres": [{"genre_id": "jazz", "name": "爵士"}]} for identifier in album_ids}, price_per_token=0)
         self.control.known_review_refs = {identifier: [{"read_id": f"locator-{publisher}-{identifier}", "url": f"https://{publisher}.example/{identifier}", "publisher_key": f"{publisher}.example"} for publisher in ("one", "two")] for identifier in album_ids}
         self.control.preference_resolver = lambda raw, proposal: merge_preferences(raw, proposal, reference=self.reference, seed_descriptions={identifier: "Synthetic Artist — Synthetic Album " + identifier for identifier in album_ids})
-        self.bindings = {role: ModelBinding(role, "synthetic-v1", "synthetic-model", "synthetic-zero-price", 24000, 4096, web_search=role == "screen") for role in ("interpret", "screen", "select", "write")}
+        self.bindings = {role: ModelBinding(role, "synthetic-v1", "synthetic-model", "synthetic-zero-price", 180000, 4096, web_search=role == "screen") for role in ("interpret", "screen", "select", "write")}
         self.adapter = ScriptedModelAdapter(_reply)
         self.model = ModelGateway(self.adapter, self.bindings)
         self.tools = ToolGateway(DemoPages(), search_adapter=StaticSearchAdapter(()), model_gateway=self.model)
@@ -90,7 +94,7 @@ class DemoHarness:
         policy = {"revision": "synthetic-agent-v1", "timing": {key: 120000 for key in ("shortlist_freeze_ms", "short_review_tech_timeout_ms", "select_tech_timeout_ms", "long_review_timeout_ms", "research_timeout_fg_ms", "research_timeout_bg_ms", "interpret_timeout_ms", "recall_timeout_ms")},
                   "screening": {"score_scale": "ANCHORED_1_5", "shortlist_min_score": 3, "supplement_min_score": 3, "min_qualified_reads": 2, "reads_per_album_initial": 3, "max_reads_per_album": 6, "max_searches_per_album": 2, "min_review_chars": 200, "excerpt_token_cap": 2000},
                   "supply": {"wave_overprovision": 2, "replenish_watermark": 3, "supply_batch_size": 3, "rerun_exclusion_scope": "ALL_PRIOR_EXCEPT_READ_FAILED", "next_round_start": "ON_DEMAND", "max_rounds_per_session": 5},
-                  "writing": {"short_min_han": 80, "short_max_han": 180, "long_min_han": 1000, "long_section_min_han": 150, "long_extra_max_searches": 1, "long_extra_max_reads": 2, "long_tool_turns": 2},
+                  "writing": {"short_min_han": 80, "short_max_han": 180, "long_min_han": 0, "long_section_min_han": 0, "long_extra_max_searches": 1, "long_extra_max_reads": 2, "long_tool_turns": 2},
                   "concurrency": {"model_max_in_flight": 20, "background_model_max_in_flight": 8, "search_max_in_flight": 4, "read_max_in_flight": 8, "read_max_per_host": 2}, "recall": {"weights": asdict(WeightConfig())}}
         policy["digest"] = content_digest(policy, "digest")
         exclusions = [{"release_group_id": "album-0", "reason": "SEED"}] if raw["liked_albums"] else []

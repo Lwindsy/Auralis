@@ -206,6 +206,20 @@ def test_conflicting_hard_constraints_and_parallel_interests():
     assert len(snapshot["tags"]) == 2 and not snapshot["required_tags"]
 
 
+def test_two_pass_opposite_constraints_reach_conflict_resolution():
+    async def run():
+        first = {"branches": [{"id": "branch:jazz", "quote": "爵士"}]}
+        second = {"preferences": [],
+                  "constraints": [{"id": "genre:jazz", "kind": kind, "quote": "爵士"}
+                                  for kind in ("require", "exclude")],
+                  "unresolved_constraints": [], "soft_preferences": []}
+        execution, _, _, stage = execution_for(raw("爵士"), [first, second])
+        with pytest.raises(PreferenceError, match="PREFERENCE_CONFLICT") as caught:
+            await stage(execution)
+        assert caught.value.status == "NEEDS_INPUT"
+    asyncio.run(run())
+
+
 def test_inference_preserves_explicit_positive_flags():
     value = raw("安静", liked=[{"genre_id": "genre:jazz", "strength": "special", "focused": True}])
     row = {"id": "genre:jazz", "kind": "avoid", "basis": "inferred", "text_span": {"start": 0, "end": 2}}

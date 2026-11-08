@@ -38,5 +38,5 @@ class ModelGateway:
         plan = execution.invocation_plan(purpose, role, material, candidate_id=candidate_id, read_ids=read_ids, lane=lane,
                                          max_input_tokens=token_bound, max_output_tokens=binding.max_output_tokens)
         timing = execution.start["agent_policy"]["timing"]
-        timeout_key = {"interpret": "interpret_timeout_ms", "screen": "research_timeout_fg_ms", "select": "select_tech_timeout_ms", "write": "long_review_timeout_ms" if purpose == "WRITE_LONG" else "short_review_tech_timeout_ms"}[role]
+        timeout_key = {"long_write": "long_review_timeout_ms", "interpret": "interpret_timeout_ms", "screen": "research_timeout_fg_ms", "select": "select_tech_timeout_ms", "write": "long_review_timeout_ms" if purpose == "WRITE_LONG" else "short_review_tech_timeout_ms"}[role]
         return await execution.invoke(plan, lambda: self.adapter.complete(binding, request), timeout_seconds=(timeout_ms or timing[timeout_key]) / 1000, priority=priority)

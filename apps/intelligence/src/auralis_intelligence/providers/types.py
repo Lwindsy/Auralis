@@ -22,9 +22,16 @@ class ModelBinding:
     cached_input_microusd_per_million: int | None = None
     output_microusd_per_million: int | None = None
     search_microusd_per_call: int | None = None
+    reasoning_effort: str | None = None
+    service_tier: str | None = None
 
     def wire(self) -> dict[str, Any]:
-        return {name: getattr(self, name) for name in ("ref", "revision", "model", "price_revision", "max_input_tokens", "max_output_tokens")}
+        value = {name: getattr(self, name) for name in ("ref", "revision", "model", "price_revision", "max_input_tokens", "max_output_tokens")}
+        if self.reasoning_effort is not None:
+            value["reasoning_effort"] = self.reasoning_effort
+        if self.service_tier is not None:
+            value["service_tier"] = self.service_tier
+        return value
 
 
 @dataclass(frozen=True)

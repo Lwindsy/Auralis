@@ -19,8 +19,23 @@ class RecallEngine:
         self._model = model
         self._algorithm = algorithm
 
-    def recall(self, request: RecallRequest) -> RecallResult:
-        return replace(_rank(self._model, request), algorithm=self._algorithm)
+    def recall(self, request: RecallRequest, *, min_listeners: int = 0) -> RecallResult:
+        if min_listeners < 0:
+            raise ValueError("negative audience threshold")
+        mask = None
+        if min_listeners:
+            mask = self._model.data.interactions.getnnz(axis=0) >= min_listeners
+        return replace(_rank(self._model, request, eligibility_mask=mask), algorithm=self._algorithm)
+
+    def audience(self, album_ids: list[str]) -> dict:
+        """Distinct listeners in this bound snapshot, never global audience estimates."""
+        if not hasattr(self, "_audience"):
+            data = self._model.data
+            counts = data.interactions.getnnz(axis=0)
+            self._audience = dict(zip(data.album_ids, map(int, counts)))
+        return {"dataset_id": self._model.data.dataset_id, "window": self._model.data.window,
+                "sample_listeners": self._model.data.interactions.shape[0],
+                "counts": {identifier: self._audience.get(identifier) for identifier in album_ids}}
 
 
 def load_a_v2(snapshot: Path, *, weights: WeightConfig) -> RecallEngine:

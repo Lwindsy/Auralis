@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from auralis_intelligence.album_reviews import ResearchResult, ResearchStage, WriteStage
+from auralis_intelligence.album_reviews.writing import WritingJobs
 from auralis_intelligence.contracts import ContractError
 from auralis_intelligence.preferences import PreferenceError, PreferencesStage
 from auralis_intelligence.ranking import SelectionResult, SelectStage
@@ -60,16 +61,17 @@ class RoundWork:
 
 class FirstBatchPipeline:
     def __init__(self, preferences: PreferencesStage, recall: RecallStage, research: ResearchStage,
-                 writing: WriteStage, selection: SelectStage) -> None:
+                 writing: WriteStage, selection: SelectStage, *, generate_long_reviews: bool = True) -> None:
         self.preferences = preferences
         self.recall = recall
         self.research = research
         self.writing = writing
         self.selection = selection
+        self.generate_long_reviews = generate_long_reviews
 
     @staticmethod
     def eligible_now(result: ResearchResult) -> bool:
-        return result.eligible and len(result.dossier.qualified) >= 2 and all(record.excerpt for record in result.dossier.qualified)
+        return result.eligible and len(result.dossier.qualified) >= 1 and all(record.excerpt for record in result.dossier.qualified)
 
     async def deliver(self, execution: Execution, kind: str, payload: Any, *, run_id: str | None = None) -> dict[str, Any]:
         try:
@@ -149,23 +151,18 @@ class FirstBatchPipeline:
             return work
         policy = execution.start["agent_policy"]
         target = execution.start["selection_config"]["shortlist_target_count"]
-        deadline = execution.clock.now() + policy["timing"]["shortlist_freeze_ms"] / 1000
-        while work.cursor < len(work.candidates):
-            needed = target - sum(self.eligible_now(result) for result in work.results.values())
-            if needed <= 0:
-                break
-            count = min(needed + policy["supply"]["wave_overprovision"], len(work.candidates) - work.cursor)
-            wave = {}
-            for candidate in work.candidates[work.cursor:work.cursor + count]:
-                task = execution.spawn(lambda candidate=candidate: self.research_one(execution, work, candidate))
-                wave[candidate["release_group_id"]] = task
-            work.cursor += count
-            done, pending = await asyncio.wait(wave.values(), timeout=max(0, deadline - execution.clock.now()))
-            for task in done:
-                task.result()
-            work.pending_research.update({identifier: task for identifier, task in wave.items() if task in pending})
-            if pending or execution.clock.now() >= deadline:
-                break
+        # All recalled candidates receive a research opportunity; no speed-biased freeze.
+        # All candidate tasks advance independently; scheduler limits actual I/O resources.
+        tasks = [execution.spawn(lambda candidate=candidate: self.research_one(execution, work, candidate))
+                 for candidate in work.candidates]
+        try:
+            await asyncio.gather(*tasks)
+        finally:
+            for task in tasks:
+                if not task.done():
+                    task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
+        work.cursor = 0 if getattr(self.research, "prepared_decisions", False) else len(work.candidates)
         eligible = [result for result in work.results.values() if self.eligible_now(result)]
         curated = execution.start["operation"] == "CURATED_REVIEWS"
         eligible.sort(key=lambda result: (result.screening["recall_rank"],) if curated else (-result.screening["screen"]["score"], result.screening["recall_rank"]))
@@ -175,12 +172,16 @@ class FirstBatchPipeline:
         if not shortlist:
             reasons = [result.screening["reason_code"] for result in work.results.values()]
             fault = next((result.error_code or result.screening["reason_code"] for result in work.results.values() if result.error_code or result.screening["reason_code"] in {"READ_FAILED", "SCREEN_FAILED"}), None)
+            if fault is None and "EVIDENCE_NOT_PREPARED" in reasons:
+                fault = "EVIDENCE_NOT_PREPARED"
             await self.fail(execution, "FAILED" if fault else "NO_MATCH", fault or ("BELOW_FLOOR" if "BELOW_FLOOR" in reasons else "REVIEW_COVERAGE_INSUFFICIENT"), work=work)
             return work
         execution.counters["shortlisted"] = len(shortlist)
         for result in shortlist:
             result.screening["disposition"] = "SHORTLISTED"
-            work.jobs[result.dossier.candidate_id] = self.writing.start(execution, result.dossier, preferences)
+            work.jobs[result.dossier.candidate_id] = (
+                self.writing.start(execution, result.dossier, preferences) if self.generate_long_reviews else
+                WritingJobs(execution.spawn(lambda dossier=result.dossier: self.writing.short(execution, dossier, preferences)), None))
         selection_task = None if curated else execution.spawn(lambda: self.selection.run(execution, [result.screening for result in shortlist], preferences))
         short_outputs = await asyncio.gather(*(work.jobs[result.dossier.candidate_id].short for result in shortlist))
         selected = SelectionResult({"status": "NOT_RUN", "order": [], "invocation_id": None}, "CURATED", [result.dossier.candidate_id for result in shortlist], {}) if curated else await selection_task
@@ -191,14 +192,17 @@ class FirstBatchPipeline:
                 result.screening.update(disposition="INELIGIBLE", reason_code="SELECT_REJECTED" if result.dossier.candidate_id in rejected_ids else "WRITE_FAILED")
                 continue
             card = {"candidate_id": result.dossier.candidate_id, "selection_basis": "CURATED" if curated else "SELECTED" if selected.analysis_mode == "PERSONALIZED" else "SCREEN_ONLY",
-                    "short_review": short.review, "admission": {"qualified_read_ids": result.screening["qualified_read_ids"], "screen_score": result.screening["screen"]["score"], "screen_invocation_id": result.screening["screen"]["invocation_id"]}, "long_review_state": "GENERATING"}
+                    "short_review": short.review, "admission": {"qualified_read_ids": result.screening["qualified_read_ids"], "screen_score": result.screening["screen"]["score"], "screen_invocation_id": result.screening["screen"]["invocation_id"]}, "long_review_state": "GENERATING" if self.generate_long_reviews else "NOT_STARTED"}
+            audience = execution.candidates[card["candidate_id"]].get("audience")
+            if audience is not None:
+                card["admission"]["audience"] = audience
             cards.append(card)
             work.cards[card["candidate_id"]] = card
         execution.counters["ready"] = len(cards)
         payload = {"batch_kind": "FIRST", "outcome": "DISPLAYABLE" if cards else "FAILED", "reason_code": None if cards else "WRITE_FAILED", "input_issues": [],
                    "analysis_mode": selected.analysis_mode, "selection": selected.selection, "screen_order": selected.screen_order,
                    "cards": cards, "screenings": [result.screening for result in shortlist], "timing": self.timing(execution, work, len(shortlist), len(cards)),
-                   "pending": {"long_reviews_generating": sum(not job.long.done() for job in work.jobs.values()), "deferred_candidates": len(work.candidates) - len(shortlist), "supply_state": "SUFFICIENT"}}
+                   "pending": {"long_reviews_generating": sum(job.long is not None and not job.long.done() for job in work.jobs.values()), "deferred_candidates": sum(r.screening["disposition"] == "DEFERRED" for r in work.results.values()) if getattr(self.research, "prepared_decisions", False) else len(work.candidates) - len(shortlist), "supply_state": "SUFFICIENT"}}
         work.first_payload = payload
         execution.first_outcome = payload["outcome"]
         execution.first_reason = payload["reason_code"]
@@ -228,7 +232,8 @@ class FirstBatchPipeline:
             short = next((item for item in short_calls if item["candidate_id"] == call["candidate_id"]), None)
             if short is not None and short["sent_at"] is not None and call["sent_at"] is not None:
                 delays.append(max(0, round((call["sent_at"] - short["sent_at"]) * 1000)))
-        return {"agent_t0_at": work.agent_t0, "agent_t1_at": utc_now(), **times, "shortlist_frozen_ms": work.frozen_ms,
+        return {"agent_t0_at": work.agent_t0, "agent_t1_at": utc_now(), **times,
+                **({"batch_ms": sum(durations([c for c in recent if c["lane"] == "FOREGROUND" and c["purpose"] in {"SCREEN", "STRUCTURE_REPAIR"}]))} if getattr(self.research, "prepared_decisions", False) else {}), "shortlist_frozen_ms": work.frozen_ms,
                 "select_ms": max(durations(select_calls), default=0), "short_review_max_ms": max(durations(short_calls), default=0),
                 "long_dispatch_delay_ms": max(delays, default=0) if len(delays) == shortlist_count else None,
                 "shortlist_actual_count": shortlist_count, "first_batch_card_count": card_count, "in_flight_at_freeze": work.in_flight_at_freeze}
@@ -238,6 +243,8 @@ class FirstBatchPipeline:
         for task in work.pending_research.values():
             await task
         for identifier, jobs in work.jobs.items():
+            if jobs.long is None:
+                continue
             result = await jobs.long
             await self.deliver(execution, "LONG_REVIEW", result)
             work.long_delivered.add(identifier)

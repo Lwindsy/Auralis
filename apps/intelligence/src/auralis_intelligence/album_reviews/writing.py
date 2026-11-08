@@ -20,7 +20,7 @@ from .validation import SECTIONS, han_count, validate_long, validate_short
 
 SHORT_SCHEMA = json.loads(files(__package__).joinpath("short_review.v1.schema.json").read_text(encoding="utf-8"))
 LONG_SCHEMA = json.loads(files(__package__).joinpath("long_review.v1.schema.json").read_text(encoding="utf-8"))
-WRITING_PROMPT = files(__package__).joinpath("writing.v1.txt").read_text(encoding="utf-8")
+WRITING_PROMPT = files(__package__).joinpath("writing.v1.2.txt").read_text(encoding="utf-8")
 
 
 @dataclass(frozen=True)
@@ -33,7 +33,7 @@ class ShortWriteResult:
 @dataclass(frozen=True)
 class WritingJobs:
     short: asyncio.Task
-    long: asyncio.Task
+    long: asyncio.Task | None
 
 
 def _status(error: Exception) -> str:
@@ -53,7 +53,7 @@ class WriteStage:
         self.genre_names, self.album_names = genre_names, album_names
 
     def start(self, execution: Execution, dossier: AlbumDossier, preferences: dict[str, Any], *, lane: str = "FOREGROUND") -> WritingJobs:
-        if dossier.screening is None or dossier.screening["screen"]["status"] != "OK" or len(dossier.qualified) < 2:
+        if dossier.screening is None or dossier.screening["screen"]["status"] != "OK" or not dossier.qualified:
             raise ContractError("ADMISSION_UNVERIFIED")
         if any(not record.excerpt for record in dossier.qualified):
             raise ContractError("DOSSIER_TEXT_UNAVAILABLE")
@@ -76,8 +76,8 @@ class WriteStage:
         if form == "long":
             payload["available_sources"] = list(available_sources)
         for attempt in range(2):
-            reply = await self.model.generate(execution, role="write", purpose=purpose if attempt == 0 else "STRUCTURE_REPAIR", system=WRITING_PROMPT,
-                                              input=payload, output_schema=schema, prompt_version=f"{form}_review.v1", candidate_id=dossier.candidate_id,
+            reply = await self.model.generate(execution, role="long_write" if form == "long" and "long_write" in execution.start["model_bindings"] else "write", purpose=purpose if attempt == 0 else "STRUCTURE_REPAIR", system=WRITING_PROMPT,
+                                              input=payload, output_schema=schema, prompt_version=f"{form}_review.v1.2", candidate_id=dossier.candidate_id,
                                               read_ids=tuple(record.result.receipt["read_id"] for record in records), lane=lane, priority=priority,
                                               timeout_ms=execution.start["agent_policy"]["timing"]["short_review_tech_timeout_ms" if form == "short" else "long_review_timeout_ms"])
             if reply.invocation_id:
@@ -90,14 +90,16 @@ class WriteStage:
                     pass
             if reply.outcome != "COMPLETED" or reply.finish == "REFUSED":
                 raise ContractError("WRITE_MODEL_FAILED")
-            payload = {**payload, "repair_instruction": "上一条未通过完整性、字数、引用或结构检查。只用已有资料重写完整输出；不要猜测新事实。"}
+            measured = sum(han_count(text) for text in reply.output.get("sections", {}).values()) if form == "long" and isinstance(reply.output, dict) else None
+            length_note = f"上一条长评只有约{measured}个汉字；只写有实际资料支持的内容，不凑字数。" if measured is not None else ""
+            payload = {**payload, "repair_instruction": length_note + "上一条未通过完整性、字数、引用或结构检查。只用已有资料重写完整输出；不要猜测新事实。"}
         raise ContractError("WRITE_INVALID_OUTPUT")
 
     async def short(self, execution: Execution, dossier: AlbumDossier, preferences: dict[str, Any], *, lane: str = "FOREGROUND") -> ShortWriteResult:
         try:
             reply = await self._response(execution, dossier, preferences, list(dossier.qualified), "short", lane, "WRITE_SHORT", [])
             lookup = {record.ref: record.result.receipt["read_id"] for record in dossier.qualified}
-            return ShortWriteResult("READY", {"text": reply.output["text"], "citations": [{"marker": ref, "read_id": lookup[ref]} for ref in reply.output["refs"]], "invocation_id": reply.invocation_id, "prompt_version": "short_review.v1"})
+            return ShortWriteResult("READY", {"text": reply.output["text"], "citations": [{"marker": ref, "read_id": lookup[ref]} for ref in reply.output["refs"]], "invocation_id": reply.invocation_id, "prompt_version": "short_review.v1.2"})
         except asyncio.CancelledError:
             return ShortWriteResult("CANCELLED", reason_code="SOURCE_REVOKED" if dossier.candidate_id in execution.revoked_candidates else "WRITE_CANCELLED")
         except (CallDenied, ContractError, ControlUnavailable, asyncio.TimeoutError, TimeoutError) as error:
@@ -107,7 +109,7 @@ class WriteStage:
         invocation_ids: list[str] = []
         extra_ids: list[str] = []
         result = {"candidate_id": dossier.candidate_id, "status": "FAILED", "sections": None, "citations": [], "han_char_count": 0,
-                  "extra_read_ids": extra_ids, "missing_sections": [], "invocation_ids": invocation_ids, "prompt_version": "long_review.v1", "reason_code": None}
+                  "extra_read_ids": extra_ids, "missing_sections": [], "invocation_ids": invocation_ids, "prompt_version": "long_review.v1.2", "reason_code": None}
         try:
             return await asyncio.wait_for(self._long_work(execution, dossier, preferences, result, priority), execution.start["agent_policy"]["timing"]["long_review_timeout_ms"] / 1000)
         except asyncio.CancelledError:

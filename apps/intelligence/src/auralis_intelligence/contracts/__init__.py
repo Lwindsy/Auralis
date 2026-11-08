@@ -53,7 +53,7 @@ def validate_message(message: Mapping[str, Any]) -> None:
 
 def envelope(name: str, payload: Any, request_id: str, trace_id: str = "local", span_id: str = "local") -> dict[str, Any]:
     result = {
-        "schema_version": "intel.v1", "contract_revision": "0.19",
+        "schema_version": "intel.v1", "contract_revision": "0.23",
         "request_id": request_id, "trace_context": {"trace_id": trace_id, "span_id": span_id},
         "message_type": name, "payload": deepcopy(payload),
     }
@@ -101,7 +101,9 @@ def _semantic(name: str, value: Any) -> None:
         limits = value["budget"]["limits"]
         if sum(limits["lane_caps"].values()) > limits["round_cap_microusd"] or limits["round_cap_microusd"] > limits["session_cap_microusd"]:
             raise ContractError("POLICY_OUT_OF_RANGE")
-        if policy["concurrency"]["background_model_max_in_flight"] > policy["concurrency"]["model_max_in_flight"]:
+        if policy["writing"]["short_min_han"] > policy["writing"]["short_max_han"]:
+            raise ContractError("POLICY_OUT_OF_RANGE")
+        if policy["concurrency"]["model_max_in_flight"] is not None and policy["concurrency"]["background_model_max_in_flight"] > policy["concurrency"]["model_max_in_flight"]:
             raise ContractError("POLICY_OUT_OF_RANGE")
         if policy["screening"]["reads_per_album_initial"] > policy["screening"]["max_reads_per_album"]:
             raise ContractError("POLICY_OUT_OF_RANGE")

@@ -39,12 +39,39 @@ def serve(args):
     service_token = os.environ.get(config["service_token_env"], "")
     control = ControlHTTPClient(config["control_url"], os.environ.get(config["control_token_env"], ""))
     adapter = OpenAIResponsesAdapter(os.environ.get(config["provider_key_env"], ""))
-    model = ModelGateway(adapter, load_bindings(relative("model_bindings")))
+    configured_bindings = load_bindings(relative("model_bindings"))
+    configured_roles = json.loads(relative("model_bindings").read_text(encoding="utf-8"))
+    if "long_write" not in configured_roles:
+        raise ValueError("LONG_WRITE_MODEL_BINDING_REQUIRED")
+    model = ModelGateway(adapter, configured_bindings)
     reference = ReferenceCatalog.load(relative("reference"))
-    tools = ToolGateway(search_adapter=adapter, model_gateway=model)
+    from auralis_intelligence.album_reviews.batch import BatchResearchStage, BatchWriteStage, BatchSelectStage
+    from auralis_intelligence.album_reviews.prepared import PreparedEvidence
+    from auralis_intelligence.preferences.fast import FastPreferencesStage
+    from auralis_intelligence.recall import load_a_v2
+    # Review discovery is request-local. No saved URL/excerpt file is required for live mode.
+    mode = config.get("evidence_mode", "live")
+    if mode not in {"live", "prepared"}:
+        raise ValueError("UNKNOWN_EVIDENCE_MODE")
+    prepared = PreparedEvidence(relative("prepared_evidence")) if mode == "prepared" else None
+    engine = load_a_v2(relative("recall_snapshot"), weights=WeightConfig())
+    engine.audience([])
+    long_tools = ToolGateway(search_adapter=adapter, model_gateway=model)
     def factory(start):
-        return RoundPipeline(PreferencesStage(model, reference), RecallStage(relative("recall_snapshot"), binding=start["recall_binding"], weights=WeightConfig(**start["agent_policy"]["recall"]["weights"])),
-                                  ResearchStage(model, tools), WriteStage(model, tools), SelectStage(model))
+        if start["agent_policy"].get("audience_min_listeners") != 50:
+            raise ValueError("AUDIENCE_POLICY_REQUIRED")
+        if mode == "live":
+            from auralis_intelligence.album_reviews.cold import ColdEvidence
+            evidence = ColdEvidence(overlap=True, sources_per_album=1, race=True)
+            tools = ToolGateway(search_adapter=adapter, model_gateway=model)
+        else:
+            evidence = prepared
+            tools = ToolGateway(evidence, model_gateway=model)
+        batch = BatchResearchStage(model, tools, evidence,
+            genre_names={i: r["name"] for i, r in reference.genres.items()}, candidate_limit=start["selection_config"]["shortlist_target_count"])
+        return RoundPipeline(FastPreferencesStage(model, reference),
+            RecallStage(relative("recall_snapshot"), binding=start["recall_binding"], weights=WeightConfig(), engine=engine, min_listeners=50),
+            batch, BatchWriteStage(model, long_tools, batch=batch), BatchSelectStage(model, batch=batch))
     app = create_execution_app(RoundSupervisor(receipt_timeout_seconds=config.get("receipt_timeout_seconds", 1.0)), control, factory, token=service_token)
     async def cleanup(app):
         await control.close()
@@ -58,8 +85,8 @@ def main() -> int:
     commands = parser.add_subparsers(dest="command", required=True)
     local = commands.add_parser("demo", help="synthetic models/pages, real local A-V2, no paid calls")
     local.add_argument("--scenario", choices=["mixed", "album", "genre", "text", "no-positive"], default="mixed")
-    local.add_argument("--r", type=int, default=20)
-    local.add_argument("--k", type=int, default=8)
+    local.add_argument("--r", type=int, default=50)
+    local.add_argument("--k", type=int, default=15)
     local.add_argument("--n", type=int, default=3)
     local.add_argument("--include-calls", action="store_true", help="include safe synthetic invocation and usage records")
     local.add_argument("--background", action="store_true", help="run background supply, idle close and the round report")

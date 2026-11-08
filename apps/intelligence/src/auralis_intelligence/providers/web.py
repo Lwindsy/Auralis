@@ -70,6 +70,8 @@ class FetchResponse:
     status: int
     headers: dict[str, str]
     body: bytes
+    retrieval_mode: str = "NETWORK"
+    observed_at: str | None = None
 
 
 class PageFetcher(Protocol):
@@ -107,7 +109,7 @@ def policy_permits(policy: dict[str, Any], url: str, use: str) -> bool:
         return False
     host = urlsplit(url).hostname or ""
     rules = [rule for rule in policy["rules"] if use in rule["uses"] and (host == rule["match"]["domain_suffix"] or host.endswith("." + rule["match"]["domain_suffix"]))]
-    return bool(rules) and all(rule["decision"] == "ALLOW" for rule in rules)
+    return all(rule["decision"] == "ALLOW" for rule in rules) if rules else policy["default_decision"] == "ALLOW"
 
 
 def extract_text(body: bytes, content_type: str) -> str:
@@ -149,8 +151,10 @@ class ToolGateway:
         policy = await self.policy(execution)
         allowed = tuple(rule["match"]["domain_suffix"] for rule in policy["rules"] if rule["decision"] == "ALLOW" and {"READ", "AI_PROCESS"}.issubset(rule["uses"]))
         blocked = tuple(rule["match"]["domain_suffix"] for rule in policy["rules"] if rule["decision"] == "DENY")
-        if not allowed:
+        if not allowed and policy["default_decision"] != "ALLOW":
             raise CallDenied("SOURCE_NOT_PERMITTED")
+        if policy["default_decision"] == "ALLOW":
+            allowed = ()
         binding = self.model_gateway.binding(execution, "screen")
         self.search_adapter.check_binding(binding, search=True)
         bound = len(query.encode("utf-8")) + sum(len(domain) for domain in allowed + blocked) + 1024
@@ -226,6 +230,9 @@ class ToolGateway:
                     host = urlsplit(current).hostname
                     publisher = self.domain(host).top_domain_under_public_suffix or host
                     receipt.update(final_url=current, publisher_key=publisher, status="READ_OK", content_digest="sha256:" + sha256(text.encode("utf-8")).hexdigest(), text_chars=len(text), checks={"mentions_title": title.casefold() in text.casefold(), "mentions_artist": artist.casefold() in text.casefold()})
+                    receipt["retrieval_mode"] = response.retrieval_mode
+                    if response.observed_at is not None:
+                        receipt["read_at"] = response.observed_at
                     registered = await execution.control_request("read-receipts", {"items": [receipt]})
                     validate_definition("ReadRegistrationResult", registered)
                     if read_id not in registered["accepted_read_ids"]:

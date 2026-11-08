@@ -36,7 +36,7 @@ def test_model_normal_structured_truncated_refused_and_invalid(raw, finish):
             result = await adapter.complete(BINDING, REQUEST)
         assert result.finish == finish and result.outcome == "COMPLETED"
         assert result.usage.cached_input_tokens == 2
-        assert result.output == ({"score": 4} if finish == "COMPLETE" else None)
+        assert result.output == ({"score": 4} if finish == "COMPLETE" else {"score": 9} if raw == response(text='{"score": 9}') else None)
         assert len(seen) == 1 and seen[0]["store"] is False and seen[0]["stream"] is False
         assert seen[0]["text"]["format"]["strict"] is True
     asyncio.run(run())
@@ -121,6 +121,7 @@ def test_unknown_usage_is_null_and_search_locations_are_not_read_receipts():
             data = json.loads(request.content)
             assert data["max_tool_calls"] == 1
             assert data["tools"][0]["filters"]["allowed_domains"] == ["one.example"]
+            assert "blocked_domains" not in data["tools"][0]["filters"]
             return httpx.Response(200, json=raw)
         async with OpenAIResponsesAdapter("synthetic-key", transport=httpx.MockTransport(handler), test_transport=True) as adapter:
             result = await adapter.search(BINDING, "Artist Album review", ("one.example",), ())

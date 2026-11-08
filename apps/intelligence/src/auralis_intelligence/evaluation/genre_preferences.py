@@ -71,6 +71,10 @@ def load_manifest(path: str | Path) -> dict[str, Any]:
     return manifest
 
 
+def _case_ids(manifest: dict[str, Any], dataset: dict[str, Any]) -> list[str]:
+    return [row["id"] for row in dataset["questions"]] if manifest["case_ids"] == ["*"] else manifest["case_ids"]
+
+
 def _binding_rows(path: Path) -> tuple[dict[str, Any], dict[str, Any]]:
     raw = _read_json(path)
     loaded = load_bindings(path)
@@ -93,6 +97,35 @@ def _input_bound(system: str, payload: Any, schema: dict[str, Any]) -> int:
     return len(json.dumps(material, ensure_ascii=False).encode("utf-8")) + 256
 
 
+def _annotated_planning_branches(question: dict[str, Any], reference: ReferenceCatalog) -> list[str] | None:
+    """Use frozen reviewer annotations only for preflight sizing, never model input."""
+    labels = []
+    for direction in question.get("directions", []):
+        labels.extend(row.get("genre") for row in direction.get("acceptable", []))
+    for constraint in question.get("constraints", []):
+        labels.extend(constraint.get("genres", []))
+    wanted = set()
+    for label in labels:
+        if not isinstance(label, str):
+            continue
+        normalized = label.casefold()
+        for identifier, row in reference.genres.items():
+            if normalized in {row["name"].casefold(), *(alias.casefold() for alias in row["aliases"])}:
+                wanted.add(identifier)
+    if not wanted:
+        return None
+    selected = []
+    uncovered = set(wanted)
+    while uncovered and len(selected) < 3:
+        branch = max(reference.branches, key=lambda identifier: len(uncovered & set(reference.branches[identifier]["genre_ids"])))
+        covered = uncovered & set(reference.branches[branch]["genre_ids"])
+        if not covered:
+            break
+        selected.append(branch)
+        uncovered -= covered
+    return selected or None
+
+
 def build_plan(manifest_path: str | Path) -> dict[str, Any]:
     manifest = load_manifest(manifest_path)
     dataset_path, reference_path, bindings_path = map(_resolve, (manifest["dataset"], manifest["reference"], manifest["model_bindings"]))
@@ -100,10 +133,11 @@ def build_plan(manifest_path: str | Path) -> dict[str, Any]:
     if actual_hashes != {"dataset": manifest["dataset_sha256"], "reference": manifest["reference_sha256"]}:
         raise ValueError("EVALUATION_INPUT_HASH_MISMATCH")
     dataset = _read_json(dataset_path)
-    if dataset.get("split") != "development" or dataset.get("status") != "frozen" or not isinstance(dataset.get("questions"), list):
-        raise ValueError("DEVELOPMENT_DATASET_REQUIRED")
+    if dataset.get("split") not in {"development", "holdout"} or dataset.get("status") != "frozen" or not isinstance(dataset.get("questions"), list):
+        raise ValueError("FROZEN_EVALUATION_DATASET_REQUIRED")
     questions = {item["id"]: item for item in dataset["questions"]}
-    if any(identifier not in questions for identifier in manifest["case_ids"]):
+    case_ids = _case_ids(manifest, dataset)
+    if any(identifier not in questions for identifier in case_ids):
         raise ValueError("UNKNOWN_CASE_ID")
     reference = ReferenceCatalog.load(reference_path)
     _, bindings = _binding_rows(bindings_path)
@@ -116,12 +150,14 @@ def build_plan(manifest_path: str | Path) -> dict[str, Any]:
     maximum_first_input_bound = 0
     maximum_second_input_bound = 0
     per_case = []
-    for identifier in manifest["case_ids"]:
+    for identifier in case_ids:
         text = questions[identifier]["request_text"]
         first_bound = _input_bound(PASS_ONE_PROMPT, {"request_text": text, "branches": branches}, PASS_ONE)
         maximum_first_input_bound = max(maximum_first_input_bound, first_bound)
         first = _reservation(binding, first_bound)
         expected_branches = manifest.get("expected_pass1_branches", {}).get(identifier)
+        if expected_branches is None:
+            expected_branches = _annotated_planning_branches(questions[identifier], reference)
         if expected_branches is None:
             sample_genres = sorted(reference.genres.values(),
                                    key=lambda row: len(json.dumps(reference.material(row), ensure_ascii=False).encode("utf-8")),
@@ -199,7 +235,7 @@ def _case_start(template: dict[str, Any], manifest: dict[str, Any], bindings: di
     start = deepcopy(template)
     run_id = manifest["run_id"]
     suffix = f"{index + 1:03d}-{question['id']}"
-    start.update(execution_id=f"{run_id}:{suffix}", session_id=run_id, round_id=f"{run_id}:round:{suffix}",
+    start.update(execution_id=f"{run_id}:{suffix}", session_id=f"{run_id}:session:{suffix}", round_id=f"{run_id}:round:{suffix}",
                  run_id=f"{run_id}:run:{suffix}")
     start["boot"] = {"python_boot_id": f"{run_id}:python", "coordinator_boot_id": f"{run_id}:java"}
     raw = start["input"]["raw"]
@@ -209,12 +245,14 @@ def _case_start(template: dict[str, Any], manifest: dict[str, Any], bindings: di
     start["input"].update(accepted_preferences=None, exclusions=[], exclusion_digest=digest([]))
     start["model_bindings"] = {role: binding.wire() for role, binding in bindings.items()}
     budget = start["budget"]
-    budget.update(session_budget_scope_id=f"{run_id}:session-budget", round_budget_scope_id=f"{run_id}:round-budget:{suffix}")
-    budget["limits"].update(session_cap_microusd=manifest["trial_budget_microusd"],
+    # Every frozen case is an independent product session. The manifest owns the
+    # cross-session batch cap; product session and round limits remain legal.
+    budget.update(session_budget_scope_id=f"{run_id}:session-budget:{suffix}", round_budget_scope_id=f"{run_id}:round-budget:{suffix}")
+    budget["limits"].update(session_cap_microusd=manifest["per_case_budget_microusd"],
                             round_cap_microusd=manifest["per_case_budget_microusd"],
                             lane_caps={"FOREGROUND": manifest["per_case_budget_microusd"], "BACKGROUND": 0},
                             model_calls=4, search_calls=1, read_calls=1)
-    budget["remaining_at_issue"] = {"session": manifest["trial_budget_microusd"],
+    budget["remaining_at_issue"] = {"session": manifest["per_case_budget_microusd"],
                                      "round": manifest["per_case_budget_microusd"],
                                      "FOREGROUND": manifest["per_case_budget_microusd"],
                                      "BACKGROUND": 0}
@@ -235,6 +273,7 @@ async def run_live(manifest_path: str | Path, acknowledged_budget: int) -> Path:
         raise ValueError("MISSING_API_KEY")
     dataset = _read_json(_resolve(manifest["dataset"]))
     questions = {item["id"]: item for item in dataset["questions"]}
+    case_ids = _case_ids(manifest, dataset)
     reference = ReferenceCatalog.load(_resolve(manifest["reference"]))
     _, bindings = _binding_rows(_resolve(manifest["model_bindings"]))
     output_dir = _resolve(manifest["output_dir"])
@@ -251,7 +290,7 @@ async def run_live(manifest_path: str | Path, acknowledged_budget: int) -> Path:
         with tempfile.TemporaryDirectory(prefix="auralis-ai-023-") as directory:
             template_harness = DemoHarness(scenario="text", r=3, k=2, n=1, root=Path(directory))
             try:
-                for index, identifier in enumerate(manifest["case_ids"]):
+                for index, identifier in enumerate(case_ids):
                     question = questions[identifier]
                     start = _case_start(template_harness.request, manifest, bindings, question, index)
                     control.register(start)
