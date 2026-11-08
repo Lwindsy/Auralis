@@ -341,7 +341,7 @@ class JavaControlDouble:
                 state = "INELIGIBLE"
             elif (round_id, identifier) in self.cards:
                 state = "READY"
-            elif screening is None:
+            elif screening is None or screening["disposition"] == "DEFERRED":
                 state = "UNRESEARCHED"
             else:
                 state = (
