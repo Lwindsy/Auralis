@@ -332,14 +332,20 @@ def test_seeded_batch_and_long_review_use_same_registered_seed(tmp_path):
         try:
             policy = h.request["agent_policy"]
             policy["audience_min_listeners"] = 50
+            policy["audience_binding"] = {
+                "dataset_id": "full-synthetic",
+                "window": "0",
+                "sample_listeners": 1000,
+                "snapshot_digest": "sha256:" + "a" * 64,
+            }
             policy["digest"] = content_digest(policy, "digest")
             h.request["payload_digest"] = content_digest(h.request)
             for identifier in h.control.catalog:
                 h.control.candidate_audiences[identifier] = {
                     "source": "LISTENBRAINZ_SAMPLE",
-                    "dataset_id": h.request["recall_binding"]["data_snapshot_id"],
-                    "window": h.request["recall_binding"]["window"],
-                    "sample_listeners": 100,
+                    "dataset_id": "full-synthetic",
+                    "window": "0",
+                    "sample_listeners": 1000,
                     "listeners": 50,
                 }
             text = "这张专辑以克制的编配展开，钢琴与轻缓鼓点之间留有清晰空间，旋律渐进而不过度依赖厚重音墙。人声与吉他显得亲近，适合深夜安静地听；这里只验证合成资料如何进入程序，不代表实际试听或真实音乐质量评价[R1]。"

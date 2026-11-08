@@ -119,6 +119,13 @@ class RecallStage:
         ):
             raise ContractError("RECALL_NOT_ALLOWED")
         require_binding(self.binding, execution.start["recall_binding"])
+        if self.min_listeners:
+            if self.engine is None or self.engine.audience_binding is None:
+                raise ContractError("FULL_AUDIENCE_REQUIRED")
+            require_binding(
+                self.engine.audience_binding,
+                execution.start["agent_policy"].get("audience_binding"),
+            )
         if (
             self.min_listeners
             and execution.start["agent_policy"].get("audience_min_listeners") != self.min_listeners
@@ -183,7 +190,12 @@ class RecallStage:
             "shortfall": request.limit - len(candidates),
             "truncated": False,
             "candidates": candidates,
-            "source_dependencies": list(self.source_dependencies),
+            "source_dependencies": list(self.source_dependencies)
+            + (
+                ["audience:" + self.engine.audience_binding["snapshot_digest"]]
+                if self.min_listeners
+                else []
+            ),
         }
         proposal["proposal_digest"] = content_digest(proposal, "proposal_digest")
         validate_definition("RecallProposal", proposal)

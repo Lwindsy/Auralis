@@ -59,7 +59,7 @@ def envelope(
 ) -> dict[str, Any]:
     result = {
         "schema_version": "intel.v1",
-        "contract_revision": "0.26",
+        "contract_revision": "0.27",
         "request_id": request_id,
         "trace_context": {"trace_id": trace_id, "span_id": span_id},
         "message_type": name,
@@ -171,6 +171,17 @@ def _semantic(name: str, value: Any) -> None:
                 > min(_time(source["expires_at"]), _time(target["expires_at"]))
             ):
                 raise ContractError("BINDING_MISMATCH")
+    elif name == "FullAudienceSnapshot":
+        _unique(value["counts"], "release_group_id")
+        ids = [row["release_group_id"] for row in value["counts"]]
+        if (
+            ids != sorted(ids)
+            or any(identifier != identifier.lower() for identifier in ids)
+            or any(row["listeners"] > value["sample_listeners"] for row in value["counts"])
+            or value["dataset_id"] != "core:" + value["source_manifest_sha256"]
+            or content_digest(value, "digest") != value["digest"]
+        ):
+            raise ContractError("BINDING_MISMATCH")
     elif name == "AudienceSnapshot":
         _unique(value["counts"], "release_group_id")
         ids = [row["release_group_id"] for row in value["counts"]]
