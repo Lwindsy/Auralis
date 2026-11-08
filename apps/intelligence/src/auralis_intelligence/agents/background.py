@@ -103,9 +103,8 @@ class RoundPipeline(FirstBatchPipeline):
         publishers: dict[str, asyncio.Task] = {}
         active: asyncio.Task | None = None
         blocked: str | None = None
-        last_activity = execution.clock.now()
         last_supply = None
-        command_task = asyncio.create_task(execution.command_queue.get())
+        command_task = asyncio.create_task(execution.command_available.wait())
 
         def launch_publishers():
             for identifier, jobs in work.jobs.items():
@@ -141,17 +140,15 @@ class RoundPipeline(FirstBatchPipeline):
             execution.prioritize_long(identifier)
         try:
             while True:
-                launch_publishers()
                 for identifier, task in list(publishers.items()):
                     if task.done():
                         task.result()
                         publishers.pop(identifier)
-                        last_activity = execution.clock.now()
+                launch_publishers()
                 for identifier, task in list(work.pending_research.items()):
                     if task.done():
                         task.result()
                         work.pending_research.pop(identifier)
-                        last_activity = execution.clock.now()
                 if active is not None and active.done():
                     try:
                         active.result()
@@ -164,7 +161,6 @@ class RoundPipeline(FirstBatchPipeline):
                     active = None
                     execution.foreground = False
                     execution.phase = "BACKGROUND"
-                    last_activity = execution.clock.now()
                 reserve = self.reserves(execution, work)
                 available = bool(reserve) or work.cursor < len(work.candidates)
                 below_watermark = (
@@ -213,30 +209,21 @@ class RoundPipeline(FirstBatchPipeline):
                     last_supply = signature
                 if execution.close_requested and not working:
                     break
-                if not working and not available:
-                    execution.close_reason = execution.close_reason or "DRAINED"
-                    break
-                timeout = (
-                    None
-                    if working
-                    else max(
-                        0,
-                        execution.start["deadlines"]["idle_close_ms"] / 1000
-                        - (execution.clock.now() - last_activity),
+                if not working and not command_task.done() and execution.command_queue.empty():
+                    execution.close_reason = execution.close_reason or (
+                        "DRAINED" if not available else "IDLE"
                     )
-                )
+                    execution.close_requested = True
+                    break
                 waiters = [command_task, *publishers.values(), *work.pending_research.values()]
                 if active is not None:
                     waiters.append(active)
-                done, _ = await asyncio.wait(
-                    waiters, timeout=timeout, return_when=asyncio.FIRST_COMPLETED
-                )
-                if not done:
-                    execution.close_reason = execution.close_reason or "IDLE"
-                    break
+                done, _ = await asyncio.wait(waiters, return_when=asyncio.FIRST_COMPLETED)
                 if command_task in done:
-                    command = command_task.result()
-                    command_task = asyncio.create_task(execution.command_queue.get())
+                    command = execution.command_queue.get_nowait()
+                    if execution.command_queue.empty():
+                        execution.command_available.clear()
+                    command_task = asyncio.create_task(execution.command_available.wait())
                     kind, payload = command["kind"], command["payload"]
                     if kind == "DISPLAY_STATE":
                         if payload["display_seq"] <= work.display_seq:
@@ -280,7 +267,6 @@ class RoundPipeline(FirstBatchPipeline):
                         execution.prioritize_long(payload["candidate_id"])
                     elif kind == "CLOSE":
                         execution.close_reason = payload["reason"]
-                    last_activity = execution.clock.now()
         finally:
             command_task.cancel()
             await asyncio.gather(command_task, return_exceptions=True)

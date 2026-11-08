@@ -59,6 +59,7 @@ class Execution:
         self.cancelled = asyncio.Event()
         self.started = asyncio.Event()
         self.close_requested = False
+        self.cleaning = False
         self.close_reason: str | None = None
         self.error_code: str | None = None
         self.binding: dict[str, Any] | None = None
@@ -90,6 +91,7 @@ class Execution:
         self.commands = IdempotencyLedger()
         self.events: list[dict[str, Any]] = []
         self.command_queue: asyncio.Queue = asyncio.Queue(maxsize=128)
+        self.command_available = asyncio.Event()
         self.updated_seq = 0
         self.counters = {
             name: 0
@@ -493,6 +495,7 @@ class Execution:
         self.delivery_results.clear()
         self.pending_usage.clear()
         self.commands.clear()
+        self.command_available.clear()
         while not self.command_queue.empty():
             self.command_queue.get_nowait()
         self._issued.clear()
@@ -516,7 +519,8 @@ class RoundSupervisor:
         self.boot_id = boot_id or str(uuid4())
         self.max_records = max_records
         self.receipt_timeout_seconds = receipt_timeout_seconds
-        self.active: Execution | None = None
+        self.execution_capacity = 3
+        self.active: dict[str, Execution] = {}
         self.records: dict[str, tuple[str, Execution, asyncio.Task]] = {}
         self.cleared: dict[str, tuple[str, datetime]] = {}
         self.maintenance = False
@@ -551,6 +555,9 @@ class RoundSupervisor:
 
     def forget(self, execution_id: str) -> None:
         """Erase context while retaining only the original digest and deadline fence."""
+        record = self.records.get(execution_id)
+        if record is not None and (not record[1].slot_released or not record[2].done()):
+            raise ContractError("EXECUTOR_BUSY")
         record = self.records.pop(execution_id, None)
         if record is not None:
             self.cleared[execution_id] = (record[0], record[1]._deadline)
@@ -575,7 +582,7 @@ class RoundSupervisor:
                 return 200, previous[1]
             if self.maintenance:
                 raise ContractError("MAINTENANCE")
-            if self.active is not None:
+            if len(self.active) >= self.execution_capacity:
                 raise ContractError("EXECUTOR_BUSY")
             now = datetime.now(timezone.utc)
             self.records = {
@@ -589,7 +596,7 @@ class RoundSupervisor:
             execution = Execution(
                 start, control, receipt_timeout_seconds=self.receipt_timeout_seconds
             )
-            self.active = execution
+            self.active[execution.id] = execution
             execution.event("ACCEPTED")
             task = asyncio.create_task(self._drive(execution, stage))
             self.records[execution.id] = (start["payload_digest"], execution, task)
@@ -619,11 +626,20 @@ class RoundSupervisor:
             execution.error_code = execution.error_code or "STAGE_FAILED"
             execution.event("FAILED")
         finally:
-            await execution.cleanup()
-            execution.event("CLOSED")
-            async with self._lock:
-                if self.active is execution:
-                    self.active = None
+            execution.cleaning = True
+            try:
+                await execution.cleanup()
+            except Exception:
+                # Failed cleanup is not physical release evidence. Keep the slot visible.
+                execution.status = "FAILED"
+                execution.error_code = "CLEANUP_FAILED"
+                execution.event("FAILED")
+            if execution.slot_released:
+                if execution.cancelled.is_set():
+                    execution.status = "CANCELLED"
+                execution.event("CLOSED")
+                async with self._lock:
+                    self.active.pop(execution.id, None)
 
     async def cancel(self, execution_id: str, boot: dict[str, str], reason: str) -> dict[str, Any]:
         validate_definition("Cancellation", {"boot": boot, "reason": reason})
@@ -641,7 +657,7 @@ class RoundSupervisor:
                 execution.status = "CLOSING"
                 execution.event("CANCEL_REQUESTED")
                 await execution.started.wait()
-                if not task.done():
+                if not task.done() and not execution.cleaning:
                     task.cancel()
             await asyncio.shield(task)
         return execution.view()
@@ -690,6 +706,7 @@ class RoundSupervisor:
             execution.spawn(lambda: execution.redeliver(payload["after_seq"]))
         else:
             execution.command_queue.put_nowait(deepcopy(command))
+            execution.command_available.set()
         if kind == "CLOSE":
             execution.close_requested = True
             execution.close_reason = payload["reason"]

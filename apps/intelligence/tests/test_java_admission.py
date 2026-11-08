@@ -1,4 +1,4 @@
-"""APP-013 wire evidence on the current single-slot provider, not capacity validation."""
+"""APP-013 wire evidence; three-execution lifecycle tests live in test_three_executions."""
 
 import asyncio
 import json
@@ -51,7 +51,7 @@ def test_admission_http_lost_response_cleanup_deletion_and_boot_fences():
             assert (await lookup())["status"] == "ACTIVE"
             runtime = (await http.get("/internal/v1/runtime")).json()
             validate_message(runtime)
-            assert runtime["payload"]["execution_capacity"] == 1
+            assert runtime["payload"]["execution_capacity"] == 3
             assert [row["execution_id"] for row in runtime["payload"]["active"]] == [
                 request["execution_id"]
             ]
