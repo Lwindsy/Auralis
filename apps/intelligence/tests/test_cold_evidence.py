@@ -152,5 +152,8 @@ def test_audience_filter_is_applied_before_top_count(tmp_path):
         )
     )
     engine = load_a_v2(path, weights=WeightConfig())
+    from types import SimpleNamespace
+
+    engine.bind_full_audience(SimpleNamespace(counts={"a": 2, "b": 1, "c": 2}))
     result = engine.recall(RecallRequest(limit=2, tags=(Preference("rock"),)), min_listeners=2)
     assert [row.album_id for row in result.candidates] == ["a", "c"]

@@ -40,13 +40,19 @@ def test_batch_one_call_and_audience_verified_at_publication(tmp_path, backgroun
         try:
             policy = harness.request["agent_policy"]
             policy["audience_min_listeners"] = 50
+            policy["audience_binding"] = {
+                "dataset_id": "full-synthetic",
+                "window": "0",
+                "sample_listeners": 1000,
+                "snapshot_digest": "sha256:" + "a" * 64,
+            }
             policy["digest"] = content_digest(policy, "digest")
             harness.request["payload_digest"] = content_digest(harness.request)
             for identifier in harness.control.catalog:
                 harness.control.candidate_audiences[identifier] = {
                     "source": "LISTENBRAINZ_SAMPLE",
-                    "dataset_id": harness.request["recall_binding"]["data_snapshot_id"],
-                    "window": harness.request["recall_binding"]["window"],
+                    "dataset_id": "full-synthetic",
+                    "window": "0",
                     "sample_listeners": 1000,
                     "listeners": 49 if identifier == "album-1" else 50,
                 }
@@ -191,7 +197,7 @@ def test_audience_counts_distinct_listeners_not_plays(tmp_path):
         )
     )
     engine = load_a_v2(fixture, weights=WeightConfig())
-    result = engine.audience(["a", "b", "c", "missing"])
+    result = engine.training_audience(["a", "b", "c", "missing"])
     assert result["counts"] == {"a": 2, "b": 2, "c": 0, "missing": None}
     assert result["sample_listeners"] == 3 and result["window"] == "all"
 

@@ -6,6 +6,7 @@ from importlib.resources import files
 from auralis_intelligence.contracts import ContractError
 from auralis_intelligence.preferences.schemas import array, object_schema
 from auralis_intelligence.ranking import SelectionResult, SelectStage
+from auralis_intelligence.recall.full_audience import matches_policy
 
 from .context import preference_context
 from .research import ResearchStage, excerpt
@@ -102,7 +103,7 @@ class BatchResearchStage:
             eligible_sources = [
                 c
                 for c in candidates
-                if c.get("audience", {}).get("listeners") is not None
+                if matches_policy(c.get("audience"), execution.start["agent_policy"])
                 and c["audience"]["listeners"] >= 50
             ]
             searchable, artists = [], set()
@@ -133,12 +134,7 @@ class BatchResearchStage:
                     if identifier in self.evidence.failed_ids
                     else "INSUFFICIENT_REVIEWS"
                 )
-            if (
-                not audience
-                or audience["listeners"] is None
-                or audience["dataset_id"] != execution.start["recall_binding"]["data_snapshot_id"]
-                or audience["window"] != execution.start["recall_binding"]["window"]
-            ):
+            if not matches_policy(audience, execution.start["agent_policy"]):
                 reason = "AUDIENCE_UNKNOWN"
             elif audience["listeners"] < 50:
                 reason = "AUDIENCE_BELOW_MINIMUM"

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:auralis:intelligence:0.26",
+  "$id": "urn:auralis:intelligence:0.27",
   "title": "Auralis internal agent messages",
   "$ref": "#/$defs/Envelope",
   "$defs": {
@@ -1125,6 +1125,12 @@
         },
         "audience": {
           "$ref": "#/$defs/Audience"
+        },
+        "proposed_release_group_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160,
+          "description": "Original proposal ID when Java resolved a catalog redirect; canonical release_group_id remains the identity and deduplication key."
         }
       },
       "required": [
@@ -1998,6 +2004,9 @@
         "audience_min_listeners": {
           "type": "integer",
           "const": 50
+        },
+        "audience_binding": {
+          "$ref": "#/$defs/AudienceBinding"
         }
       },
       "required": [
@@ -2010,7 +2019,12 @@
         "concurrency",
         "recall"
       ],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "dependentRequired": {
+        "audience_min_listeners": [
+          "audience_binding"
+        ]
+      }
     },
     "DisplayState": {
       "type": "object",
@@ -4950,7 +4964,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.26"
+              "const": "0.27"
             },
             "request_id": {
               "type": "string",
@@ -5001,7 +5015,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.26"
+              "const": "0.27"
             },
             "request_id": {
               "type": "string",
@@ -5052,7 +5066,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.26"
+              "const": "0.27"
             },
             "request_id": {
               "type": "string",
@@ -5103,7 +5117,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.26"
+              "const": "0.27"
             },
             "request_id": {
               "type": "string",
@@ -5154,7 +5168,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.26"
+              "const": "0.27"
             },
             "request_id": {
               "type": "string",
@@ -5205,7 +5219,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.26"
+              "const": "0.27"
             },
             "request_id": {
               "type": "string",
@@ -5256,7 +5270,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.26"
+              "const": "0.27"
             },
             "request_id": {
               "type": "string",
@@ -5307,7 +5321,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.26"
+              "const": "0.27"
             },
             "request_id": {
               "type": "string",
@@ -5358,7 +5372,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.26"
+              "const": "0.27"
             },
             "request_id": {
               "type": "string",
@@ -5409,7 +5423,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.26"
+              "const": "0.27"
             },
             "request_id": {
               "type": "string",
@@ -5460,7 +5474,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.26"
+              "const": "0.27"
             },
             "request_id": {
               "type": "string",
@@ -5511,7 +5525,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.26"
+              "const": "0.27"
             },
             "request_id": {
               "type": "string",
@@ -5562,7 +5576,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.26"
+              "const": "0.27"
             },
             "request_id": {
               "type": "string",
@@ -5613,7 +5627,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.26"
+              "const": "0.27"
             },
             "request_id": {
               "type": "string",
@@ -5664,7 +5678,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.26"
+              "const": "0.27"
             },
             "request_id": {
               "type": "string",
@@ -5715,7 +5729,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.26"
+              "const": "0.27"
             },
             "request_id": {
               "type": "string",
@@ -5766,7 +5780,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.26"
+              "const": "0.27"
             },
             "request_id": {
               "type": "string",
@@ -5817,7 +5831,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.26"
+              "const": "0.27"
             },
             "request_id": {
               "type": "string",
@@ -5868,7 +5882,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.26"
+              "const": "0.27"
             },
             "request_id": {
               "type": "string",
@@ -5919,7 +5933,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.26"
+              "const": "0.27"
             },
             "request_id": {
               "type": "string",
@@ -5970,7 +5984,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.26"
+              "const": "0.27"
             },
             "request_id": {
               "type": "string",
@@ -6021,7 +6035,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.26"
+              "const": "0.27"
             },
             "request_id": {
               "type": "string",
@@ -6072,7 +6086,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.26"
+              "const": "0.27"
             },
             "request_id": {
               "type": "string",
@@ -6123,7 +6137,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.26"
+              "const": "0.27"
             },
             "request_id": {
               "type": "string",
@@ -6174,7 +6188,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.26"
+              "const": "0.27"
             },
             "request_id": {
               "type": "string",
@@ -6225,7 +6239,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.26"
+              "const": "0.27"
             },
             "request_id": {
               "type": "string",
@@ -7763,6 +7777,118 @@
         "EXPIRED",
         "SUPERSEDED"
       ]
+    },
+    "AudienceBinding": {
+      "type": "object",
+      "properties": {
+        "dataset_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "window": {
+          "type": "string",
+          "pattern": "^(0|[0-9]{4})$"
+        },
+        "sample_listeners": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "snapshot_digest": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        }
+      },
+      "required": [
+        "dataset_id",
+        "window",
+        "sample_listeners",
+        "snapshot_digest"
+      ],
+      "additionalProperties": false
+    },
+    "FullAudienceSnapshot": {
+      "type": "object",
+      "properties": {
+        "format_version": {
+          "const": 2
+        },
+        "scope": {
+          "const": "FULL_CATALOG"
+        },
+        "source": {
+          "const": "LISTENBRAINZ_SAMPLE"
+        },
+        "catalog_dataset_id": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "source_manifest_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "dataset_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "window": {
+          "type": "string",
+          "pattern": "^(0|[0-9]{4})$"
+        },
+        "sample_listeners": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "counts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "release_group_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "listeners": {
+                "allOf": [
+                  {
+                    "$ref": "#/$defs/Audience/properties/listeners"
+                  },
+                  {
+                    "type": "integer"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "release_group_id",
+              "listeners"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 10000000
+        },
+        "digest": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        }
+      },
+      "required": [
+        "format_version",
+        "scope",
+        "source",
+        "catalog_dataset_id",
+        "source_manifest_sha256",
+        "dataset_id",
+        "window",
+        "sample_listeners",
+        "counts",
+        "digest"
+      ],
+      "additionalProperties": false,
+      "description": "Full admitted catalog population for one window, independent of recall training/test splits. Sorted complete catalog counts including zeros; RFC8785 digest excludes digest. Java independently reconciles against admitted core aggregates before activation."
     }
   }
 }

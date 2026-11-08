@@ -47,7 +47,7 @@ def test_counts_match_public_engine_and_unknown_stays_unknown(source):
     counts = {row["release_group_id"]: row["listeners"] for row in result["counts"]}
     assert list(counts.values()) == [50, 0, 49]
     engine = load_a_v2(path, weights=WeightConfig())
-    observed = engine.audience([*counts, "missing"])
+    observed = engine.training_audience([*counts, "missing"])
     assert observed["sample_listeners"] == result["sample_listeners"] == 51
     assert observed["counts"] == {**counts, "missing": None}
     assert result["window"] == observed["window"] == "0"

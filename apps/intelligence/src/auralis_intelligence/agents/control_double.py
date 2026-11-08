@@ -17,6 +17,7 @@ from auralis_intelligence.contracts import (
     require_binding,
     validate_definition,
 )
+from auralis_intelligence.recall.full_audience import matches_policy
 
 from .ports import ControlUnavailable
 
@@ -858,12 +859,11 @@ class JavaControlDouble:
             None,
         )
         audience = candidate.get("audience") if candidate else None
-        binding = entry["start"]["recall_binding"]
+        policy = entry["start"]["agent_policy"]
         return bool(
             audience
             and audience == card["admission"].get("audience")
-            and audience["dataset_id"] == binding["data_snapshot_id"]
-            and audience["window"] == binding["window"]
+            and matches_policy(audience, policy)
             and audience["listeners"] is not None
             and audience["listeners"] >= entry["start"]["agent_policy"]["audience_min_listeners"]
         )
