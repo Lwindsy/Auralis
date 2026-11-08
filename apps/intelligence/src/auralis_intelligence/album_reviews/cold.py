@@ -1,12 +1,13 @@
 """Request-local live discovery. No file paths, saved URLs, excerpts or cross-request cache."""
 
 import asyncio
-import re
 import time
 import unicodedata
 from urllib.parse import unquote, urlsplit
 
 from auralis_intelligence.agents import CallDenied
+
+from .evidence_quality import page_rejection
 
 
 class ColdEvidence:
@@ -72,29 +73,8 @@ class ColdEvidence:
                     )
                     raise
                 usable = result.receipt["status"] == "READ_OK"
-                if self.overlap and usable:
-                    body = normalize(result.text)
-                    artist_tokens = [
-                        normalize(t)
-                        for t in re.split(r"\W+", identity["artist_credit"])
-                        if len(t) >= 3 and t.casefold() not in {"the", "and"}
-                    ]
-                    title_key = normalize(identity["title"])
-                    title_present = (
-                        title_key in body
-                        if title_key
-                        else any(
-                            line.strip() == identity["title"] for line in result.text.splitlines()
-                        )
-                    )
-                    usable = (
-                        len(result.text) >= 300
-                        and title_present
-                        and (
-                            normalize(identity["artist_credit"]) in body
-                            or any(t in body for t in artist_tokens)
-                        )
-                    )
+                rejection = page_rejection(result.text, identity) if usable else "READ_FAILED"
+                usable = usable and rejection is None
                 self.events.append(
                     {
                         "kind": "read",
@@ -104,6 +84,7 @@ class ColdEvidence:
                         "end_ms": round((time.perf_counter() - origin) * 1000),
                         "status": result.receipt["status"],
                         "usable": usable,
+                        "technical_rejection": rejection,
                         "failure_reason": result.receipt["failure_reason"],
                     }
                 )
