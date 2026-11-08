@@ -26,7 +26,17 @@ class ModelBinding:
     service_tier: str | None = None
 
     def wire(self) -> dict[str, Any]:
-        value = {name: getattr(self, name) for name in ("ref", "revision", "model", "price_revision", "max_input_tokens", "max_output_tokens")}
+        value = {
+            name: getattr(self, name)
+            for name in (
+                "ref",
+                "revision",
+                "model",
+                "price_revision",
+                "max_input_tokens",
+                "max_output_tokens",
+            )
+        }
         if self.reasoning_effort is not None:
             value["reasoning_effort"] = self.reasoning_effort
         if self.service_tier is not None:
@@ -66,4 +76,10 @@ class ModelAdapter(Protocol):
 
 class SearchAdapter(Protocol):
     def check_binding(self, binding: ModelBinding, *, search: bool = False) -> None: ...
-    async def search(self, binding: ModelBinding, query: str, allowed_domains: tuple[str, ...], blocked_domains: tuple[str, ...]) -> CallResult: ...
+    async def search(
+        self,
+        binding: ModelBinding,
+        query: str,
+        allowed_domains: tuple[str, ...],
+        blocked_domains: tuple[str, ...],
+    ) -> CallResult: ...

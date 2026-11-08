@@ -1,14 +1,14 @@
 """Shared wire validation; schemas are registered by the workspace contracts entry."""
 
+import json
 from copy import deepcopy
 from functools import lru_cache
 from hashlib import sha256
 from importlib.resources import files
-import json
 from typing import Any, Mapping
 
-from jsonschema import Draft202012Validator, FormatChecker
 import rfc8785
+from jsonschema import Draft202012Validator, FormatChecker
 
 
 class ContractError(ValueError):
@@ -17,7 +17,9 @@ class ContractError(ValueError):
 
 @lru_cache(maxsize=1)
 def schema() -> dict[str, Any]:
-    return json.loads(files(__package__).joinpath("agent-v1.schema.json").read_text(encoding="utf-8"))
+    return json.loads(
+        files(__package__).joinpath("agent-v1.schema.json").read_text(encoding="utf-8")
+    )
 
 
 def digest(value: Any) -> str:
@@ -51,11 +53,16 @@ def validate_message(message: Mapping[str, Any]) -> None:
     validate_definition(message["message_type"], message["payload"])
 
 
-def envelope(name: str, payload: Any, request_id: str, trace_id: str = "local", span_id: str = "local") -> dict[str, Any]:
+def envelope(
+    name: str, payload: Any, request_id: str, trace_id: str = "local", span_id: str = "local"
+) -> dict[str, Any]:
     result = {
-        "schema_version": "intel.v1", "contract_revision": "0.23",
-        "request_id": request_id, "trace_context": {"trace_id": trace_id, "span_id": span_id},
-        "message_type": name, "payload": deepcopy(payload),
+        "schema_version": "intel.v1",
+        "contract_revision": "0.23",
+        "request_id": request_id,
+        "trace_context": {"trace_id": trace_id, "span_id": span_id},
+        "message_type": name,
+        "payload": deepcopy(payload),
     }
     validate_message(result)
     return result
@@ -75,7 +82,11 @@ def _unique(rows: list[dict[str, Any]], key: str) -> None:
 def _semantic(name: str, value: Any) -> None:
     if name == "RoundStart":
         config = value["selection_config"]
-        if not config["recommendation_target_count"] <= config["shortlist_target_count"] <= config["recall_target_count"]:
+        if (
+            not config["recommendation_target_count"]
+            <= config["shortlist_target_count"]
+            <= config["recall_target_count"]
+        ):
             raise ContractError("POLICY_OUT_OF_RANGE")
         if content_digest(value) != value["payload_digest"]:
             raise ContractError("BINDING_MISMATCH")
@@ -84,7 +95,9 @@ def _semantic(name: str, value: Any) -> None:
             raise ContractError("BINDING_MISMATCH")
         raw = value["input"]["raw"]
         accepted = value["input"]["accepted_preferences"]
-        if raw is not None and (value["start_mode"] != "FRESH" or value["round_seq"] != 1 or accepted is not None):
+        if raw is not None and (
+            value["start_mode"] != "FRESH" or value["round_seq"] != 1 or accepted is not None
+        ):
             raise ContractError("RAW_TEXT_LIFETIME")
         if raw is None and accepted is None:
             raise ContractError("MISSING_PREFERENCES")
@@ -99,37 +112,66 @@ def _semantic(name: str, value: Any) -> None:
         if digest(value["input"]["exclusions"]) != value["input"]["exclusion_digest"]:
             raise ContractError("BINDING_MISMATCH")
         limits = value["budget"]["limits"]
-        if sum(limits["lane_caps"].values()) > limits["round_cap_microusd"] or limits["round_cap_microusd"] > limits["session_cap_microusd"]:
+        if (
+            sum(limits["lane_caps"].values()) > limits["round_cap_microusd"]
+            or limits["round_cap_microusd"] > limits["session_cap_microusd"]
+        ):
             raise ContractError("POLICY_OUT_OF_RANGE")
         if policy["writing"]["short_min_han"] > policy["writing"]["short_max_han"]:
             raise ContractError("POLICY_OUT_OF_RANGE")
-        if policy["concurrency"]["model_max_in_flight"] is not None and policy["concurrency"]["background_model_max_in_flight"] > policy["concurrency"]["model_max_in_flight"]:
+        if (
+            policy["concurrency"]["model_max_in_flight"] is not None
+            and policy["concurrency"]["background_model_max_in_flight"]
+            > policy["concurrency"]["model_max_in_flight"]
+        ):
             raise ContractError("POLICY_OUT_OF_RANGE")
-        if policy["screening"]["reads_per_album_initial"] > policy["screening"]["max_reads_per_album"]:
+        if (
+            policy["screening"]["reads_per_album_initial"]
+            > policy["screening"]["max_reads_per_album"]
+        ):
             raise ContractError("POLICY_OUT_OF_RANGE")
         if accepted is not None:
             _semantic("EffectivePreferenceSnapshot", accepted)
         if value["start_mode"] == "CONTINUE":
             continuation = value["continuation"]
             bundle = continuation["candidate_bundle"]
-            expected = {"effective_preference_digest": accepted["effective_preference_digest"], "exclusion_digest": value["input"]["exclusion_digest"],
-                        "selection_config_revision": config["revision"], "agent_policy_revision": policy["revision"], "recall_binding": value["recall_binding"]}
-            if any(bundle["binding"][key] != item for key, item in expected.items()) or bundle["digest"] != digest(bundle["accepted"]) or bundle["binding"]["candidate_bundle_digest"] != bundle["digest"]:
+            expected = {
+                "effective_preference_digest": accepted["effective_preference_digest"],
+                "exclusion_digest": value["input"]["exclusion_digest"],
+                "selection_config_revision": config["revision"],
+                "agent_policy_revision": policy["revision"],
+                "recall_binding": value["recall_binding"],
+            }
+            if (
+                any(bundle["binding"][key] != item for key, item in expected.items())
+                or bundle["digest"] != digest(bundle["accepted"])
+                or bundle["binding"]["candidate_bundle_digest"] != bundle["digest"]
+            ):
                 raise ContractError("BINDING_MISMATCH")
             _unique(bundle["accepted"], "release_group_id")
             _unique(continuation["candidates"], "release_group_id")
-            candidates = {item["release_group_id"]: item["recall_rank"] for item in bundle["accepted"]}
-            if len(continuation["candidates"]) != len(candidates) or any(candidates.get(item["release_group_id"]) != item["recall_rank"] for item in continuation["candidates"]):
+            candidates = {
+                item["release_group_id"]: item["recall_rank"] for item in bundle["accepted"]
+            }
+            if len(continuation["candidates"]) != len(candidates) or any(
+                candidates.get(item["release_group_id"]) != item["recall_rank"]
+                for item in continuation["candidates"]
+            ):
                 raise ContractError("BINDING_MISMATCH")
             display = continuation["display_state"]
-            if not set(display["shown_candidate_ids"] + display["ready_unshown_ids"]).issubset(candidates) or set(display["shown_candidate_ids"]) & set(display["ready_unshown_ids"]):
+            if not set(display["shown_candidate_ids"] + display["ready_unshown_ids"]).issubset(
+                candidates
+            ) or set(display["shown_candidate_ids"]) & set(display["ready_unshown_ids"]):
                 raise ContractError("BINDING_MISMATCH")
     elif name in {"PreferenceResolutionProposal", "RecallProposal"}:
         if content_digest(value, "proposal_digest") != value["proposal_digest"]:
             raise ContractError("BINDING_MISMATCH")
         if name == "RecallProposal":
             _unique(value["candidates"], "release_group_id")
-            if value["returned_count"] != len(value["candidates"]) or value["shortfall"] != value["requested_count"] - value["returned_count"]:
+            if (
+                value["returned_count"] != len(value["candidates"])
+                or value["shortfall"] != value["requested_count"] - value["returned_count"]
+            ):
                 raise ContractError("COUNT_MISMATCH")
             ranks = [item["recall_rank"] for item in value["candidates"]]
             if ranks != list(range(1, len(ranks) + 1)):
@@ -139,7 +181,10 @@ def _semantic(name: str, value: Any) -> None:
                 if item["text_span"]["start"] >= item["text_span"]["end"]:
                     raise ContractError("INVALID_TEXT_SPAN")
     elif name == "EffectivePreferenceSnapshot":
-        if content_digest(value, "effective_preference_digest") != value["effective_preference_digest"]:
+        if (
+            content_digest(value, "effective_preference_digest")
+            != value["effective_preference_digest"]
+        ):
             raise ContractError("BINDING_MISMATCH")
         for key in ("seeds", "tags"):
             _unique(value[key], "id")
@@ -152,12 +197,19 @@ def _semantic(name: str, value: Any) -> None:
             raise ContractError("BINDING_MISMATCH")
         if value["kind"] == "CARD_BATCH":
             cards = value["payload"]["cards"]
-            if value["binding"] is None and (value["payload"]["outcome"] == "DISPLAYABLE" or cards or value["payload"]["screenings"]):
+            if value["binding"] is None and (
+                value["payload"]["outcome"] == "DISPLAYABLE"
+                or cards
+                or value["payload"]["screenings"]
+            ):
                 raise ContractError("MISSING_BINDING")
             _unique(cards, "candidate_id")
             if value["payload"]["outcome"] == "DISPLAYABLE" and not cards:
                 raise ContractError("EMPTY_DISPLAYABLE")
-            if value["payload"]["outcome"] != "DISPLAYABLE" and value["payload"]["reason_code"] is None:
+            if (
+                value["payload"]["outcome"] != "DISPLAYABLE"
+                and value["payload"]["reason_code"] is None
+            ):
                 raise ContractError("MISSING_REASON")
     elif name == "RoundCommand":
         if digest(value["payload"]) != value["payload_digest"]:
@@ -172,7 +224,10 @@ def _semantic(name: str, value: Any) -> None:
         for item in value["items"]:
             _semantic("ReadReceipt", item)
     elif name == "ReadReceipt" and value["status"] == "READ_OK":
-        if any(value[k] is None for k in ("final_url", "publisher_key", "content_digest")) or value["text_chars"] == 0:
+        if (
+            any(value[k] is None for k in ("final_url", "publisher_key", "content_digest"))
+            or value["text_chars"] == 0
+        ):
             raise ContractError("INCOMPLETE_READ")
 
 

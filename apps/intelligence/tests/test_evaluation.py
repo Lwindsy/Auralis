@@ -10,31 +10,74 @@ from auralis_intelligence.providers import ModelBinding
 
 
 def test_preflight_hashes_inputs_and_prices_without_enabling_live_calls(tmp_path):
-    dataset = {"split": "development", "status": "frozen", "questions": [{
-        "id": "case-1", "family": "family-1", "language": "en", "coverage": ["named_genre"],
-        "evaluation_scope": "genre", "request_text": "Play jazz",
-    }]}
+    dataset = {
+        "split": "development",
+        "status": "frozen",
+        "questions": [
+            {
+                "id": "case-1",
+                "family": "family-1",
+                "language": "en",
+                "coverage": ["named_genre"],
+                "evaluation_scope": "genre",
+                "request_text": "Play jazz",
+            }
+        ],
+    }
     reference = {
-        "branches": [{"id": "branch", "name": "Jazz", "aliases": [], "description": "branch", "genre_ids": ["jazz"]}],
-        "genres": [{"id": "jazz", "name": "jazz", "aliases": [], "description": "improvised music"}],
+        "branches": [
+            {
+                "id": "branch",
+                "name": "Jazz",
+                "aliases": [],
+                "description": "branch",
+                "genre_ids": ["jazz"],
+            }
+        ],
+        "genres": [
+            {"id": "jazz", "name": "jazz", "aliases": [], "description": "improvised music"}
+        ],
     }
     rows = {}
     for role in ("interpret", "screen", "select", "write"):
-        rows[role] = {"ref": role, "revision": "test", "model": "test-model", "price_revision": "test-price",
-                      "max_input_tokens": 24000, "max_output_tokens": 100, "structured_outputs": True,
-                      "web_search": role == "screen", "live_enabled": False, "price_source": "https://example.test/price",
-                      "input_microusd_per_million": 100000, "cached_input_microusd_per_million": 10000,
-                      "output_microusd_per_million": 500000, "search_microusd_per_call": 10000}
+        rows[role] = {
+            "ref": role,
+            "revision": "test",
+            "model": "test-model",
+            "price_revision": "test-price",
+            "max_input_tokens": 24000,
+            "max_output_tokens": 100,
+            "structured_outputs": True,
+            "web_search": role == "screen",
+            "live_enabled": False,
+            "price_source": "https://example.test/price",
+            "input_microusd_per_million": 100000,
+            "cached_input_microusd_per_million": 10000,
+            "output_microusd_per_million": 500000,
+            "search_microusd_per_call": 10000,
+        }
     paths = {name: tmp_path / f"{name}.json" for name in ("dataset", "reference", "bindings")}
     values = {"dataset": dataset, "reference": reference, "bindings": rows}
     for name, path in paths.items():
         path.write_text(json.dumps(values[name]), encoding="utf-8")
-    sha = lambda path: hashlib.sha256(path.read_bytes()).hexdigest()
-    manifest = {"run_id": "test-run", "dataset": str(paths["dataset"]), "dataset_sha256": sha(paths["dataset"]),
-                "reference": str(paths["reference"]), "reference_sha256": sha(paths["reference"]),
-                "model_bindings": str(paths["bindings"]), "case_ids": ["case-1"], "second_pass_genre_limit": 40,
-                "trial_budget_microusd": 60000, "per_case_budget_microusd": 20000,
-                "provider_key_env": "AURALIS_TEST_KEY", "output_dir": str(tmp_path / "output")}
+
+    def sha(path):
+        return hashlib.sha256(path.read_bytes()).hexdigest()
+
+    manifest = {
+        "run_id": "test-run",
+        "dataset": str(paths["dataset"]),
+        "dataset_sha256": sha(paths["dataset"]),
+        "reference": str(paths["reference"]),
+        "reference_sha256": sha(paths["reference"]),
+        "model_bindings": str(paths["bindings"]),
+        "case_ids": ["case-1"],
+        "second_pass_genre_limit": 40,
+        "trial_budget_microusd": 60000,
+        "per_case_budget_microusd": 20000,
+        "provider_key_env": "AURALIS_TEST_KEY",
+        "output_dir": str(tmp_path / "output"),
+    }
     manifest_path = tmp_path / "manifest.json"
     manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
 
@@ -42,7 +85,11 @@ def test_preflight_hashes_inputs_and_prices_without_enabling_live_calls(tmp_path
 
     assert plan["paid_requests"] is False and plan["case_count"] == 1
     assert plan["estimated_maximum_microusd"] > 0
-    assert plan["inputs_within_binding"] and plan["cases_within_budget"] and plan["within_configured_budget"]
+    assert (
+        plan["inputs_within_binding"]
+        and plan["cases_within_budget"]
+        and plan["within_configured_budget"]
+    )
     assert plan["live_ready"] is False
 
     manifest["expected_pass1_branches"] = {"case-1": ["branch"]}
@@ -61,29 +108,76 @@ def test_preflight_hashes_inputs_and_prices_without_enabling_live_calls(tmp_path
 
 
 def test_frozen_holdout_uses_the_same_runner(tmp_path):
-    dataset = {"split": "holdout", "status": "frozen", "questions": [{
-        "id": "case-1", "family": "family-1", "language": "en", "coverage": ["named_genre"],
-        "evaluation_scope": "genre", "request_text": "Play jazz",
-    }]}
-    reference = {
-        "branches": [{"id": "branch", "name": "Jazz", "aliases": [], "description": "branch", "genre_ids": ["jazz"]}],
-        "genres": [{"id": "jazz", "name": "jazz", "aliases": [], "description": "improvised music"}],
+    dataset = {
+        "split": "holdout",
+        "status": "frozen",
+        "questions": [
+            {
+                "id": "case-1",
+                "family": "family-1",
+                "language": "en",
+                "coverage": ["named_genre"],
+                "evaluation_scope": "genre",
+                "request_text": "Play jazz",
+            }
+        ],
     }
-    bindings = {role: {"ref": role, "revision": "test", "model": "test-model", "price_revision": "test-price",
-                       "max_input_tokens": 24000, "max_output_tokens": 100, "structured_outputs": True,
-                       "web_search": role == "screen", "live_enabled": False, "price_source": "https://example.test/price",
-                       "input_microusd_per_million": 100000, "cached_input_microusd_per_million": 10000,
-                       "output_microusd_per_million": 500000, "search_microusd_per_call": 10000}
-                for role in ("interpret", "screen", "select", "write")}
-    paths = {name: tmp_path / f"holdout-{name}.json" for name in ("dataset", "reference", "bindings")}
+    reference = {
+        "branches": [
+            {
+                "id": "branch",
+                "name": "Jazz",
+                "aliases": [],
+                "description": "branch",
+                "genre_ids": ["jazz"],
+            }
+        ],
+        "genres": [
+            {"id": "jazz", "name": "jazz", "aliases": [], "description": "improvised music"}
+        ],
+    }
+    bindings = {
+        role: {
+            "ref": role,
+            "revision": "test",
+            "model": "test-model",
+            "price_revision": "test-price",
+            "max_input_tokens": 24000,
+            "max_output_tokens": 100,
+            "structured_outputs": True,
+            "web_search": role == "screen",
+            "live_enabled": False,
+            "price_source": "https://example.test/price",
+            "input_microusd_per_million": 100000,
+            "cached_input_microusd_per_million": 10000,
+            "output_microusd_per_million": 500000,
+            "search_microusd_per_call": 10000,
+        }
+        for role in ("interpret", "screen", "select", "write")
+    }
+    paths = {
+        name: tmp_path / f"holdout-{name}.json" for name in ("dataset", "reference", "bindings")
+    }
     for name, value in (("dataset", dataset), ("reference", reference), ("bindings", bindings)):
         paths[name].write_text(json.dumps(value), encoding="utf-8")
-    sha = lambda path: hashlib.sha256(path.read_bytes()).hexdigest()
-    manifest = {"run_id": "holdout-run", "dataset": str(paths["dataset"]), "dataset_sha256": sha(paths["dataset"]),
-                "reference": str(paths["reference"]), "reference_sha256": sha(paths["reference"]),
-                "model_bindings": str(paths["bindings"]), "case_ids": ["case-1"], "second_pass_genre_limit": 40,
-                "trial_budget_microusd": 60000, "per_case_budget_microusd": 20000,
-                "provider_key_env": "AURALIS_TEST_KEY", "output_dir": str(tmp_path / "holdout-output")}
+
+    def sha(path):
+        return hashlib.sha256(path.read_bytes()).hexdigest()
+
+    manifest = {
+        "run_id": "holdout-run",
+        "dataset": str(paths["dataset"]),
+        "dataset_sha256": sha(paths["dataset"]),
+        "reference": str(paths["reference"]),
+        "reference_sha256": sha(paths["reference"]),
+        "model_bindings": str(paths["bindings"]),
+        "case_ids": ["case-1"],
+        "second_pass_genre_limit": 40,
+        "trial_budget_microusd": 60000,
+        "per_case_budget_microusd": 20000,
+        "provider_key_env": "AURALIS_TEST_KEY",
+        "output_dir": str(tmp_path / "holdout-output"),
+    }
     manifest_path = tmp_path / "holdout-manifest.json"
     manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
 

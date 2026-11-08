@@ -1,16 +1,24 @@
 """Shared input semantics and candidate selection for research recall models."""
 
-from collections import deque
 import hashlib
+import heapq
 import json
 import math
-import heapq
+from collections import deque
 from numbers import Real
 
 import numpy as np
 from scipy import sparse
 
-from .types import Candidate, Preference, RecallDataset, RecallModel, RecallRequest, RecallResult, WeightConfig
+from .types import (
+    Candidate,
+    Preference,
+    RecallDataset,
+    RecallModel,
+    RecallRequest,
+    RecallResult,
+    WeightConfig,
+)
 
 
 def _number(value: object, name: str, *, positive: bool = False) -> float:
@@ -110,7 +118,9 @@ def weighted_preferences(items: tuple[Preference, ...], weights: WeightConfig) -
     return result
 
 
-def validate_request(data: RecallDataset, request: RecallRequest, weights: WeightConfig = WeightConfig()) -> None:
+def validate_request(
+    data: RecallDataset, request: RecallRequest, weights: WeightConfig = WeightConfig()
+) -> None:
     """Validate structured IDs; unsupported free text is never accepted here."""
     if not isinstance(request, RecallRequest):
         raise ValueError("request must be RecallRequest")
@@ -129,8 +139,16 @@ def validate_request(data: RecallDataset, request: RecallRequest, weights: Weigh
         known = albums if name == "excluded_ids" else tags
         if set(values) - known:
             raise ValueError(f"{name} contains unknown ID")
-    if not any((request.seeds, request.tags, request.disliked_tags, request.forbidden_tags,
-                request.required_tags, request.excluded_ids)):
+    if not any(
+        (
+            request.seeds,
+            request.tags,
+            request.disliked_tags,
+            request.forbidden_tags,
+            request.required_tags,
+            request.excluded_ids,
+        )
+    ):
         raise ValueError("at least one structured input is required")
 
 
@@ -143,7 +161,9 @@ def _normalize(values: dict[int, float]) -> dict[int, float]:
     return {key: value / total for key, value in scaled.items()}
 
 
-def query_weights(data: RecallDataset, request: RecallRequest, weights: WeightConfig) -> tuple[dict[int, float], dict[int, float]]:
+def query_weights(
+    data: RecallDataset, request: RecallRequest, weights: WeightConfig
+) -> tuple[dict[int, float], dict[int, float]]:
     """Jointly normalize seeds/tags, preserving cross-channel preference mass.
 
     Familiar: direct tags. Explore: one edge. Surprise: two edges.
@@ -154,8 +174,13 @@ def query_weights(data: RecallDataset, request: RecallRequest, weights: WeightCo
     validate_request(data, request, weights)
     album_index = {value: index for index, value in enumerate(data.album_ids)}
     tag_index = {value: index for index, value in enumerate(data.tag_ids)}
-    seeds = {album_index[key]: value for key, value in weighted_preferences(request.seeds, weights).items()}
-    direct = {tag_index[key]: value for key, value in weighted_preferences(request.tags, weights).items()}
+    seeds = {
+        album_index[key]: value
+        for key, value in weighted_preferences(request.seeds, weights).items()
+    }
+    direct = {
+        tag_index[key]: value for key, value in weighted_preferences(request.tags, weights).items()
+    }
     maximum = max(max(seeds.values(), default=0.0), max(direct.values(), default=0.0))
     if maximum == 0:
         return {}, {}
@@ -211,9 +236,21 @@ def recall(model: RecallModel, request: RecallRequest, *, eligibility_mask=None)
     validate_request(data, request, model.weights)
     seeds, tags = query_weights(data, request, model.weights)
     if not seeds and not tags:
-        return RecallResult((), request.limit, 0, "unsupported_positive_input", model.name, data.dataset_id, data.window)
+        return RecallResult(
+            (),
+            request.limit,
+            0,
+            "unsupported_positive_input",
+            model.name,
+            data.dataset_id,
+            data.window,
+        )
     scores = np.asarray(model.score(request), dtype=np.float64)
-    if scores.shape != (len(data.album_ids),) or np.isnan(scores).any() or np.isposinf(scores).any():
+    if (
+        scores.shape != (len(data.album_ids),)
+        or np.isnan(scores).any()
+        or np.isposinf(scores).any()
+    ):
         raise ValueError("provider must return one finite or -inf score per album")
     disliked = _descendants(data, request.disliked_tags)
     forbidden = _descendants(data, request.forbidden_tags)
@@ -231,7 +268,7 @@ def recall(model: RecallModel, request: RecallRequest, *, eligibility_mask=None)
         if not disliked and not forbidden and not required:
             eligible.append(index)
             continue
-        start, end = data.album_tags.indptr[index:index + 2]
+        start, end = data.album_tags.indptr[index : index + 2]
         direct = set(data.album_tags.indices[start:end])
         if (forbidden or required) and not direct:
             continue
@@ -240,16 +277,26 @@ def recall(model: RecallModel, request: RecallRequest, *, eligibility_mask=None)
         if any(not direct.intersection(group) for group in required):
             continue
         eligible.append(index)
-    selected = heapq.nsmallest(request.limit, eligible, key=lambda index: (-scores[index], data.album_ids[index]))
+    selected = heapq.nsmallest(
+        request.limit, eligible, key=lambda index: (-scores[index], data.album_ids[index])
+    )
     result = tuple(Candidate(data.album_ids[index], float(scores[index])) for index in selected)
     reason = "complete" if len(result) == request.limit else "insufficient_candidates"
-    return RecallResult(result, request.limit, len(result), reason, model.name, data.dataset_id, data.window)
+    return RecallResult(
+        result, request.limit, len(result), reason, model.name, data.dataset_id, data.window
+    )
 
 
 def dataset_fingerprint(data: RecallDataset) -> str:
     """Bind model artifacts to ordered catalog IDs, relations and matrix content."""
     digest = hashlib.sha256()
-    header = [data.dataset_id, data.window, data.album_ids, data.tag_ids, sorted(set(data.tag_parents))]
+    header = [
+        data.dataset_id,
+        data.window,
+        data.album_ids,
+        data.tag_ids,
+        sorted(set(data.tag_parents)),
+    ]
     digest.update(json.dumps(header, ensure_ascii=False, separators=(",", ":")).encode("utf-8"))
     for source in (data.album_tags, data.interactions):
         matrix = sparse.csr_matrix(source, dtype=np.float64, copy=True)

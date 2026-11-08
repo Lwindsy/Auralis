@@ -4,11 +4,14 @@ from collections import deque
 from typing import Callable
 
 from auralis_intelligence.agents import CallResult, Usage
+
 from .types import ModelBinding, ModelRequest, SearchHit
 
 
 class ScriptedModelAdapter:
-    def __init__(self, replies: list[CallResult] | Callable[[ModelBinding, ModelRequest], CallResult]) -> None:
+    def __init__(
+        self, replies: list[CallResult] | Callable[[ModelBinding, ModelRequest], CallResult]
+    ) -> None:
         self.replies = replies if callable(replies) else deque(replies)
         self.requests: list[tuple[str, ModelRequest]] = []
 
@@ -36,5 +39,11 @@ class StaticSearchAdapter:
         if not binding.web_search:
             raise ValueError("UNSUPPORTED_WEB_SEARCH")
 
-    async def search(self, binding: ModelBinding, query: str, allowed_domains: tuple[str, ...], blocked_domains: tuple[str, ...]) -> CallResult:
+    async def search(
+        self,
+        binding: ModelBinding,
+        query: str,
+        allowed_domains: tuple[str, ...],
+        blocked_domains: tuple[str, ...],
+    ) -> CallResult:
         return CallResult(self.hits, usage=Usage(1, 1, 0))

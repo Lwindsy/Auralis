@@ -1,8 +1,8 @@
 """Public source excerpts reused with provenance, age checks and current read grants."""
 
+import json
 from datetime import datetime, timezone
 from hashlib import sha256
-import json
 from pathlib import Path
 
 from auralis_intelligence.providers.web import FetchFailure, FetchResponse
@@ -24,18 +24,33 @@ class PreparedEvidence:
 
     def sources(self, candidate_id: str):
         now = datetime.now(timezone.utc)
-        return [source for source in self.albums.get(candidate_id, {}).get("sources", [])
-                if 0 <= (now - datetime.fromisoformat(source["read_at"].replace("Z", "+00:00"))).total_seconds() <= self.max_age_seconds]
+        return [
+            source
+            for source in self.albums.get(candidate_id, {}).get("sources", [])
+            if 0
+            <= (
+                now - datetime.fromisoformat(source["read_at"].replace("Z", "+00:00"))
+            ).total_seconds()
+            <= self.max_age_seconds
+        ]
 
     async def fetch(self, url, max_bytes, timeout_seconds):
         source = self.pages.get(url)
         if source is None:
             raise FetchFailure("EVIDENCE_NOT_PREPARED")
-        age = (datetime.now(timezone.utc) - datetime.fromisoformat(source["read_at"].replace("Z", "+00:00"))).total_seconds()
+        age = (
+            datetime.now(timezone.utc)
+            - datetime.fromisoformat(source["read_at"].replace("Z", "+00:00"))
+        ).total_seconds()
         if not 0 <= age <= self.max_age_seconds:
             raise FetchFailure("EVIDENCE_STALE")
         body = source["text"].encode()
         if len(body) > max_bytes:
             raise FetchFailure("BODY_TOO_LARGE")
-        return FetchResponse(200, {"content-type": "text/plain"}, body,
-                             retrieval_mode="PREPARED_EXCERPT", observed_at=source["read_at"])
+        return FetchResponse(
+            200,
+            {"content-type": "text/plain"},
+            body,
+            retrieval_mode="PREPARED_EXCERPT",
+            observed_at=source["read_at"],
+        )

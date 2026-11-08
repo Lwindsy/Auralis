@@ -39,7 +39,9 @@ class CallResult:
 
 
 class ControlPort(Protocol):
-    async def request(self, execution_id: str, operation: str, payload: dict[str, Any]) -> dict[str, Any]: ...
+    async def request(
+        self, execution_id: str, operation: str, payload: dict[str, Any]
+    ) -> dict[str, Any]: ...
 
 
 class Stage(Protocol):

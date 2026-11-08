@@ -6,28 +6,58 @@ This function does not replace Java's authoritative identity and permission chec
 from copy import deepcopy
 
 from auralis_intelligence.contracts import content_digest, validate_definition
+
 from .reference import PreferenceError, ReferenceCatalog
 
 
-def merge_preferences(raw: dict, proposal: dict, *, reference: ReferenceCatalog,
-                      seed_descriptions: dict[str, str] | None = None) -> dict:
+def merge_preferences(
+    raw: dict,
+    proposal: dict,
+    *,
+    reference: ReferenceCatalog,
+    seed_descriptions: dict[str, str] | None = None,
+) -> dict:
     validate_definition("RawInput", raw)
     validate_definition("PreferenceResolutionProposal", proposal)
-    if proposal["input_digest"] != raw["input_digest"] or proposal["reference_revision"] != reference.revision:
+    if (
+        proposal["input_digest"] != raw["input_digest"]
+        or proposal["reference_revision"] != reference.revision
+    ):
         raise PreferenceError("PREFERENCE_BINDING_MISMATCH")
     if proposal["unresolved_constraints"]:
         raise PreferenceError("UNSUPPORTED_CONSTRAINT", "NEEDS_INPUT")
-    tags = {row["genre_id"]: {"id": row["genre_id"], "strength": row["strength"], "focused": row["focused"]} for row in raw["liked_genres"]}
+    tags = {
+        row["genre_id"]: {
+            "id": row["genre_id"],
+            "strength": row["strength"],
+            "focused": row["focused"],
+        }
+        for row in raw["liked_genres"]
+    }
     disliked = dict.fromkeys(raw["disliked_genre_ids"])
     selected = set(tags) | set(disliked)
     seeds, soft, overrides = {}, [], []
     required, forbidden, directions = {}, {}, {}
     seed_descriptions = seed_descriptions or {}
 
-    def add_soft(identifier: str, description: str, kind: str, basis: str = "explicit",
-                 strength: str = "normal", focused: bool = False) -> None:
-        soft.append({"preference_id": identifier, "description": description, "kind": kind,
-                     "basis": basis, "strength": strength, "focused": focused})
+    def add_soft(
+        identifier: str,
+        description: str,
+        kind: str,
+        basis: str = "explicit",
+        strength: str = "normal",
+        focused: bool = False,
+    ) -> None:
+        soft.append(
+            {
+                "preference_id": identifier,
+                "description": description,
+                "kind": kind,
+                "basis": basis,
+                "strength": strength,
+                "focused": focused,
+            }
+        )
 
     def genre_name(identifier: str) -> str:
         if identifier not in reference.genres:
@@ -39,7 +69,13 @@ def merge_preferences(raw: dict, proposal: dict, *, reference: ReferenceCatalog,
         description = seed_descriptions.get(identifier)
         if not description or not description.strip():
             raise PreferenceError("INPUT_DESCRIPTION_UNAVAILABLE")
-        add_soft("seed:" + str(len(soft)), "喜欢专辑：" + description, "prefer", strength=album["strength"], focused=album["focused"])
+        add_soft(
+            "seed:" + str(len(soft)),
+            "喜欢专辑：" + description,
+            "prefer",
+            strength=album["strength"],
+            focused=album["focused"],
+        )
         weighted = {"strength": album["strength"], "focused": album["focused"]}
         if album["release_group_id"]:
             seeds[identifier] = {"id": identifier, **weighted}
@@ -62,14 +98,22 @@ def merge_preferences(raw: dict, proposal: dict, *, reference: ReferenceCatalog,
             directions[identifier] = positive
 
     # Explicit evidence wins over inference regardless of model array order.
-    explicit_ids = {row["id"] for row in proposal["preferences"] if row["basis"] == "explicit"} | {row["id"] for row in proposal["constraints"]}
+    explicit_ids = {row["id"] for row in proposal["preferences"] if row["basis"] == "explicit"} | {
+        row["id"] for row in proposal["constraints"]
+    }
     for row in proposal["preferences"] + proposal["constraints"]:
         identifier, kind = row["id"], row["kind"]
         basis = row.get("basis", "explicit")
         if basis == "inferred" and (identifier in selected or identifier in explicit_ids):
             continue
         if basis == "explicit":
-            overrides.append({"genre_id": identifier, "action": kind.upper(), "text_span": deepcopy(row["text_span"])})
+            overrides.append(
+                {
+                    "genre_id": identifier,
+                    "action": kind.upper(),
+                    "text_span": deepcopy(row["text_span"]),
+                }
+            )
         if kind in ("prefer", "require"):
             disliked.pop(identifier, None)
             tags[identifier] = {"id": identifier, "strength": "normal", "focused": False}
@@ -80,23 +124,60 @@ def merge_preferences(raw: dict, proposal: dict, *, reference: ReferenceCatalog,
             if kind == "exclude":
                 forbidden[identifier] = None
             else:
-                add_soft("genre-avoid:" + str(len(soft)), "倾向避开风格：" + genre_name(identifier), "avoid", basis)
+                add_soft(
+                    "genre-avoid:" + str(len(soft)),
+                    "倾向避开风格：" + genre_name(identifier),
+                    "avoid",
+                    basis,
+                )
 
     for identifier, row in tags.items():
-        basis = "inferred" if any(p["id"] == identifier and p["basis"] == "inferred" for p in proposal["preferences"]) and identifier not in selected | explicit_ids else "explicit"
-        add_soft("genre:" + str(len(soft)), "喜欢风格：" + genre_name(identifier), "prefer", basis, row["strength"], row["focused"])
+        basis = (
+            "inferred"
+            if any(
+                p["id"] == identifier and p["basis"] == "inferred" for p in proposal["preferences"]
+            )
+            and identifier not in selected | explicit_ids
+            else "explicit"
+        )
+        add_soft(
+            "genre:" + str(len(soft)),
+            "喜欢风格：" + genre_name(identifier),
+            "prefer",
+            basis,
+            row["strength"],
+            row["focused"],
+        )
     for identifier in disliked:
         add_soft("disliked:" + str(len(soft)), "预选不喜欢风格：" + genre_name(identifier), "avoid")
     for identifier in required:
-        add_soft("required:" + str(len(soft)), "每张必须包含风格：" + genre_name(identifier), "context")
+        add_soft(
+            "required:" + str(len(soft)), "每张必须包含风格：" + genre_name(identifier), "context"
+        )
     for identifier in forbidden:
-        add_soft("forbidden:" + str(len(soft)), "排除含有风格的作品：" + genre_name(identifier), "context")
+        add_soft(
+            "forbidden:" + str(len(soft)),
+            "排除含有风格的作品：" + genre_name(identifier),
+            "context",
+        )
     soft.extend(deepcopy(proposal["soft_preferences"]))
-    snapshot = {"resolution_id": "resolution:" + proposal["proposal_digest"], "input_digest": raw["input_digest"],
-                "reference_revision": reference.revision, "parser_revision": proposal["parser_revision"],
-                "seeds": list(seeds.values()), "tags": list(tags.values()), "disliked_tags": list(disliked),
-                "forbidden_tags": list(forbidden), "required_tags": list(required), "soft_preferences": soft,
-                "overrides": overrides, "mode": raw["mode"], "has_positive_signal": bool(seeds or tags)}
-    snapshot["effective_preference_digest"] = content_digest(snapshot, "effective_preference_digest")
+    snapshot = {
+        "resolution_id": "resolution:" + proposal["proposal_digest"],
+        "input_digest": raw["input_digest"],
+        "reference_revision": reference.revision,
+        "parser_revision": proposal["parser_revision"],
+        "seeds": list(seeds.values()),
+        "tags": list(tags.values()),
+        "disliked_tags": list(disliked),
+        "forbidden_tags": list(forbidden),
+        "required_tags": list(required),
+        "soft_preferences": soft,
+        "overrides": overrides,
+        "mode": raw["mode"],
+        "has_positive_signal": bool(seeds or tags),
+    }
+    snapshot["effective_preference_digest"] = content_digest(
+        snapshot, "effective_preference_digest"
+    )
     validate_definition("EffectivePreferenceSnapshot", snapshot)
     return snapshot

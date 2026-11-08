@@ -1,7 +1,7 @@
 """One revision of branch and genre material, explicitly supplied by the caller."""
 
-from copy import deepcopy
 import json
+from copy import deepcopy
 from pathlib import Path
 
 from auralis_intelligence.contracts import digest
@@ -10,7 +10,9 @@ from auralis_intelligence.contracts import digest
 class PreferenceError(ValueError):
     """Safe failure code and outcome, never containing user or source text."""
 
-    def __init__(self, code: str, status: str = "FAILED", *, spans: tuple[dict[str, int], ...] = ()) -> None:
+    def __init__(
+        self, code: str, status: str = "FAILED", *, spans: tuple[dict[str, int], ...] = ()
+    ) -> None:
         super().__init__(code)
         self.code = code
         self.status = status
@@ -27,7 +29,9 @@ class ReferenceCatalog:
             self.branches = self._index(document["branches"])
             for branch in self.branches.values():
                 ids = branch["genre_ids"]
-                if not isinstance(ids, list) or any(identifier not in self.genres for identifier in ids):
+                if not isinstance(ids, list) or any(
+                    identifier not in self.genres for identifier in ids
+                ):
                     raise ValueError
         except (KeyError, TypeError, ValueError):
             raise PreferenceError("REFERENCE_UNAVAILABLE") from None
@@ -40,9 +44,15 @@ class ReferenceCatalog:
             # DATA-029 records its known missing descriptions as JSON null.
             if row.get("description") is None:
                 row["description"] = ""
-            if row["id"] in result or any(not isinstance(row[key], str) or not row[key].strip() for key in ("id", "name")):
+            if row["id"] in result or any(
+                not isinstance(row[key], str) or not row[key].strip() for key in ("id", "name")
+            ):
                 raise ValueError
-            if not isinstance(row["description"], str) or not isinstance(row["aliases"], list) or any(not isinstance(alias, str) for alias in row["aliases"]):
+            if (
+                not isinstance(row["description"], str)
+                or not isinstance(row["aliases"], list)
+                or any(not isinstance(alias, str) for alias in row["aliases"])
+            ):
                 raise ValueError
             result[row["id"]] = row
         return result
