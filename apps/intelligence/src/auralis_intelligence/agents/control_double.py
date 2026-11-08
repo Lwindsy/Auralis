@@ -46,6 +46,7 @@ class JavaControlDouble:
                  now: Callable[[], datetime] | None = None) -> None:
         self.boot_id = coordinator_boot_id
         self.catalog = deepcopy(catalog or {})
+        self.candidate_audiences = {}
         self.known_review_refs: dict[str, list[dict[str, str]]] = {}
         self.price_per_token = price_per_token
         self.pricing_by_binding = deepcopy(pricing_by_binding or {})
@@ -246,7 +247,7 @@ class JavaControlDouble:
             return False
         host = (urlsplit(url).hostname or "").lower()
         matches = [rule for rule in policy["rules"] if use in rule["uses"] and (host == rule["match"]["domain_suffix"] or host.endswith("." + rule["match"]["domain_suffix"]))]
-        return bool(matches) and not any(rule["decision"] == "DENY" for rule in matches)
+        return not any(rule["decision"] == "DENY" for rule in matches) if matches else policy["default_decision"] == "ALLOW"
 
     async def request(self, execution_id: str, operation: str, payload: dict[str, Any]) -> dict[str, Any]:
         if operation in self.unavailable:
@@ -348,6 +349,9 @@ class JavaControlDouble:
                     rejected.append({"release_group_id": identifier, "reason": "EXCLUDED" if identifier in exclusions else "UNKNOWN_IDENTITY"})
                 else:
                     accepted.append({**candidate, "identity": deepcopy(self.catalog[identifier]), "known_review_refs": deepcopy(self.known_review_refs.get(identifier, []))})
+            for candidate in accepted:
+                if candidate["release_group_id"] in self.candidate_audiences:
+                    candidate["audience"] = deepcopy(self.candidate_audiences[candidate["release_group_id"]])
             bundle_digest = digest(accepted)
             binding = {"candidate_bundle_digest": bundle_digest, "effective_preference_digest": effective["effective_preference_digest"], "exclusion_digest": payload["exclusion_digest"], "selection_config_revision": start["selection_config"]["revision"], "agent_policy_revision": start["agent_policy"]["revision"], "recall_binding": start["recall_binding"]}
             result = {"candidate_bundle_id": "bundle:" + execution_id, "digest": bundle_digest, "binding": binding, "accepted": accepted, "rejected": rejected, "counts": {"proposed": len(payload["candidates"]), "accepted": len(accepted), "rejected": len(rejected)}}
@@ -467,6 +471,15 @@ class JavaControlDouble:
         search_cost = prices["search_microusd_per_call"] if plan["cost_class"] == "TOOL_SERVICE" else 0
         return search_cost + math.ceil(token_cost / 1_000_000)
 
+    def _audience_permits(self, entry, card):
+        candidate = next((c for c in entry["bundle"]["accepted"] if c["release_group_id"] == card["candidate_id"]), None)
+        audience = candidate.get("audience") if candidate else None
+        binding = entry["start"]["recall_binding"]
+        return bool(audience and audience == card["admission"].get("audience")
+                    and audience["dataset_id"] == binding["data_snapshot_id"] and audience["window"] == binding["window"]
+                    and audience["listeners"] is not None
+                    and audience["listeners"] >= entry["start"]["agent_policy"]["audience_min_listeners"])
+
     def _deliver(self, execution_id: str, delivery: dict[str, Any]) -> dict[str, Any]:
         validate_definition("Delivery", delivery)
         key = "delivery:" + delivery["delivery_id"]
@@ -503,9 +516,11 @@ class JavaControlDouble:
                     reason = "NOT_IN_BUNDLE"
                 elif card["candidate_id"] in entry["display"]["heard_candidate_ids"]:
                     reason = "EXCLUDED"
+                elif entry["start"]["agent_policy"].get("audience_min_listeners") and not self._audience_permits(entry, card):
+                    reason = "ADMISSION_UNVERIFIED"
                 elif any(item is None or item["receipt"]["candidate_id"] != card["candidate_id"] for item in reads):
                     reason = "READ_UNKNOWN"
-                elif len({item["receipt"]["publisher_key"] for item in reads}) < 2 or any(item["receipt"]["near_duplicate_of"] for item in reads):
+                elif not reads or any(item["receipt"]["near_duplicate_of"] for item in reads):
                     reason = "ADMISSION_UNVERIFIED"
                 elif any(not self.permits(item["receipt"]["final_url"], "AI_PROCESS") or not self.permits(item["receipt"]["final_url"], "STORE_LOCATOR") for item in reads):
                     reason = "READ_NOT_PERMITTED"
@@ -515,7 +530,7 @@ class JavaControlDouble:
                     reason = "ADMISSION_UNVERIFIED"
                 elif entry["start"]["operation"] != "CURATED_REVIEWS" and card["admission"]["screen_score"] < entry["start"]["agent_policy"]["screening"]["supplement_min_score" if payload["batch_kind"] == "SUPPLY" else "shortlist_min_score"]:
                     reason = "SCORE_BELOW_THRESHOLD"
-                elif not 80 <= len(re.findall(r"[\u3400-\u4dbf\u4e00-\u9fff]", card["short_review"]["text"])) <= 180:
+                elif not entry["start"]["agent_policy"]["writing"]["short_min_han"] <= len(re.findall(r"[\u3400-\u4dbf\u4e00-\u9fff]", card["short_review"]["text"])) <= entry["start"]["agent_policy"]["writing"]["short_max_han"]:
                     reason = "LENGTH_INVALID"
                 elif any(citation["read_id"] not in qualified for citation in card["short_review"]["citations"]):
                     reason = "CITATION_INVALID"
@@ -525,7 +540,7 @@ class JavaControlDouble:
             for card in payload["cards"]:
                 if card["candidate_id"] in accepted:
                     self.cards[(entry["start"]["round_id"], card["candidate_id"])] = deepcopy(card)
-                    self.long_states.setdefault((entry["start"]["round_id"], card["candidate_id"]), "GENERATING")
+                    self.long_states.setdefault((entry["start"]["round_id"], card["candidate_id"]), card["long_review_state"])
             combined = list(dict.fromkeys(entry["display"]["ready_unshown_ids"] + [identifier for identifier in order if identifier in accepted]))
             combined = [identifier for identifier in combined if identifier not in entry["display"]["shown_candidate_ids"] and identifier not in entry["display"]["heard_candidate_ids"]]
             combined.sort(key=lambda identifier: self.cards.get((entry["start"]["round_id"], identifier), {}).get("selection_basis") == "SCREEN_ONLY")

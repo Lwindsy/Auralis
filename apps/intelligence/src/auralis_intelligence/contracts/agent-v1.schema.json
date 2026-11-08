@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:auralis:intelligence:0.19",
+  "$id": "urn:auralis:intelligence:0.23",
   "title": "Auralis internal agent messages",
   "$ref": "#/$defs/Envelope",
   "$defs": {
@@ -776,8 +776,8 @@
           "minItems": 0
         },
         "default_decision": {
-          "type": "string",
           "enum": [
+            "ALLOW",
             "DENY"
           ]
         },
@@ -1038,6 +1038,12 @@
           "type": "integer",
           "minimum": 0,
           "maximum": 2147483647
+        },
+        "retrieval_mode": {
+          "enum": [
+            "NETWORK",
+            "PREPARED_EXCERPT"
+          ]
         }
       },
       "required": [
@@ -1258,6 +1264,9 @@
           },
           "maxItems": 20,
           "minItems": 0
+        },
+        "audience": {
+          "$ref": "#/$defs/Audience"
         }
       },
       "required": [
@@ -1675,26 +1684,22 @@
           "properties": {
             "session_cap_microusd": {
               "type": "integer",
-              "minimum": 0,
-              "maximum": 300000
+              "minimum": 0
             },
             "round_cap_microusd": {
               "type": "integer",
-              "minimum": 0,
-              "maximum": 60000
+              "minimum": 0
             },
             "lane_caps": {
               "type": "object",
               "properties": {
                 "FOREGROUND": {
                   "type": "integer",
-                  "minimum": 0,
-                  "maximum": 60000
+                  "minimum": 0
                 },
                 "BACKGROUND": {
                   "type": "integer",
-                  "minimum": 0,
-                  "maximum": 60000
+                  "minimum": 0
                 }
               },
               "required": [
@@ -1819,6 +1824,23 @@
           "type": "integer",
           "minimum": 1,
           "maximum": 200000
+        },
+        "reasoning_effort": {
+          "enum": [
+            "none",
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ]
+        },
+        "service_tier": {
+          "enum": [
+            "default",
+            "fast",
+            "priority"
+          ]
         }
       },
       "required": [
@@ -1916,7 +1938,8 @@
               "maximum": 5
             },
             "min_qualified_reads": {
-              "const": 2
+              "type": "integer",
+              "minimum": 1
             },
             "reads_per_album_initial": {
               "type": "integer",
@@ -1999,16 +2022,22 @@
           "type": "object",
           "properties": {
             "short_min_han": {
-              "const": 80
+              "type": "integer",
+              "minimum": 1
             },
             "short_max_han": {
-              "const": 180
+              "type": "integer",
+              "minimum": 1
             },
             "long_min_han": {
-              "const": 1000
+              "type": "integer",
+              "minimum": 0,
+              "description": "Deprecated compatibility field; ignored. Long reviews have no length floor."
             },
             "long_section_min_han": {
-              "const": 150
+              "type": "integer",
+              "minimum": 0,
+              "description": "Deprecated compatibility field; ignored. Long reviews have no length floor."
             },
             "long_extra_max_searches": {
               "type": "integer",
@@ -2041,9 +2070,13 @@
           "type": "object",
           "properties": {
             "model_max_in_flight": {
-              "type": "integer",
+              "type": [
+                "integer",
+                "null"
+              ],
               "minimum": 1,
-              "maximum": 128
+              "maximum": 128,
+              "description": "null disables this application concurrency limit; positive integers impose a limit."
             },
             "background_model_max_in_flight": {
               "type": "integer",
@@ -2051,19 +2084,31 @@
               "maximum": 128
             },
             "search_max_in_flight": {
-              "type": "integer",
+              "type": [
+                "integer",
+                "null"
+              ],
               "minimum": 1,
-              "maximum": 128
+              "maximum": 128,
+              "description": "null disables this application concurrency limit; positive integers impose a limit."
             },
             "read_max_in_flight": {
-              "type": "integer",
+              "type": [
+                "integer",
+                "null"
+              ],
               "minimum": 1,
-              "maximum": 128
+              "maximum": 128,
+              "description": "null disables this application concurrency limit; positive integers impose a limit."
             },
             "read_max_per_host": {
-              "type": "integer",
+              "type": [
+                "integer",
+                "null"
+              ],
               "minimum": 1,
-              "maximum": 128
+              "maximum": 128,
+              "description": "null disables this application concurrency limit; positive integers impose a limit."
             }
           },
           "required": [
@@ -2103,6 +2148,10 @@
             "weights"
           ],
           "additionalProperties": false
+        },
+        "audience_min_listeners": {
+          "type": "integer",
+          "const": 50
         }
       },
       "required": [
@@ -2295,7 +2344,11 @@
           "enum": [
             "QUALIFIED_READS",
             "INSUFFICIENT_REVIEWS",
-            "READ_FAILED"
+            "READ_FAILED",
+            "AUDIENCE_BELOW_MINIMUM",
+            "AUDIENCE_UNKNOWN",
+            "EVIDENCE_NOT_PREPARED",
+            "DEFERRED"
           ]
         },
         "read_assessments": {
@@ -2411,7 +2464,8 @@
             "SHORTLISTED",
             "RESERVE",
             "BELOW_FLOOR",
-            "INELIGIBLE"
+            "INELIGIBLE",
+            "DEFERRED"
           ]
         },
         "reason_code": {
@@ -2716,6 +2770,9 @@
             },
             "write": {
               "$ref": "#/$defs/ModelBinding"
+            },
+            "long_write": {
+              "$ref": "#/$defs/ModelBinding"
             }
           },
           "required": [
@@ -2926,7 +2983,7 @@
                 "maxLength": 160
               },
               "maxItems": 100,
-              "minItems": 2,
+              "minItems": 1,
               "uniqueItems": true
             },
             "screen_score": {
@@ -2938,6 +2995,9 @@
               "type": "string",
               "minLength": 1,
               "maxLength": 160
+            },
+            "audience": {
+              "$ref": "#/$defs/Audience"
             }
           },
           "required": [
@@ -3114,6 +3174,11 @@
           "type": "integer",
           "minimum": 0,
           "maximum": 2147483647
+        },
+        "batch_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Prepared-path joint comparison and card calls, including completed repair attempts; no separate short/select call is implied."
         }
       },
       "required": [
@@ -3378,22 +3443,22 @@
               "properties": {
                 "production": {
                   "type": "string",
-                  "minLength": 1,
+                  "minLength": 0,
                   "maxLength": 30000
                 },
                 "instrumentation": {
                   "type": "string",
-                  "minLength": 1,
+                  "minLength": 0,
                   "maxLength": 30000
                 },
                 "vocals": {
                   "type": "string",
-                  "minLength": 1,
+                  "minLength": 0,
                   "maxLength": 30000
                 },
                 "mood": {
                   "type": "string",
-                  "minLength": 1,
+                  "minLength": 0,
                   "maxLength": 30000
                 }
               },
@@ -5085,7 +5150,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.19"
+              "const": "0.23"
             },
             "request_id": {
               "type": "string",
@@ -5136,7 +5201,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.19"
+              "const": "0.23"
             },
             "request_id": {
               "type": "string",
@@ -5187,7 +5252,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.19"
+              "const": "0.23"
             },
             "request_id": {
               "type": "string",
@@ -5238,7 +5303,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.19"
+              "const": "0.23"
             },
             "request_id": {
               "type": "string",
@@ -5289,7 +5354,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.19"
+              "const": "0.23"
             },
             "request_id": {
               "type": "string",
@@ -5340,7 +5405,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.19"
+              "const": "0.23"
             },
             "request_id": {
               "type": "string",
@@ -5391,7 +5456,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.19"
+              "const": "0.23"
             },
             "request_id": {
               "type": "string",
@@ -5442,7 +5507,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.19"
+              "const": "0.23"
             },
             "request_id": {
               "type": "string",
@@ -5493,7 +5558,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.19"
+              "const": "0.23"
             },
             "request_id": {
               "type": "string",
@@ -5544,7 +5609,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.19"
+              "const": "0.23"
             },
             "request_id": {
               "type": "string",
@@ -5595,7 +5660,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.19"
+              "const": "0.23"
             },
             "request_id": {
               "type": "string",
@@ -5646,7 +5711,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.19"
+              "const": "0.23"
             },
             "request_id": {
               "type": "string",
@@ -5697,7 +5762,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.19"
+              "const": "0.23"
             },
             "request_id": {
               "type": "string",
@@ -5748,7 +5813,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.19"
+              "const": "0.23"
             },
             "request_id": {
               "type": "string",
@@ -5799,7 +5864,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.19"
+              "const": "0.23"
             },
             "request_id": {
               "type": "string",
@@ -5850,7 +5915,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.19"
+              "const": "0.23"
             },
             "request_id": {
               "type": "string",
@@ -5901,7 +5966,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.19"
+              "const": "0.23"
             },
             "request_id": {
               "type": "string",
@@ -5952,7 +6017,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.19"
+              "const": "0.23"
             },
             "request_id": {
               "type": "string",
@@ -6003,7 +6068,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.19"
+              "const": "0.23"
             },
             "request_id": {
               "type": "string",
@@ -6054,7 +6119,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.19"
+              "const": "0.23"
             },
             "request_id": {
               "type": "string",
@@ -6105,7 +6170,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.19"
+              "const": "0.23"
             },
             "request_id": {
               "type": "string",
@@ -6156,7 +6221,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.19"
+              "const": "0.23"
             },
             "request_id": {
               "type": "string",
@@ -6207,7 +6272,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.19"
+              "const": "0.23"
             },
             "request_id": {
               "type": "string",
@@ -6258,7 +6323,7 @@
               "const": "intel.v1"
             },
             "contract_revision": {
-              "const": "0.19"
+              "const": "0.23"
             },
             "request_id": {
               "type": "string",
@@ -6832,13 +6897,11 @@
           "properties": {
             "FOREGROUND": {
               "type": "integer",
-              "minimum": 0,
-              "maximum": 60000
+              "minimum": 0
             },
             "BACKGROUND": {
               "type": "integer",
-              "minimum": 0,
-              "maximum": 60000
+              "minimum": 0
             }
           },
           "required": [
@@ -6875,6 +6938,39 @@
         "structure_repairs",
         "input_tokens",
         "cached_input_tokens"
+      ],
+      "additionalProperties": false
+    },
+    "Audience": {
+      "type": "object",
+      "properties": {
+        "source": {
+          "const": "LISTENBRAINZ_SAMPLE"
+        },
+        "dataset_id": {
+          "type": "string"
+        },
+        "window": {
+          "type": "string"
+        },
+        "sample_listeners": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "listeners": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        }
+      },
+      "required": [
+        "source",
+        "dataset_id",
+        "window",
+        "sample_listeners",
+        "listeners"
       ],
       "additionalProperties": false
     }

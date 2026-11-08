@@ -33,6 +33,21 @@ class SelectStage:
         self.model = model
         self.genre_names, self.album_names = genre_names, album_names
 
+    @staticmethod
+    def evidence(execution, candidates, aliases):
+        """Give every candidate actual evidence without overflowing the ranking context."""
+        result = {}
+        for alias, item in zip(aliases, candidates):
+            dossier = execution.dossiers.get(item["candidate_id"])
+            if dossier is None:
+                continue
+            records = dossier.qualified
+            allowance = 6000 // max(1, len(records))
+            result[alias] = [{"ref": r.ref, "text": r.excerpt.encode("utf-8")[:allowance].decode("utf-8", errors="ignore"),
+                              "url": r.result.receipt["final_url"], "truncated": len(r.excerpt.encode("utf-8")) > allowance}
+                             for r in records]
+        return result
+
     async def run(self, execution: Execution, screenings: list[dict[str, Any]], preferences: dict[str, Any], *,
                   shown_ids: set[str] | None = None, lane: str = "FOREGROUND") -> SelectionResult:
         shown_ids = shown_ids or set()
@@ -62,7 +77,8 @@ class SelectStage:
                 read_ids.update(evidence["read_ids"])
             summaries.append({"c": alias, "score": screening["screen"]["score"], "summary": brief["summary"],
                               "matches": [item["note"] for item in brief["matches"]], "tensions": [item["note"] for item in brief["tensions"]], "unknowns": brief["unknowns"]})
-        payload = {**context, "target_count": execution.start["selection_config"]["recommendation_target_count"], "candidates": summaries}
+        payload = {**context, "target_count": execution.start["selection_config"]["recommendation_target_count"], "candidates": summaries,
+                   "evidence": self.evidence(execution, candidates, aliases)}
         invocation_id = None
         try:
             for attempt in range(2):

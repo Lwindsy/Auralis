@@ -65,6 +65,8 @@ class NeighborhoodModel:
         inverse_genre = np.divide(1.0, genre_norm, out=np.zeros_like(genre_norm), where=genre_norm > 0)
         self._genre = (sparse.diags(inverse_genre) @ genre).tocsr()
         self.data = data
+        # Stable ID order makes numeric stable-sort tie breaking identical to the old tuple sort.
+        self._id_order = np.argsort(np.asarray(data.album_ids))
         return self
 
     def _tag_query(self, request: RecallRequest, seeds: dict[int, float], tags: dict[int, float]) -> np.ndarray:
@@ -92,10 +94,9 @@ class NeighborhoodModel:
     def _reciprocal_ranks(self, scores: np.ndarray) -> np.ndarray:
         assert self.data is not None
         result = np.zeros(len(scores))
-        indices = np.flatnonzero(scores > 0).tolist()
-        indices.sort(key=lambda index: (-scores[index], self.data.album_ids[index]))
-        for rank, index in enumerate(indices, 1):
-            result[index] = 1.0 / (self.config.rrf_constant + rank)
+        indices = self._id_order[scores[self._id_order] > 0]
+        indices = indices[np.argsort(-scores[indices], kind="stable")]
+        result[indices] = 1.0 / (self.config.rrf_constant + np.arange(1, len(indices) + 1))
         return result
 
     def score(self, request: RecallRequest) -> np.ndarray:

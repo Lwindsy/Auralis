@@ -20,17 +20,17 @@ from auralis_intelligence.providers.web import FetchResponse
 
 
 @pytest.mark.parametrize("scenario", ["album", "genre", "text", "mixed"])
-def test_each_positive_input_runs_default_20_8_3_without_real_providers(scenario, tmp_path):
+def test_each_positive_input_runs_default_50_15_3_without_real_providers(scenario, tmp_path):
     async def run():
         harness = DemoHarness(scenario=scenario, root=tmp_path)
         try:
             summary = await harness.run()
             assert summary["execution_status"] == "CLOSED", summary
             assert summary["first_outcome"] == "DISPLAYABLE" and summary["analysis_mode"] == "PERSONALIZED"
-            assert summary["first_card_count"] == 8 and summary["published_count"] == 3 and summary["long_reviews"] == 8
+            assert summary["first_card_count"] == 15 and summary["published_count"] == 3 and summary["long_reviews"] == 15
             interpret = [request for _, request in harness.adapter.requests if request.schema_name.startswith("genre_pass")]
             assert len(interpret) == (2 if scenario in {"text", "mixed"} else 0)
-            assert summary["timing"]["shortlist_actual_count"] == 8 and summary["slot_released"]
+            assert summary["timing"]["shortlist_actual_count"] == 15 and summary["slot_released"]
         finally: harness.close()
         assert not harness.snapshot.exists()
     asyncio.run(run())
@@ -65,8 +65,10 @@ def test_failures_partial_and_degraded_are_distinguishable(case, expected, tmp_p
                 harness.request["payload_digest"] = content_digest(harness.request)
             first_short = []
             def replies(binding, request):
+                if case == "reads" and request.schema_name == "research_v2" and request.input["sources"]:
+                    return CallResult({"action":"abandon", "query":"", "urls":[], "assessment":None, "reason":"Actual page is insufficient"}, usage=Usage(1,1,0))
                 fail = case == "interpret" and request.schema_name.startswith("genre_pass") or case == "select" and request.schema_name == "select_v1"
-                if case == "writing" and request.schema_name == "short_review_v1" and not first_short:
+                if case == "writing" and request.schema_name.startswith("short_review_v1") and not first_short:
                     first_short.append(True)
                     fail = True
                 return CallResult(outcome="COMPLETED", finish="REFUSED", usage=Usage(1, 1, 0)) if fail else _reply(binding, request)
@@ -121,7 +123,7 @@ def test_over_eight_seconds_is_recorded_without_removing_first_batch(tmp_path):
         try:
             now = [0.0]
             def replies(binding, request):
-                if request.schema_name == "short_review_v1": now[0] = 9.0
+                if request.schema_name.startswith("short_review_v1"): now[0] = 9.0
                 return _reply(binding, request)
             harness.adapter.replies = replies
             harness.control.register(harness.request)
@@ -195,7 +197,7 @@ def test_first_batch_is_delivered_while_long_requests_are_still_running(tmp_path
             release, first_seen = asyncio.Event(), asyncio.Event()
             original_model = harness.adapter.complete
             async def delayed(binding, request):
-                if request.schema_name == "long_review_v1": await release.wait()
+                if request.schema_name.startswith("long_review_v1"): await release.wait()
                 return await original_model(binding, request)
             harness.adapter.complete = delayed
             original_control = harness.control.request

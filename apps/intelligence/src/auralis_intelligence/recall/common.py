@@ -4,6 +4,7 @@ from collections import deque
 import hashlib
 import json
 import math
+import heapq
 from numbers import Real
 
 import numpy as np
@@ -202,7 +203,7 @@ def _descendants(data: RecallDataset, roots: tuple[str, ...]) -> set[int]:
     return {index for index, tag in enumerate(data.tag_ids) if tag in visited}
 
 
-def recall(model: RecallModel, request: RecallRequest) -> RecallResult:
+def recall(model: RecallModel, request: RecallRequest, *, eligibility_mask=None) -> RecallResult:
     """Call the actual provider, filter the full candidate pool, then select R."""
     data = getattr(model, "data", None)
     if data is None:
@@ -219,8 +220,16 @@ def recall(model: RecallModel, request: RecallRequest) -> RecallResult:
     required = [_descendants(data, (tag,)) for tag in request.required_tags]
     excluded = set(request.excluded_ids) | {item.id for item in request.seeds}
     eligible: list[int] = []
-    for index, album_id in enumerate(data.album_ids):
-        if album_id in excluded or not np.isfinite(scores[index]):
+    eligible_scores = np.isfinite(scores)
+    if eligibility_mask is not None:
+        if eligibility_mask.shape != scores.shape:
+            raise ValueError("audience mask shape mismatch")
+        eligible_scores &= eligibility_mask
+    for index in np.flatnonzero(eligible_scores):
+        if data.album_ids[index] in excluded:
+            continue
+        if not disliked and not forbidden and not required:
+            eligible.append(index)
             continue
         start, end = data.album_tags.indptr[index:index + 2]
         direct = set(data.album_tags.indices[start:end])
@@ -231,8 +240,7 @@ def recall(model: RecallModel, request: RecallRequest) -> RecallResult:
         if any(not direct.intersection(group) for group in required):
             continue
         eligible.append(index)
-    eligible.sort(key=lambda index: (-scores[index], data.album_ids[index]))
-    selected = eligible[:request.limit]
+    selected = heapq.nsmallest(request.limit, eligible, key=lambda index: (-scores[index], data.album_ids[index]))
     result = tuple(Candidate(data.album_ids[index], float(scores[index])) for index in selected)
     reason = "complete" if len(result) == request.limit else "insufficient_candidates"
     return RecallResult(result, request.limit, len(result), reason, model.name, data.dataset_id, data.window)

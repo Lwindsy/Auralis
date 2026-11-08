@@ -27,7 +27,7 @@ def validate_short(output: Any, available: set[str], policy: dict[str, Any]) -> 
         raise ContractError("LENGTH_INVALID")
     without_markers = re.sub(r"\[[A-Za-z][0-9]+\]", "", output["text"])
     sentences = [part.strip() for part in re.split(r"[。！？!?]+", without_markers) if part.strip()]
-    if len(sentences) not in (2, 3) or re.search(r"https?://|www\.", output["text"], re.I):
+    if not 1 <= len(sentences) <= 3 or re.search(r"https?://|www\.", output["text"], re.I):
         raise ContractError("SHORT_FORM_INVALID")
 
 
@@ -43,7 +43,7 @@ def validate_long(output: Any, available: set[str], policy: dict[str, Any]) -> N
     if mentioned != set(refs):
         raise ContractError("CITATION_INVALID")
     if output["status"] == "needs_more_research":
-        if not output.get("missing") or not set(output["missing"]).issubset(SECTIONS):
+        if not output.get("missing") or len(output["missing"]) != len(set(output["missing"])) or not set(output["missing"]).issubset(SECTIONS):
             raise ContractError("LONG_MISSING_SECTIONS_INVALID")
         return
     sections = output["sections"]
@@ -54,12 +54,8 @@ def validate_long(output: Any, available: set[str], policy: dict[str, Any]) -> N
     used = set()
     for text in sections.values():
         section_refs = citation_refs(text)
-        if not section_refs or not section_refs.issubset(available) or re.search(r"https?://|www\.", text, re.I):
+        if (text.strip() and not section_refs) or not section_refs.issubset(available) or re.search(r"https?://|www\.", text, re.I):
             raise ContractError("CITATION_INVALID")
-        if han_count(text) < policy["long_section_min_han"]:
-            raise ContractError("LENGTH_INVALID")
         used.update(section_refs)
     if used != set(refs):
         raise ContractError("CITATION_INVALID")
-    if sum(han_count(text) for text in sections.values()) < policy["long_min_han"]:
-        raise ContractError("LENGTH_INVALID")

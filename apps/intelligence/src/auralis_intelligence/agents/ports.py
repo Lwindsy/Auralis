@@ -33,6 +33,9 @@ class CallResult:
     usage: Usage = Usage()
     provider_request_ref: str | None = None
     invocation_id: str | None = None
+    provider_http_status: int | None = None
+    service_tier: str | None = None
+    diagnostic: dict[str, Any] | None = None
 
 
 class ControlPort(Protocol):
