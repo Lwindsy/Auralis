@@ -1,0 +1,63 @@
+/* Gallery-white and ink, after classic jazz/new-music label sites: colour comes only from the
+   sleeves. Light grotesk, uppercase titles, hairlines, generous space, square corners. */
+:root {
+  color-scheme: light;
+  --bg: #ffffff;
+  --paper: #f6f6f4;
+  --ink: #1e1e1e;
+  --ink-soft: #4a4a48;
+  --ink-muted: #858582;
+  --ink-faint: #b9b9b5;
+  --line: #e6e6e3;
+  --line-strong: #cfcfcb;
+  --focus: #1e1e1e;
+  --on-ink: #ffffff;
+  --signal: #b4472b;
+  --warning: #7a5a17;
+  --danger: #a1301f;
+  --scrim: rgb(255 255 255 / 0.72);
+  --shimmer: rgb(255 255 255 / 0.7);
+  --vinyl: #121212;
+  --groove: #1d1d1d;
+  --vinyl-groove: rgb(255 255 255 / 0.07);
+
+  --font-sans:
+    "Archivo Variable", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei UI",
+    "Microsoft YaHei", "Noto Sans SC", sans-serif;
+  --font-mono:
+    "IBM Plex Mono", "PingFang SC", "Microsoft YaHei UI", ui-monospace,
+    monospace;
+
+  --ease: cubic-bezier(0.22, 0.7, 0.18, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-fast: 160ms;
+  --dur-med: 280ms;
+  --dur-slow: 520ms;
+
+  --page-max: 1320px;
+  --gutter: clamp(20px, 4.5vw, 64px);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --bg: #0f0f0f;
+    --paper: #171717;
+    --ink: #ececea;
+    --ink-soft: #bdbdba;
+    --ink-muted: #8a8a87;
+    --ink-faint: #5a5a58;
+    --line: #262626;
+    --line-strong: #3a3a38;
+    --focus: #ececea;
+    --on-ink: #0f0f0f;
+    --signal: #e07a5c;
+    --warning: #d8b162;
+    --danger: #ec8a7a;
+    --scrim: rgb(0 0 0 / 0.66);
+    --shimmer: rgb(255 255 255 / 0.05);
+    --vinyl: #070707;
+    --groove: #2c2c2c;
+    --vinyl-groove: rgb(255 255 255 / 0.06);
+  }
+}
