@@ -711,12 +711,16 @@ public class PostgresPublicationAuthority implements PublicationAuthority {
                     sessions.lockActive(s);
                     var rows =
                             jdbc.queryForList(
-                                    "SELECT state,revision FROM discovery.long_review WHERE session_id=? AND round_id=? AND candidate_id=?",
+                                    "SELECT state,revision,generation_run FROM discovery.long_review WHERE session_id=? AND round_id=? AND candidate_id=?",
                                     s.sessionId(),
                                     r,
                                     candidate);
-                    if (rows.size() != 1 || rows.getFirst().get("state").equals("GENERATING"))
-                        fail("REVISION_CONFLICT");
+                    if (rows.size() != 1
+                            || liveLongState(
+                                            s,
+                                            (String) rows.getFirst().get("generation_run"),
+                                            (String) rows.getFirst().get("state"))
+                                    .equals("GENERATING")) fail("REVISION_CONFLICT");
                     var updated = sessions.advanceRevision(s);
                     String run = supply.enqueue(updated, r, Set.of(candidate));
                     store.putLongReview(

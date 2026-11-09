@@ -11,7 +11,8 @@
     "test:browser": "playwright test",
     "check": "eslint . && prettier --check .",
     "format": "prettier --write .",
-    "test:java": "playwright test --config playwright.java.config.mjs"
+    "test:java": "playwright test --config playwright.java.config.mjs",
+    "test:recommendation": "playwright test --config playwright.recommendation.config.mjs"
   },
   "engines": {
     "node": ">=24"
