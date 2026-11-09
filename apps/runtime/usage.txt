@@ -1,0 +1,104 @@
+Auralis Windows single-host runtime / Windows 单机运行
+
+Scope / 范围
+Java and Python run on literal loopback addresses. PostgreSQL runs in a separate,
+labelled Docker container and named volume. This package does not open public ports,
+deploy a website, import research data, choose paid budgets, or start paid requests.
+Java/Python仅监听本机，PostgreSQL使用独立容器及持久卷。启动本身不调用模型。
+推荐请求仍需要已批准的数据、模型配置、预算与供应商凭据。
+
+Versions / 版本
+Validated: Windows, Java 21.0.9, Python agent 3.10.8, PostgreSQL 18.6-bookworm,
+Maven 3.9.16. Application dependencies are pinned in the backend pom.xml and
+intelligence pyproject.toml. The launcher uses Python 3.10+ standard library.
+这些是本次验证版本，不表示最新版本；升级运行时后须重新演练。
+
+Prepare / 准备
+1. Build: mvn -f apps/backend/pom.xml verify
+2. Install the intelligence package and its pinned dependencies into a dedicated venv:
+   <python> -m pip install -e apps/intelligence
+3. Copy apps/runtime/host.example.json to an access-controlled local configuration
+   directory outside Git. Replace every placeholder. Paths resolve relative to this file.
+4. Supply agent-service.json using apps/intelligence/agent-service.example.json:
+   reference, recall_snapshot, model_bindings, audience_snapshot, audience_binding
+   must refer to approved real artifacts. Set control_url to the configured Java port;
+   both service_token_env and control_token_env must be AURALIS_SERVICE_TOKEN.
+5. Supply the explicit Java recommendation configuration. Its model refs, pricing,
+   budget_limits, selection_config, reference and audience_binding must match the
+   actual deployment. No synthetic fixture is an operational configuration.
+6. Supply the admitted search_index and its expected search_manifest_sha256.
+7. Inject the following through process/user environment, never files or arguments:
+   AURALIS_POSTGRES_PASSWORD        database administrator (container setup only)
+   AURALIS_MIGRATOR_PASSWORD        offline migration role
+   AURALIS_DATABASE_PASSWORD        ordinary Java online role
+   AURALIS_SERVICE_TOKEN            both internal HTTP directions
+   AURALIS_SUBJECT_SECRET           independent, stable anonymous-identity signing key
+   AURALIS_PRODUCT_TEST_API_KEY     product-purpose provider key, Python only
+   Use separate cryptographically random values; service token is URL-safe 32-256
+   characters, subject secret URL-safe 43-256 characters. Keep the subject key across
+   ordinary restarts. Store operational credentials in the OS/platform secret facility.
+
+启动前必须显式准备目录、全量Audience、召回、风格参考、模型及硬预算。
+空库迁移只创建结构；按数据导入流程装载已核验数据后才能check/run。
+不回退研究库，不用测试价格或US$0.30目标冒充正式硬额度。
+
+Commands / 命令（from repository root / 仓库根目录）
+python apps/runtime/host.py db-up --config <host.json>
+python apps/runtime/host.py initialize --config <host.json>
+python apps/runtime/host.py migrate --config <host.json>
+# Import approved catalog and full Audience through the offline import workflow.
+python apps/runtime/host.py check --config <host.json>
+python apps/runtime/host.py run --config <host.json>
+
+initialize is for a new empty instance only; it refuses existing roles/database.
+migrate uses auralis_migrator; the normal Java process uses auralis_online with no DDL.
+run stays in the foreground. Ctrl+C pauses admission, waits for Python cleanup, then
+closes Java. Child processes run without extra windows. EOF of an inherited managed
+stdin pipe also closes services if the supervisor exits unexpectedly.
+超过45秒未退出才终止启动器自己创建的进程句柄，并报告恢复必需；不会按名称杀进程。
+
+python apps/runtime/host.py status --config <host.json>
+python apps/runtime/host.py db-stop --config <host.json>
+
+status emits only aggregate maintenance, run, slot and financial states. It never emits
+user text, source bodies or secrets. db-stop requires both services to be stopped and
+keeps the data volume. There is no automatic volume removal or automatic restart loop.
+
+Backup / 备份（stop applications first / 先停止双端）
+python apps/runtime/recovery.py backup --config <host.json> --path <new-backup-directory>
+python apps/runtime/recovery.py export-barriers --config <host.json> --path <new-barriers.csv>
+
+Backups contain private database content. Protect them with filesystem access control
+and encrypted storage; use the product retention/deletion policy. Copy the approved
+external artifacts with their manifests separately; the database dump is not their backup.
+The backup's barriers are only current at backup time, not all later deletions.
+
+Restore / 恢复（new labelled container and empty database only / 仅新隔离实例）
+Prepare another host.json with a new name and database port. Run db-up and initialize,
+but do NOT migrate before restore. Use the exact backup release jar first.
+python apps/runtime/recovery.py restore --config <restore-host.json> --path <backup-directory> --barriers <latest-complete-barriers.csv> --barriers-complete
+
+If the deletion history is incomplete, first inject a NEW AURALIS_SUBJECT_SECRET and
+omit both --barriers options. All old anonymous credentials then become invalid.
+普通重启不换密钥；灾难恢复缺删除记录时才走已确认的全体旧凭证失效策略。
+
+python apps/runtime/host.py migrate --config <restore-host.json>
+# Reconcile post-backup financial records/unknown charges and verify external artifacts.
+python apps/runtime/recovery.py release --config <restore-host.json> --ledger-reconciled --artifacts-verified
+python apps/runtime/host.py run --config <restore-host.json>
+
+release flags are operator attestations after actual review, not an automatic financial
+verification. Without them, the database-backed restore gate blocks this launcher.
+Restored WAITING requests are interrupted: they may already have run after the backup.
+Unknown reservations and active slots are retained for the existing boot reconciliation.
+If replay/restore fails, keep the isolated target closed and retry in a fresh target.
+Never clear slots, remove receipts, overwrite the live database or auto-retry paid calls.
+
+Limits / 限制
+Java heap is explicit; PostgreSQL is capped at 1 GiB, 2 CPUs and 128 processes. Python
+uses the shared resource pools and one BLAS thread, not a Windows process-memory cap.
+These are startup assumptions, not evidence of three-user capacity or 10-second results.
+Framework/child output is suppressed except fixed lifecycle codes; use status and bounded
+database queries for diagnosis, not DEBUG logging with real personal data.
+Upgrades require a stopped maintenance window, backups and compatible Java/Python/schema/
+artifact versions. Prefer forward fixes; restoring an old backup requires the same review.

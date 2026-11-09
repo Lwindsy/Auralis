@@ -22,6 +22,7 @@ public final class DispatchLifecycle implements AutoCloseable {
     private final String boot = UUID.randomUUID().toString();
     private final java.util.concurrent.atomic.AtomicBoolean closed =
             new java.util.concurrent.atomic.AtomicBoolean();
+    private volatile boolean maintenance;
 
     @org.springframework.beans.factory.annotation.Autowired
     public DispatchLifecycle(
@@ -88,6 +89,10 @@ public final class DispatchLifecycle implements AutoCloseable {
                             queue.unavailable(boot);
                             return;
                         }
+                        if (maintenance) {
+                            queue.unavailable(boot);
+                            return;
+                        }
                         dispatcher.tick();
                     } catch (Exception e) {
                         try {
@@ -100,6 +105,20 @@ public final class DispatchLifecycle implements AutoCloseable {
                 0,
                 200,
                 TimeUnit.MILLISECONDS);
+    }
+
+    public boolean ready() {
+        try {
+            return !closed.get() && !maintenance && owner.isValid(1) && queue.ready(boot);
+        } catch (Exception failure) {
+            return false;
+        }
+    }
+
+    /** Serialize behind any in-flight dispatch tick before acknowledging maintenance. */
+    public void maintenance() throws Exception {
+        maintenance = true;
+        worker.submit(() -> queue.unavailable(boot)).get(10, TimeUnit.SECONDS);
     }
 
     @PreDestroy

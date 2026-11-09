@@ -3,6 +3,7 @@
 import argparse
 import asyncio
 import json
+import logging
 import os
 from pathlib import Path
 
@@ -140,7 +141,11 @@ def serve(args):
         await adapter.close()
 
     app.on_cleanup.append(cleanup)
-    web.run_app(app, host="127.0.0.1", port=args.port, access_log=None)
+    if args.managed_stdin:
+        from .managed import manage_stdin
+
+        manage_stdin(app)
+    web.run_app(app, host="127.0.0.1", port=args.port, access_log=None, print=None)
 
 
 def main() -> int:
@@ -168,12 +173,19 @@ def main() -> int:
     server = commands.add_parser("serve", help="explicit configured loopback service")
     server.add_argument("--config", required=True)
     server.add_argument("--port", type=int, default=8765)
+    server.add_argument("--managed-stdin", action="store_true")
     args = parser.parse_args()
     if hasattr(__import__("sys").stdout, "reconfigure"):
         __import__("sys").stdout.reconfigure(encoding="utf-8")
     if args.command == "demo":
         return asyncio.run(demo(args))
-    serve(args)
+    # Do not emit exception chains containing file paths, upstream bodies or credentials.
+    logging.disable(logging.CRITICAL)
+    try:
+        serve(args)
+    except Exception:
+        print("AURALIS_AGENT_STARTUP_FAILED", file=__import__("sys").stderr)
+        return 1
     return 0
 
 
