@@ -3,7 +3,6 @@ package io.auralis.session.adapters;
 import static org.junit.jupiter.api.Assertions.*;
 
 import io.auralis.bootstrap.OnlineApplication;
-import io.auralis.budget.api.BudgetStore;
 import io.auralis.catalog.api.AudienceStore;
 import io.auralis.discovery.api.DiscoveryStore;
 import io.auralis.evidence.api.EvidenceStore;
@@ -87,8 +86,7 @@ class DiscoveryPersistenceIT {
                 () ->
                         tx.write(
                                 () -> {
-                                    sessions.scheduleDeletion(
-                                            id(), scope, "content", Instant.now());
+                                    sessions.scheduleDeletion(id(), scope, Instant.now());
                                     return null;
                                 }));
         assertTrue(tx.write(() -> sessions.close(scope, "EXPIRED")));
@@ -102,15 +100,10 @@ class DiscoveryPersistenceIT {
     }
 
     @Test
-    void receiptsAreIdempotentAndBarrierRejectsLatePersonalWritesButRetainsUsage() {
+    void receiptsAreIdempotentAndBarrierRejectsLatePersonalWrites() {
         var scope = session();
         String round = round(scope), run = intent(scope, round), execution = id();
-        String read = id(),
-                delivery = id(),
-                seed = id(),
-                budgetId = id(),
-                invocation = id(),
-                receipt = id();
+        String read = id(), delivery = id(), seed = id();
         UUID album = UUID.randomUUID();
         Instant at = Instant.now().truncatedTo(java.time.temporal.ChronoUnit.MICROS);
         tx.write(
@@ -227,22 +220,6 @@ class DiscoveryPersistenceIT {
                             "SELECT count(*) FROM discovery.delivery_receipt WHERE id=?",
                             Integer.class,
                             atomic));
-            tx.write(
-                    () -> {
-                        budget.createScope(scope, budgetId, null, 100, "v1");
-                        budget.createInvocation(
-                                scope,
-                                invocation,
-                                round,
-                                execution,
-                                budgetId,
-                                "FOREGROUND",
-                                "SCREEN",
-                                DIGEST,
-                                10,
-                                "{}");
-                        return null;
-                    });
             tx.write(() -> sessions.close(scope, "DELETED"));
             assertThrows(
                     PersistenceRejected.class,
@@ -250,28 +227,6 @@ class DiscoveryPersistenceIT {
                             tx.write(
                                     () -> {
                                         evidence.saveReceipt(scope, r);
-                                        return null;
-                                    }));
-            tx.write(
-                    () -> {
-                        budget.recordUsage(invocation, receipt, DIGEST, 1, 7L, 1L, 2L, "COMPLETED");
-                        budget.recordUsage(invocation, receipt, DIGEST, 1, 7L, 1L, 2L, "COMPLETED");
-                        return null;
-                    });
-            assertThrows(
-                    PersistenceRejected.class,
-                    () ->
-                            tx.write(
-                                    () -> {
-                                        budget.recordUsage(
-                                                invocation,
-                                                receipt,
-                                                "sha256:" + "b".repeat(64),
-                                                1,
-                                                7L,
-                                                1L,
-                                                2L,
-                                                "COMPLETED");
                                         return null;
                                     }));
         } finally {
@@ -303,17 +258,6 @@ class DiscoveryPersistenceIT {
                         "SELECT count(*) FROM discovery.seed_evidence WHERE session_id=?",
                         Integer.class,
                         scope.sessionId()));
-        var retained =
-                jdbc.queryForMap(
-                        "SELECT session_id,round_id,execution_id FROM discovery.invocation WHERE id=?",
-                        invocation);
-        assertTrue(retained.values().stream().allMatch(Objects::isNull));
-        assertEquals(
-                1,
-                jdbc.queryForObject(
-                        "SELECT count(*) FROM discovery.usage_receipt WHERE invocation_id=?",
-                        Integer.class,
-                        invocation));
     }
 
     @Test
@@ -367,7 +311,7 @@ class DiscoveryPersistenceIT {
                                     scope.subjectEpoch(),
                                     scope.sessionEpoch() + 1,
                                     scope.revision() + 1);
-                    sessions.scheduleDeletion(cleanup, barrier, "content", Instant.now());
+                    sessions.scheduleDeletion(cleanup, barrier, Instant.now());
                     return null;
                 });
     }
@@ -380,7 +324,6 @@ class DiscoveryPersistenceIT {
     ShortTransactions tx;
     SessionStore sessions;
     DiscoveryStore discovery;
-    BudgetStore budget;
     PreferenceStore preferences;
     EvidenceStore evidence;
     PublicationStore publication;
@@ -421,7 +364,7 @@ class DiscoveryPersistenceIT {
                         "auralis.service-token",
                         "be005-synthetic-service-token-12345",
                         "auralis.contract-revision",
-                        "0.30"));
+                        "0.31"));
         context =
                 app.run(
                         "--auralis.subject-secret=test-subject-secret-abcdefghijklmnopqrstuvwxyz0123456789",
@@ -431,7 +374,6 @@ class DiscoveryPersistenceIT {
         tx = context.getBean(ShortTransactions.class);
         sessions = context.getBean(SessionStore.class);
         discovery = context.getBean(DiscoveryStore.class);
-        budget = context.getBean(BudgetStore.class);
         preferences = context.getBean(PreferenceStore.class);
         evidence = context.getBean(EvidenceStore.class);
         publication = context.getBean(PublicationStore.class);
@@ -504,6 +446,47 @@ class DiscoveryPersistenceIT {
     }
 
     @Test
+    void v14PreservesPendingDeletionWorkAndRetryState() throws Exception {
+        String target = url.substring(0, url.lastIndexOf('/') + 1) + "auralis_cleanup_v14";
+        try (var c = admin(url);
+                var statement = c.createStatement()) {
+            statement.execute("CREATE DATABASE auralis_cleanup_v14 OWNER be005_migrator");
+        }
+        Flyway.configure()
+                .dataSource(target, "be005_migrator", PASSWORD)
+                .locations("classpath:db/migration")
+                .target("13")
+                .load()
+                .migrate();
+        try (var c = DriverManager.getConnection(target, "be005_migrator", PASSWORD);
+                var statement = c.createStatement()) {
+            statement.execute(
+                    "INSERT INTO discovery.subject(id,credential_digest,lifecycle,last_user_action,expires_at) VALUES ('subject','sha256:' || repeat('a',64),'REVOKED','2026-01-01','2026-02-01')");
+            statement.execute(
+                    "INSERT INTO discovery.deletion_job(id,subject_id,barrier_epoch,state,step,cursor,attempts,next_attempt_at) VALUES ('pending','subject',7,'FAILED','WAIT_RELEASE','unused',3,'2026-01-02T00:00:00Z')");
+        }
+        var migration =
+                Flyway.configure()
+                        .dataSource(target, "be005_migrator", PASSWORD)
+                        .locations("classpath:db/migration")
+                        .load();
+        migration.migrate();
+        migration.validate();
+        try (var c = DriverManager.getConnection(target, "be005_migrator", PASSWORD);
+                var statement = c.createStatement();
+                var rows =
+                        statement.executeQuery(
+                                "SELECT id,barrier_epoch,attempts,next_attempt_at FROM discovery.deletion_job")) {
+            assertTrue(rows.next());
+            assertEquals("pending", rows.getString(1));
+            assertEquals(7, rows.getLong(2));
+            assertEquals(3, rows.getInt(3));
+            assertEquals(Instant.parse("2026-01-02T00:00:00Z"), rows.getTimestamp(4).toInstant());
+            assertFalse(rows.next());
+        }
+    }
+
+    @Test
     void emptyInstallAndV6UpgradePreserveDataAndChecksums() throws Exception {
         for (String name : List.of("auralis_be005_fresh", "auralis_be005_upgrade")) {
             try (var c = admin(url);
@@ -530,7 +513,7 @@ class DiscoveryPersistenceIT {
                             .load();
             flyway.migrate();
             flyway.validate();
-            assertEquals("13", flyway.info().current().getVersion().toString());
+            assertEquals("14", flyway.info().current().getVersion().toString());
             assertEquals(0, flyway.migrate().migrationsExecuted);
             try (var c = DriverManager.getConnection(target, "be005_migrator", PASSWORD);
                     var s = c.createStatement()) {
@@ -700,14 +683,6 @@ class DiscoveryPersistenceIT {
                 () ->
                         tx.write(
                                 () -> {
-                                    budget.createScope(a, id(), null, -1, "v1");
-                                    return null;
-                                }));
-        assertThrows(
-                Exception.class,
-                () ->
-                        tx.write(
-                                () -> {
                                     preferences.save(a, id(), DIGEST, "v1", "v1", DIGEST, "[]");
                                     return null;
                                 }));
@@ -749,68 +724,6 @@ class DiscoveryPersistenceIT {
         String run = intent(a, round);
         assertThrows(Exception.class, () -> intent(a, round));
         assertTrue(discovery.waiting(100).stream().anyMatch(w -> w.runId().equals(run)));
-    }
-
-    @Test
-    void budgetCompareAndSetAndSendRightWinOnceUnderContention() throws Exception {
-        var scope = session();
-        String budgetId = id();
-        tx.write(
-                () -> {
-                    budget.createScope(scope, budgetId, null, 100, "v1");
-                    return null;
-                });
-        try (var pool = Executors.newFixedThreadPool(2)) {
-            var gate = new CountDownLatch(1);
-            Callable<Boolean> reserve =
-                    () -> {
-                        gate.await();
-                        return tx.write(() -> budget.reserve(scope, budgetId, 0, 80));
-                    };
-            var first = pool.submit(reserve);
-            var second = pool.submit(reserve);
-            gate.countDown();
-            assertNotEquals(first.get(5, TimeUnit.SECONDS), second.get(5, TimeUnit.SECONDS));
-        }
-        assertEquals(
-                80,
-                jdbc.queryForObject(
-                        "SELECT reserved_microusd FROM discovery.budget_scope WHERE id=?",
-                        Long.class,
-                        budgetId));
-        String invocation = id();
-        tx.write(
-                () -> {
-                    budget.createInvocation(
-                            scope,
-                            invocation,
-                            null,
-                            null,
-                            budgetId,
-                            "FOREGROUND",
-                            "SCREEN",
-                            DIGEST,
-                            80,
-                            "{}");
-                    assertTrue(budget.consumeSend(scope, invocation));
-                    assertFalse(budget.consumeSend(scope, invocation));
-                    return null;
-                });
-        tx.write(() -> sessions.close(scope, "DELETED"));
-        assertThrows(
-                PersistenceRejected.class,
-                () -> tx.write(() -> budget.consumeSend(scope, invocation)));
-        tx.write(
-                () -> {
-                    budget.recordUsage(invocation, id(), DIGEST, 1, 150L, 5L, 10L, "COMPLETED");
-                    return null;
-                });
-        assertEquals(
-                150,
-                jdbc.queryForObject(
-                        "SELECT cost_microusd FROM discovery.usage_receipt WHERE invocation_id=?",
-                        Long.class,
-                        invocation));
     }
 
     @Test

@@ -466,10 +466,7 @@ final class SyntheticExecutionPeer implements AutoCloseable {
 
     private ObjectNode batch(
             Job j, List<String> ids, String screen, String written, String selected) {
-        String mode =
-                j.start.path("operation").asText().equals("CURATED_REVIEWS")
-                        ? "CURATED"
-                        : j.basic ? "BASIC" : "PERSONALIZED";
+        String mode = j.basic ? "BASIC" : "PERSONALIZED";
         int target = j.start.path("selection_config").path("recommendation_target_count").asInt();
         var p =
                 JSON.createObjectNode()
@@ -518,9 +515,7 @@ final class SyntheticExecutionPeer implements AutoCloseable {
                             .put("candidate_id", id)
                             .put(
                                     "selection_basis",
-                                    mode.equals("CURATED")
-                                            ? "CURATED"
-                                            : mode.equals("BASIC") ? "SCREEN_ONLY" : "SELECTED")
+                                    mode.equals("BASIC") ? "SCREEN_ONLY" : "SELECTED")
                             .put("long_review_state", n < target ? "GENERATING" : "NOT_STARTED");
             card.putObject("short_review")
                     .put("text", "这张专辑以细腻的节奏和清晰的旋律展开，层次之间保持自然的呼吸感，适合在安静的环境里从头听到结尾。")
@@ -680,16 +675,12 @@ final class SyntheticExecutionPeer implements AutoCloseable {
                 }
             } else {
                 var pref = preferences(j);
-                if (!pref.path("has_positive_signal").asBoolean()
-                        && !j.start.path("operation").asText().equals("CURATED_REVIEWS")) {
+                if (!pref.path("has_positive_signal").asBoolean()) {
                     report(j, "JAVA_CURATED");
                     j.status = "CLOSED";
                     return;
                 }
-                j.bundle =
-                        j.start.path("operation").asText().equals("CURATED_REVIEWS")
-                                ? j.start.path("curated_candidates")
-                                : recall(j, pref);
+                j.bundle = recall(j, pref);
                 var ids = new ArrayList<String>();
                 j.bundle
                         .path("accepted")
@@ -697,15 +688,7 @@ final class SyntheticExecutionPeer implements AutoCloseable {
                 for (String id : ids) read(j, id);
                 String screen = ids.isEmpty() ? null : call(j, "SCREEN", null),
                         written = ids.isEmpty() ? null : call(j, "WRITE_SHORT", null),
-                        selected =
-                                ids.isEmpty()
-                                                || j.basic
-                                                || j.start
-                                                        .path("operation")
-                                                        .asText()
-                                                        .equals("CURATED_REVIEWS")
-                                        ? null
-                                        : call(j, "SELECT", null);
+                        selected = ids.isEmpty() || j.basic ? null : call(j, "SELECT", null);
                 int target =
                         j.start
                                 .path("selection_config")

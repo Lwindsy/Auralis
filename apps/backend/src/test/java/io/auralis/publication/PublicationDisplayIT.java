@@ -45,7 +45,7 @@ class PublicationDisplayIT extends PublicationFixture {
                         var response =
                                 JSON.createObjectNode()
                                         .put("schema_version", "intel.v1")
-                                        .put("contract_revision", "0.30")
+                                        .put("contract_revision", "0.31")
                                         .put("request_id", message.path("request_id").asText())
                                         .put("message_type", "DeliveryResult");
                         response.putObject("trace_context")

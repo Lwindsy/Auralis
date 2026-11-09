@@ -3,7 +3,7 @@
 import asyncio
 
 from auralis_intelligence.agents.demo import DemoHarness, _reply
-from auralis_intelligence.agents.scheduler import BoundedScheduler
+from auralis_intelligence.agents.resources import ServiceResources
 from auralis_intelligence.contracts import content_digest, validate_definition
 
 
@@ -61,10 +61,9 @@ def test_all_fifty_enter_before_any_finishes_and_no_long_review_is_sent(tmp_path
 
 def test_null_limits_admit_all_resources_and_same_host_and_cancel_cleanly():
     async def run():
-        scheduler = BoundedScheduler(
-            {"model": None, "search": None, "read": None},
-            background_model_limit=3,
-            per_host_limit=None,
+        service = ServiceResources(model=50, search=50, read=50, per_host=50, pending=200)
+        scheduler = service.scope(
+            "test", "session", {"model": None, "search": None, "read": None, "per_host": None}
         )
         entered = asyncio.Queue()
 
@@ -82,13 +81,13 @@ def test_null_limits_admit_all_resources_and_same_host_and_cancel_cleanly():
         try:
             for _ in tasks:
                 await asyncio.wait_for(entered.get(), 3)
-            assert scheduler.counts == {"model": 50, "search": 50, "read": 50}
-            assert scheduler.hosts == {"same.example": 50}
+            assert service.counts == {"model": 50, "search": 50, "read": 50, "cpu": 0}
+            assert service.hosts == {"same.example": 50}
         finally:
-            await scheduler.close()
+            await service.close()
             await asyncio.gather(*tasks, return_exceptions=True)
-        assert not scheduler.running and not scheduler.pending
-        assert all(value == 0 for value in scheduler.counts.values())
+        assert not service.running and not service.pending
+        assert all(value == 0 for value in service.counts.values())
 
     asyncio.run(run())
 

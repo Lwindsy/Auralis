@@ -232,12 +232,7 @@ class BatchResearchStage:
                 execution,
                 role="select",
                 purpose="SELECT" if not attempt else "STRUCTURE_REPAIR",
-                system=PROMPT
-                + (
-                    "\n固定策展：按输入顺序为前target_count张资料充分的作品写卡片，不能按偏好改选或重排。"
-                    if execution.start["operation"] == "CURATED_REVIEWS"
-                    else ""
-                ),
+                system=PROMPT,
                 input=payload,
                 output_schema=SCHEMA,
                 prompt_version="batch.v3",
@@ -250,7 +245,6 @@ class BatchResearchStage:
                         aliases,
                         payload["target_count"],
                         execution.start["agent_policy"]["writing"],
-                        curated=execution.start["operation"] == "CURATED_REVIEWS",
                     )
                     output = reply.output
                     break
@@ -345,7 +339,7 @@ class BatchResearchStage:
         return results
 
     @staticmethod
-    def _validate(output, aliases, count, policy, *, curated=False):
+    def _validate(output, aliases, count, policy):
         assessments = output["assessments"]
         if len(assessments) != len(aliases) or {r["c"] for r in assessments} != set(aliases):
             raise ContractError("BATCH_ASSESSMENTS_INCOMPLETE")
@@ -359,11 +353,6 @@ class BatchResearchStage:
         cards = output["cards"]
         if len(cards) > count or len({r["c"] for r in cards}) != len(cards):
             raise ContractError("BATCH_CARDS_INVALID")
-        if curated:
-            order = {alias: i for i, alias in enumerate(aliases)}
-            positions = [order.get(card["c"], -1) for card in cards]
-            if positions != sorted(positions):
-                raise ContractError("CURATED_ORDER_CHANGED")
         for card in cards:
             if card["c"] not in aliases or card["score"] < 3 or not card["refs"]:
                 raise ContractError("BATCH_ADMISSION_INVALID")

@@ -366,7 +366,7 @@ class Host:
             AURALIS_DATABASE_USER="auralis_online",
             AURALIS_PRODUCT_ORIGIN=f"http://127.0.0.1:{c['java_port']}",
             AURALIS_PYTHON_URL=f"http://127.0.0.1:{c['python_port']}",
-            AURALIS_CONTRACT_REVISION="0.30",
+            AURALIS_CONTRACT_REVISION="0.31",
             AURALIS_ALLOW_INSECURE_COOKIE="true",
             AURALIS_MANAGED_STDIN="true",
             AURALIS_DISPATCH_ENABLED="true",
@@ -445,7 +445,7 @@ class Host:
                     body = json.loads(response.read(65537))
                     if authenticated:
                         if (
-                            body.get("contract_revision") == "0.30"
+                            body.get("contract_revision") == "0.31"
                             and body["payload"]["status"] == "READY"
                         ):
                             return
@@ -472,11 +472,17 @@ class Child:
         self.reader.start()
 
     def read(self):
-        # Drain everything but publish only fixed lifecycle codes; no arbitrary child output.
+        # Forward only application diagnostic codes and a bounded category, never arbitrary output.
         with self.process.stdout as stream:
             while line := stream.readline(4096):
                 if line.strip() == b"AURALIS_MAINTENANCE":
                     self.maintenance.set()
+                diagnostic = re.search(
+                    rb"(?:^| )(AURALIS_(?:AGENT_STARTUP_FAILED|STARTUP_FAILED|DISPATCH_FAILED|DISPATCH_LIFECYCLE_FAILED|DISPATCH_UNAVAILABLE_UPDATE_FAILED|AGENT_REQUEST_FAILED) [A-Za-z][A-Za-z0-9_]{0,79})$",
+                    line.strip(),
+                )
+                if diagnostic:
+                    print(diagnostic.group(1).decode("ascii"), file=sys.stderr, flush=True)
 
     def send(self, command):
         with contextlib.suppress(OSError, ValueError):

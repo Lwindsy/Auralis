@@ -80,7 +80,7 @@ public interface SessionStore {
 
     Optional<String> command(Scope scope, String operation, String commandId, String digest);
 
-    void scheduleDeletion(String id, Scope scope, String step, Instant at);
+    void scheduleDeletion(String id, Scope scope, Instant at);
 
     void lockFinancialOwner(String sessionId);
 }

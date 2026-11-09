@@ -9,7 +9,7 @@ from auralis_intelligence.album_reviews import ResearchResult, ResearchStage, Wr
 from auralis_intelligence.album_reviews.writing import WritingJobs
 from auralis_intelligence.contracts import ContractError
 from auralis_intelligence.preferences import PreferenceError, PreferencesStage
-from auralis_intelligence.ranking import SelectionResult, SelectStage
+from auralis_intelligence.ranking import SelectStage
 
 from .ports import CallDenied, ControlUnavailable, DeliveryPending
 from .recall_stage import RecallStage
@@ -173,14 +173,7 @@ class FirstBatchPipeline:
         if execution.start["start_mode"] == "CONTINUE":
             raise ContractError("CONTINUATION_NOT_ASSEMBLED")
         preferences = await self.preferences(execution)
-        if execution.start["operation"] == "CURATED_REVIEWS":
-            bundle = execution.start["curated_candidates"]
-            if (
-                bundle["binding"]["effective_preference_digest"]
-                != preferences["effective_preference_digest"]
-            ):
-                raise ContractError("BINDING_MISMATCH")
-        elif not preferences["has_positive_signal"]:
+        if not preferences["has_positive_signal"]:
             # Java already received/accepted this snapshot and owns the fixed-list branch.
             execution.handoff = "JAVA_CURATED"
             execution.phase = "IDLE"
@@ -221,12 +214,10 @@ class FirstBatchPipeline:
             0 if getattr(self.research, "prepared_decisions", False) else len(work.candidates)
         )
         eligible = [result for result in work.results.values() if self.eligible_now(result)]
-        curated = execution.start["operation"] == "CURATED_REVIEWS"
         eligible.sort(
             key=lambda result: (
-                (result.screening["recall_rank"],)
-                if curated
-                else (-result.screening["screen"]["score"], result.screening["recall_rank"])
+                -result.screening["screen"]["score"],
+                result.screening["recall_rank"],
             )
         )
         shortlist = eligible[:target]
@@ -268,28 +259,15 @@ class FirstBatchPipeline:
                     None,
                 )
             )
-        selection_task = (
-            None
-            if curated
-            else execution.spawn(
-                lambda: self.selection.run(
-                    execution, [result.screening for result in shortlist], preferences
-                )
+        selection_task = execution.spawn(
+            lambda: self.selection.run(
+                execution, [result.screening for result in shortlist], preferences
             )
         )
         short_outputs = await asyncio.gather(
             *(work.jobs[result.dossier.candidate_id].short for result in shortlist)
         )
-        selected = (
-            SelectionResult(
-                {"status": "NOT_RUN", "order": [], "invocation_id": None},
-                "CURATED",
-                [result.dossier.candidate_id for result in shortlist],
-                {},
-            )
-            if curated
-            else await selection_task
-        )
+        selected = await selection_task
         cards = []
         rejected_ids = {
             item["candidate_id"]
@@ -307,9 +285,7 @@ class FirstBatchPipeline:
                 continue
             card = {
                 "candidate_id": result.dossier.candidate_id,
-                "selection_basis": "CURATED"
-                if curated
-                else "SELECTED"
+                "selection_basis": "SELECTED"
                 if selected.analysis_mode == "PERSONALIZED"
                 else "SCREEN_ONLY",
                 "short_review": short.review,

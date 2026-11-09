@@ -283,18 +283,17 @@ public class PostgresSessionStore implements SessionStore {
     }
 
     @Override
-    public void scheduleDeletion(String id, Scope scope, String step, Instant at) {
+    public void scheduleDeletion(String id, Scope scope, Instant at) {
         ShortTransactions.requireWrite();
         // May run after a barrier: no content is restored, only bounded cleanup metadata is stored.
         lockSubject(scope.subjectId());
         int inserted =
                 jdbc.update(
-                        "INSERT INTO discovery.deletion_job(id,subject_id,session_id,barrier_epoch,state,step,next_attempt_at) "
-                                + "SELECT ?,s.subject_id,s.id,s.epoch,'PENDING',?,? FROM discovery.session s JOIN discovery.subject u ON u.id=s.subject_id "
+                        "INSERT INTO discovery.deletion_job(id,subject_id,session_id,barrier_epoch,next_attempt_at) "
+                                + "SELECT ?,s.subject_id,s.id,s.epoch,? FROM discovery.session s JOIN discovery.subject u ON u.id=s.subject_id "
                                 + "WHERE s.id=? AND s.subject_id=? AND s.epoch=? AND u.epoch=? "
                                 + "AND (s.status IN ('DELETED','EXPIRED') OR u.lifecycle<>'ACTIVE')",
                         id,
-                        step,
                         Timestamp.from(at),
                         scope.sessionId(),
                         scope.subjectId(),

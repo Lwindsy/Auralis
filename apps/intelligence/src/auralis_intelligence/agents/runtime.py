@@ -19,7 +19,6 @@ from auralis_intelligence.contracts import (
 from .clock import AgentClock
 from .ports import CallDenied, CallResult, ControlPort, ControlUnavailable, DeliveryPending, Stage
 from .resources import ServiceResources
-from .scheduler import BoundedScheduler
 
 
 class Execution:
@@ -29,6 +28,7 @@ class Execution:
         control: ControlPort,
         *,
         monotonic: Callable[[], float] = time.perf_counter,
+        resources: ServiceResources | None = None,
         buffer_items: int = 128,
         buffer_bytes: int = 4000000,
         receipt_timeout_seconds: float = 1.0,
@@ -44,14 +44,16 @@ class Execution:
         self.created_at = self.clock.now()
         self.final_timing: dict[str, int] | None = None
         limits = start["agent_policy"]["concurrency"]
-        self.scheduler = BoundedScheduler(
-            {
-                "model": limits["model_max_in_flight"],
-                "search": limits["search_max_in_flight"],
-                "read": limits["read_max_in_flight"],
+        self._owned_resources = ServiceResources() if resources is None else None
+        service = resources if resources is not None else self._owned_resources
+        self.scheduler = service.scope(
+            self.id,
+            start["session_id"],
+            {kind: limits[kind + "_max_in_flight"] for kind in ("model", "search", "read")}
+            | {
+                "background": limits["background_model_max_in_flight"],
+                "per_host": limits["read_max_per_host"],
             },
-            background_model_limit=limits["background_model_max_in_flight"],
-            per_host_limit=limits["read_max_per_host"],
         )
         self.status = "ACCEPTED"
         self.phase = "INTERPRETING" if start["input"]["raw"] is not None else "RECALLING"
@@ -65,12 +67,6 @@ class Execution:
         self.error_code: str | None = None
         self.binding: dict[str, Any] | None = None
         self.candidates: dict[str, dict[str, Any]] = {}
-        if start.get("curated_candidates") is not None:
-            self.binding = deepcopy(start["curated_candidates"]["binding"])
-            self.candidates = {
-                item["release_group_id"]: deepcopy(item)
-                for item in start["curated_candidates"]["accepted"]
-            }
         self.dossiers: dict[str, Any] = {}
         self.buffer: dict[str, dict[str, Any]] = {}
         self.delivery_results: dict[str, dict[str, Any]] = {}
@@ -351,21 +347,14 @@ class Execution:
             return replace(reply, invocation_id=plan["invocation_id"])
 
         priority = min(priority, self.priorities.get(plan["candidate_id"], priority))
-        quota = (
-            {
-                "tokens": plan["max_input_tokens"] + plan["max_output_tokens"],
-                "quota_group": self.scheduler.service.group_for_binding(plan["model_binding_ref"]),
-            }
-            if hasattr(self.scheduler, "service")
-            else {}
-        )
         return await self.scheduler.run(
             resource,
             perform,
             priority=priority,
             background=plan["lane"] == "BACKGROUND",
             key=plan["candidate_id"],
-            **quota,
+            tokens=plan["max_input_tokens"] + plan["max_output_tokens"],
+            quota_group=self.scheduler.service.group_for_binding(plan["model_binding_ref"]),
         )
 
     async def flush_usage(self, *, force: bool = False) -> None:
@@ -512,6 +501,8 @@ class Execution:
         if children:
             await asyncio.gather(*children, return_exceptions=True)
         await self.scheduler.close()
+        if self._owned_resources is not None:
+            await self._owned_resources.close()
         await self.flush_usage(force=True)
         if self.report_builder is not None:
             try:
@@ -523,7 +514,6 @@ class Execution:
         self.start["input"]["raw"] = None
         self.start["input"]["accepted_preferences"] = None
         self.start["continuation"] = None
-        self.start["curated_candidates"] = None
         for dossier in self.dossiers.values():
             dossier.clear()
         self.dossiers.clear()
@@ -636,21 +626,10 @@ class RoundSupervisor:
             if len(self.records) + len(self.cleared) >= self.max_records:
                 raise CallDenied("EXECUTION_RECORD_CAPACITY")
             execution = Execution(
-                start, control, receipt_timeout_seconds=self.receipt_timeout_seconds
-            )
-            execution.scheduler = self.resources.scope(
-                execution.id,
-                start["session_id"],
-                {
-                    kind: start["agent_policy"]["concurrency"][kind + "_max_in_flight"]
-                    for kind in ("model", "search", "read")
-                }
-                | {
-                    "background": start["agent_policy"]["concurrency"][
-                        "background_model_max_in_flight"
-                    ],
-                    "per_host": start["agent_policy"]["concurrency"]["read_max_per_host"],
-                },
+                start,
+                control,
+                resources=self.resources,
+                receipt_timeout_seconds=self.receipt_timeout_seconds,
             )
             self.active[execution.id] = execution
             execution.event("ACCEPTED")
@@ -744,8 +723,6 @@ class RoundSupervisor:
             payload["deadline"].replace("Z", "+00:00")
         ) <= datetime.now(timezone.utc):
             raise ContractError("DEADLINE_EXCEEDED")
-        if kind == "RESCREEN" and execution.start["operation"] == "CURATED_REVIEWS":
-            raise ContractError("UNKNOWN_CAPABILITY")
         if (
             kind == "RESCREEN" or kind == "DISPLAY_STATE" and payload["user_waiting"]
         ) and execution.foreground:

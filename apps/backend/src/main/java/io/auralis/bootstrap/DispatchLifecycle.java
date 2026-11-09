@@ -16,6 +16,8 @@ import org.springframework.stereotype.Component;
 @Component
 @ConditionalOnProperty(name = "auralis.dispatch-enabled", havingValue = "true")
 public final class DispatchLifecycle implements AutoCloseable {
+    private static final org.slf4j.Logger LOG =
+            org.slf4j.LoggerFactory.getLogger(DispatchLifecycle.class);
     private final Connection owner;
     private final ScheduledExecutorService worker;
     private final DispatchQueue queue;
@@ -95,10 +97,15 @@ public final class DispatchLifecycle implements AutoCloseable {
                         }
                         dispatcher.tick();
                     } catch (Exception e) {
+                        LOG.warn(
+                                "AURALIS_DISPATCH_LIFECYCLE_FAILED {}",
+                                e.getClass().getSimpleName());
                         try {
                             queue.unavailable(boot);
                         } catch (RuntimeException unavailable) {
-                            /* Retry on the next bounded tick. */
+                            LOG.warn(
+                                    "AURALIS_DISPATCH_UNAVAILABLE_UPDATE_FAILED {}",
+                                    unavailable.getClass().getSimpleName());
                         }
                     }
                 },

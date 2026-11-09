@@ -77,7 +77,7 @@ class BudgetAuthorityIT {
                         "auralis.service-token",
                         "be002-synthetic-service-token-12345678",
                         "auralis.contract-revision",
-                        "0.30"));
+                        "0.31"));
         app =
                 start.run(
                         "--auralis.subject-secret=be002-subject-secret-abcdefghijklmnopqrstuvwxyz0123456789",
@@ -407,7 +407,7 @@ class BudgetAuthorityIT {
                         var out =
                                 JSON.createObjectNode()
                                         .put("schema_version", "intel.v1")
-                                        .put("contract_revision", "0.30")
+                                        .put("contract_revision", "0.31")
                                         .put("request_id", message.path("request_id").asText(id()))
                                         .put("message_type", type);
                         out.putObject("trace_context")
@@ -697,6 +697,25 @@ class BudgetAuthorityIT {
                                 "SELECT session_id,execution_id FROM discovery.invocation WHERE id=?",
                                 p.path("invocation_id").asText())
                         .get("session_id"));
+        long revision =
+                jdbc.queryForObject(
+                        "SELECT revision FROM discovery.subject WHERE id=?",
+                        Long.class,
+                        s.subjectId());
+        assertTrue(
+                tx.write(() -> sessions.revokeSubject(s.subjectId(), revision, s.subjectEpoch())));
+        assertTrue(tx.write(() -> sessions.purgeSubject(s.subjectId(), s.subjectEpoch() + 1)));
+        var retained =
+                jdbc.queryForMap(
+                        "SELECT session_id,round_id,execution_id FROM discovery.invocation WHERE id=?",
+                        p.path("invocation_id").asText());
+        assertTrue(retained.values().stream().allMatch(Objects::isNull));
+        assertEquals(
+                1,
+                jdbc.queryForObject(
+                        "SELECT count(*) FROM discovery.usage_receipt WHERE invocation_id=?",
+                        Integer.class,
+                        p.path("invocation_id").asText()));
     }
 
     @Test

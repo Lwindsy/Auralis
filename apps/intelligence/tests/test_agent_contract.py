@@ -82,3 +82,12 @@ def test_forged_recomputed_start_still_rejects_raw_text_in_later_round():
 def test_digest_uses_jcs_number_and_key_canonicalization():
     assert digest({"b": 1.0, "a": "中文"}) == digest({"a": "中文", "b": 1})
     assert digest([1, 2]) != digest([2, 1])
+
+
+@pytest.mark.parametrize("retired", ["operation", "curated_candidates"])
+def test_retired_online_curated_input_is_rejected(retired):
+    message = deepcopy(CASES[0]["message"])
+    message["payload"][retired] = "CURATED_REVIEWS" if retired == "operation" else None
+    message["payload"]["payload_digest"] = content_digest(message["payload"])
+    with pytest.raises(ContractError):
+        validate_message(message)

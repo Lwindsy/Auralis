@@ -16,7 +16,7 @@ from auralis_intelligence.agents import (
 )
 from auralis_intelligence.agents.control_double import JavaControlDouble
 from auralis_intelligence.agents.ports import DeliveryPending
-from auralis_intelligence.agents.scheduler import BoundedScheduler
+from auralis_intelligence.agents.resources import ServiceResources
 from auralis_intelligence.contracts import (
     ContractError,
     content_digest,
@@ -575,9 +575,8 @@ def test_clock_subtracts_union_only_when_no_external_work_is_running():
 
 def test_scheduler_resource_priority_background_cap_and_cleanup():
     async def run():
-        scheduler = BoundedScheduler(
-            {"model": 2, "read": 2}, background_model_limit=1, per_host_limit=1
-        )
+        service = ServiceResources(model=2, read=2, background=1, per_host=1)
+        scheduler = service.scope("test", "session", {"background": 1})
         gate, entered = asyncio.Event(), asyncio.Event()
         order = []
 
@@ -602,17 +601,16 @@ def test_scheduler_resource_priority_background_cap_and_cleanup():
         gate.set()
         await asyncio.gather(one, low, high)
         assert order == ["foreground", "high", "low"]
-        await scheduler.close()
-        assert (
-            not scheduler.running and not scheduler.pending and not any(scheduler.counts.values())
-        )
+        await service.close()
+        assert not service.running and not service.pending and not any(service.counts.values())
 
     asyncio.run(run())
 
 
 def test_scheduler_same_host_and_global_limits_are_enforced():
     async def run():
-        scheduler = BoundedScheduler({"read": 2}, background_model_limit=1, per_host_limit=1)
+        service = ServiceResources(read=2, per_host=1)
+        scheduler = service.scope("test", "session")
         gate = asyncio.Event()
         started = asyncio.Queue()
 
@@ -627,10 +625,10 @@ def test_scheduler_same_host_and_global_limits_are_enforced():
         ]
         first = {await started.get(), await started.get()}
         assert first == {"a1", "b1"}
-        assert scheduler.counts["read"] == 2 and scheduler.hosts == {"a": 1, "b": 1}
+        assert service.counts["read"] == 2 and service.hosts == {"a": 1, "b": 1}
         gate.set()
         assert await asyncio.gather(*tasks) == ["a1", "a2", "b1"]
-        await scheduler.close()
+        await service.close()
 
     asyncio.run(run())
 

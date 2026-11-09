@@ -1,11 +1,13 @@
 """Failure boundaries with real child pipes and isolated files; no provider calls."""
 
+import io
 import json
 import os
 import subprocess
 import sys
 import tempfile
 import unittest
+from contextlib import redirect_stderr
 from pathlib import Path
 from unittest.mock import patch
 
@@ -87,6 +89,29 @@ class HostTests(unittest.TestCase):
         finally:
             child.close()
         self.assertEqual(0, child.process.returncode)
+
+    def test_child_forwards_only_safe_diagnostic_categories(self):
+        output = io.StringIO()
+        with redirect_stderr(output):
+            child = Child(
+                [
+                    sys.executable,
+                    "-u",
+                    "-c",
+                    "print('secret-output'); print('AURALIS_AGENT_STARTUP_FAILED FileNotFoundError'); "
+                    "print('logger WARN AURALIS_DISPATCH_FAILED Unavailable'); "
+                    "print('AURALIS_STARTUP_FAILED ValueError private-secret')",
+                ],
+                environment(),
+            )
+            child.close()
+        self.assertEqual(
+            output.getvalue().splitlines(),
+            [
+                "AURALIS_AGENT_STARTUP_FAILED FileNotFoundError",
+                "AURALIS_DISPATCH_FAILED Unavailable",
+            ],
+        )
 
     def test_replay_validates_entire_csv_before_writing(self):
         host = self.host()

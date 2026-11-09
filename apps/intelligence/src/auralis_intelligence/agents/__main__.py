@@ -179,12 +179,33 @@ def main() -> int:
         __import__("sys").stdout.reconfigure(encoding="utf-8")
     if args.command == "demo":
         return asyncio.run(demo(args))
-    # Do not emit exception chains containing file paths, upstream bodies or credentials.
-    logging.disable(logging.CRITICAL)
+    # Only application diagnostics: never provider bodies, paths or exception messages.
+    logging.basicConfig(
+        level=logging.WARNING, format="%(name)s %(levelname)s %(message)s", force=True
+    )
+    for handler in logging.getLogger().handlers:
+        handler.addFilter(lambda record: record.name.startswith("auralis_intelligence"))
     try:
         serve(args)
-    except Exception:
-        print("AURALIS_AGENT_STARTUP_FAILED", file=__import__("sys").stderr)
+    except Exception as error:
+        code = (
+            str(error)
+            if isinstance(error, ValueError)
+            and str(error)
+            in {
+                "PROVIDER_QUOTA_REQUIRED",
+                "MODEL_QUOTA_NOT_CONFIGURED",
+                "LONG_WRITE_MODEL_BINDING_REQUIRED",
+                "UNKNOWN_EVIDENCE_MODE",
+                "LOOPBACK_CONTROL_CONFIGURATION_REQUIRED",
+                "SERVICE_TOKEN_REQUIRED",
+                "INVALID_RESOURCE_LIMITS",
+                "INVALID_PROVIDER_QUOTA",
+                "UNKNOWN_QUOTA_GROUP",
+            }
+            else type(error).__name__
+        )
+        print("AURALIS_AGENT_STARTUP_FAILED " + code, file=__import__("sys").stderr)
         return 1
     return 0
 
