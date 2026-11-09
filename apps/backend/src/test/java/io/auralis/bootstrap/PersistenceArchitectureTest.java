@@ -28,7 +28,8 @@ class PersistenceArchitectureTest {
                                         "runtime_control",
                                         "execution_slot",
                                         "execution",
-                                        "dispatch_command"),
+                                        "dispatch_command",
+                                        "execution_command"),
                         "budget", Set.of("budget_scope", "invocation", "usage_receipt"),
                         "evidence",
                                 Set.of(
@@ -46,7 +47,8 @@ class PersistenceArchitectureTest {
                                         "long_review",
                                         "delivery_receipt",
                                         "recovery_projection",
-                                        "publication_round"),
+                                        "publication_round",
+                                        "publication_run_binding"),
                         "catalog", Set.of("audience_snapshot", "audience_count"));
         Path source = Path.of(System.getProperty("basedir"), "src/main/java/io/auralis");
         for (var entry : owners.entrySet()) {

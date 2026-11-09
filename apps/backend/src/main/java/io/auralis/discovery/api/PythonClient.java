@@ -15,4 +15,6 @@ public interface PythonClient {
             super("PYTHON_CONTROL_UNAVAILABLE");
         }
     }
+
+    String command(String execution, String command, String payload);
 }

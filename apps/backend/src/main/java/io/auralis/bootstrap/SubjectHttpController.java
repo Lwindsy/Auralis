@@ -16,18 +16,21 @@ public class SubjectHttpController {
     private final Clock clock;
     private final OnlineProperties properties;
     private final WireProtocol protocol;
+    private final io.auralis.discovery.application.Recommendations recommendations;
 
     public SubjectHttpController(
             SubjectSession subjects,
             ObjectMapper json,
             Clock clock,
             OnlineProperties properties,
-            WireProtocol protocol) {
+            WireProtocol protocol,
+            io.auralis.discovery.application.Recommendations recommendations) {
         this.subjects = subjects;
         this.json = json;
         this.clock = clock;
         this.properties = properties;
         this.protocol = protocol;
+        this.recommendations = recommendations;
     }
 
     @PostMapping(
@@ -69,12 +72,13 @@ public class SubjectHttpController {
 
     @GetMapping(value = "/v1/current-state", produces = "application/json")
     public JsonNode current(HttpServletRequest request) throws Exception {
-        return json.readTree(subjects.restore(SubjectCookies.credential(request), null));
+        return json.readTree(recommendations.state(SubjectCookies.credential(request), null, true));
     }
 
     @GetMapping(value = "/v1/discovery-sessions/{sessionId}", produces = "application/json")
     public JsonNode session(@PathVariable String sessionId, HttpServletRequest request)
             throws Exception {
-        return json.readTree(subjects.restore(SubjectCookies.credential(request), sessionId));
+        return json.readTree(
+                recommendations.state(SubjectCookies.credential(request), sessionId, true));
     }
 }

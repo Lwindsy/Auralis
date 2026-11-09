@@ -51,4 +51,18 @@ public interface DiscoveryStore {
             String coordinatorBoot,
             String pythonBoot,
             Instant physicalRelease);
+
+    record Round(String id, int sequence, String configuration, java.time.Instant deadline) {}
+
+    java.util.Optional<Round> latestRound(Scope scope);
+
+    Round roundInfo(Scope scope, String round);
+
+    void configureRound(Scope scope, String round, String configuration);
+
+    String runRound(Scope scope, String run);
+
+    boolean physicalWork(Scope scope, String run);
+
+    void extendDeadline(Scope scope, String round, Instant deadline);
 }

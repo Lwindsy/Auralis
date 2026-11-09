@@ -162,4 +162,83 @@ public class PostgresDiscoveryStore implements DiscoveryStore {
                 != 1) throw new PersistenceRejected("SLOT_BINDING_MISMATCH");
         return true;
     }
+
+    @Override
+    public java.util.Optional<Round> latestRound(Scope scope) {
+        sessions.lockActive(scope);
+        return jdbc
+                .query(
+                        "SELECT id,round_seq,configuration::text,deadline FROM discovery.recommendation_round WHERE session_id=? ORDER BY round_seq DESC LIMIT 1",
+                        (r, n) ->
+                                new Round(
+                                        r.getString(1),
+                                        r.getInt(2),
+                                        r.getString(3),
+                                        r.getTimestamp(4).toInstant()),
+                        scope.sessionId())
+                .stream()
+                .findFirst();
+    }
+
+    @Override
+    public Round roundInfo(Scope scope, String round) {
+        sessions.lockActive(scope);
+        var rows =
+                jdbc.query(
+                        "SELECT id,round_seq,configuration::text,deadline FROM discovery.recommendation_round WHERE session_id=? AND id=?",
+                        (r, n) ->
+                                new Round(
+                                        r.getString(1),
+                                        r.getInt(2),
+                                        r.getString(3),
+                                        r.getTimestamp(4).toInstant()),
+                        scope.sessionId(),
+                        round);
+        if (rows.size() != 1) throw new PersistenceRejected("RESOURCE_UNAVAILABLE");
+        return rows.getFirst();
+    }
+
+    @Override
+    public void configureRound(Scope scope, String round, String config) {
+        sessions.lockActive(scope);
+        jdbc.update(
+                "UPDATE discovery.recommendation_round SET configuration=?::jsonb,revision=revision+1 WHERE id=? AND session_id=?",
+                config,
+                round,
+                scope.sessionId());
+    }
+
+    @Override
+    public String runRound(Scope scope, String run) {
+        sessions.lockActive(scope);
+        var rows =
+                jdbc.queryForList(
+                        "SELECT round_id FROM discovery.discovery_intent WHERE id=? AND session_id=?",
+                        String.class,
+                        run,
+                        scope.sessionId());
+        if (rows.size() != 1) throw new PersistenceRejected("RESOURCE_UNAVAILABLE");
+        return rows.getFirst();
+    }
+
+    @Override
+    public boolean physicalWork(Scope scope, String run) {
+        sessions.lockActive(scope);
+        return jdbc.queryForObject(
+                        "SELECT count(*) FROM discovery.execution WHERE session_id=? AND run_id=? AND physical_released_at IS NULL",
+                        Long.class,
+                        scope.sessionId(),
+                        run)
+                > 0;
+    }
+
+    @Override
+    public void extendDeadline(Scope scope, String round, Instant deadline) {
+        sessions.lockActive(scope);
+        jdbc.update(
+                "UPDATE discovery.recommendation_round SET deadline=greatest(deadline,?),revision=revision+1 WHERE id=? AND session_id=?",
+                Timestamp.from(deadline),
+                round,
+                scope.sessionId());
+    }
 }

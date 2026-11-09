@@ -42,4 +42,27 @@ public interface PublicationAuthority {
     String bundle(Scope scope, String round);
 
     Context context(DispatchQueue.Context execution);
+
+    String exclusions(Scope scope);
+
+    String continuation(
+            Scope scope,
+            String round,
+            String operation,
+            Set<String> targets,
+            String exclusionDigest);
+
+    void bindRun(Scope scope, String round, String run, String bundle);
+
+    String waitFor(Scope scope, String round, String run);
+
+    String fail(Scope scope, String round, String reason);
+
+    String displayState(Scope scope, String round);
+
+    String candidateRound(Scope scope, String candidate);
+
+    String exclusions(Scope scope, String currentRound);
+
+    void scheduleLongs(Scope scope, String round, Set<String> candidates, Supply supply);
 }

@@ -117,6 +117,17 @@ public final class RoundDispatcher {
                                 default -> throw new PythonClient.Unavailable();
                             }
                         }
+                        for (var command : queue.commands()) {
+                            var accepted =
+                                    json(
+                                            python.command(
+                                                    command.execution(),
+                                                    command.id(),
+                                                    command.payload()));
+                            if (!accepted.path("accepted").asBoolean())
+                                throw new PythonClient.Unavailable();
+                            queue.acknowledge(command);
+                        }
                         if (queue.ready(boot)) {
                             var next = queue.claim(boot, limits);
                             if (next != null) send(next);
