@@ -27,12 +27,14 @@ public class ExecutionControlController {
             BudgetAuthority budget,
             EvidenceAuthority evidence,
             WireProtocol wire,
-            HttpErrors errors) {
+            HttpErrors errors,
+            io.auralis.publication.api.PublicationAuthority publication) {
         this.queue = queue;
         this.budget = budget;
         this.evidence = evidence;
         this.wire = wire;
         this.errors = errors;
+        this.publication = publication;
     }
 
     private JsonNode read(HttpServletRequest request, String expected) throws java.io.IOException {
@@ -152,5 +154,23 @@ public class ExecutionControlController {
                 response,
                 code.equals("EXECUTION_GONE") ? 410 : code.equals("MAINTENANCE") ? 503 : 400,
                 code);
+    }
+
+    private final io.auralis.publication.api.PublicationAuthority publication;
+
+    @PutMapping("/internal/v1/executions/{execution}/deliveries/{delivery}")
+    public JsonNode delivery(
+            @PathVariable String execution,
+            @PathVariable String delivery,
+            HttpServletRequest request)
+            throws java.io.IOException {
+        var payload = read(request, "Delivery");
+        if (!delivery.equals(payload.path("delivery_id").asText()))
+            throw new PersistenceRejected("BINDING_MISMATCH");
+        return response(
+                request,
+                "DeliveryResult",
+                publication.deliver(
+                        publication.context(queue.context(execution)), payload.toString()));
     }
 }

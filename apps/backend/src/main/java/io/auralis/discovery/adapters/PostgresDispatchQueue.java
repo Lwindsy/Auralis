@@ -150,7 +150,7 @@ public class PostgresDispatchQueue implements DispatchQueue {
                                 r.round(),
                                 run,
                                 r.operation(),
-                                Math.max(1, r.scope().revision() + 1),
+                                sessions.inputRevision(r.scope()),
                                 hash,
                                 now,
                                 now.plusSeconds(limits.queueSeconds()));
@@ -368,12 +368,20 @@ public class PostgresDispatchQueue implements DispatchQueue {
                         var scope =
                                 convert(json((String) row.get("scope")), SessionStore.Scope.class);
                         var current = sessions.current(scope.subjectId());
-                        if (current.isEmpty() || !current.get().scope().equals(scope)) {
+                        if (current.isEmpty()
+                                || !current.get().scope().sessionId().equals(scope.sessionId())
+                                || current.get().scope().subjectEpoch() != scope.subjectEpoch()
+                                || current.get().scope().sessionEpoch() != scope.sessionEpoch()) {
                             jdbc.update(
                                     "UPDATE discovery.discovery_intent SET status='SUPERSEDED',error_code='BINDING_MISMATCH',revision=revision+1 WHERE id=?",
                                     run);
                             return null;
                         }
+                        scope = current.get().scope();
+                        jdbc.update(
+                                "UPDATE discovery.discovery_intent SET scope_snapshot=?::jsonb,revision=revision+1 WHERE id=?",
+                                JSON.valueToTree(scope).toString(),
+                                run);
                         sessions.lockActive(scope);
                         String python =
                                 jdbc.queryForObject(
@@ -515,7 +523,8 @@ public class PostgresDispatchQueue implements DispatchQueue {
         if (rows.size() != 1) fail("EXECUTION_GONE");
         var row = rows.getFirst();
         return context(
-                convert(json((String) row.get("scope")), SessionStore.Scope.class),
+                sessions.refresh(
+                        convert(json((String) row.get("scope")), SessionStore.Scope.class)),
                 json((String) row.get("payload")),
                 json((String) row.get("plan")));
     }
@@ -526,7 +535,7 @@ public class PostgresDispatchQueue implements DispatchQueue {
                 () -> {
                     discovery.lockRuntime();
                     if (!ready(job.coordinatorBoot())) return false;
-                    sessions.lockActive(job.scope());
+                    sessions.lockActive(sessions.refresh(job.scope()));
                     if (!job.deadline().isAfter(clock.instant())) return false;
                     return jdbc.update(
                                     "UPDATE discovery.execution SET dispatch_attempts=dispatch_attempts+1,sent_at=coalesce(sent_at,?),revision=revision+1 WHERE id=? AND coordinator_boot=? AND python_boot=? AND dispatch_attempts=? AND dispatch_attempts<2 AND NOT cancellation_requested AND physical_released_at IS NULL",
@@ -681,10 +690,44 @@ public class PostgresDispatchQueue implements DispatchQueue {
                     discovery.lockRuntime();
                     sessions.lockActive(scope);
                     jdbc.update(
-                            "UPDATE discovery.discovery_intent SET status=?,revision=revision+1 WHERE id=? AND session_id=? AND status='RUNNING'",
+                            "UPDATE discovery.discovery_intent SET status=?,revision=revision+1 WHERE id=? AND session_id=? AND status IN ('DISPATCHING','RUNNING')",
                             outcome,
                             run,
                             scope.sessionId());
+                    return null;
+                });
+    }
+
+    @Override
+    public String startPayload(String execution) {
+        var rows =
+                jdbc.queryForList(
+                        "SELECT start_payload::text FROM discovery.execution WHERE id=? AND start_payload IS NOT NULL",
+                        String.class,
+                        execution);
+        if (rows.size() != 1) fail("EXECUTION_GONE");
+        return rows.getFirst();
+    }
+
+    @Override
+    public void bindCandidates(String execution, Map<String, String> candidates) {
+        tx.write(
+                () -> {
+                    discovery.lockRuntime();
+                    var c = context(execution);
+                    sessions.lockActive(c.evidence().scope());
+                    var s = c.evidence();
+                    new PostgresExecutionReadAccess(jdbc)
+                            .guard(
+                                    s.scope(),
+                                    s.round(),
+                                    execution,
+                                    s.coordinatorBoot(),
+                                    s.pythonBoot());
+                    jdbc.update(
+                            "UPDATE discovery.discovery_intent SET dispatch_plan=jsonb_set(dispatch_plan,'{candidates}',?::jsonb),revision=revision+1 WHERE id=(SELECT run_id FROM discovery.execution WHERE id=?)",
+                            JSON.valueToTree(candidates).toString(),
+                            execution);
                     return null;
                 });
     }

@@ -40,4 +40,9 @@ public interface BudgetAuthority {
     String settle(String execution, String request);
 
     String state(Context context);
+
+    /** Verify a completed, non-truncated call in this round's authoritative ledger. */
+    boolean completed(Context context, String invocation);
+
+    boolean completed(Context context, String invocation, java.util.Set<String> purposes);
 }

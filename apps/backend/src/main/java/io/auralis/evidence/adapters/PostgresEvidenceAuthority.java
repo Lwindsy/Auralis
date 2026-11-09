@@ -480,12 +480,11 @@ public class PostgresEvidenceAuthority implements EvidenceAuthority, SessionDeri
                     }
                     return Boolean.TRUE.equals(
                             jdbc.queryForObject(
-                                    "SELECT EXISTS(SELECT 1 FROM discovery.read_receipt WHERE id=? AND session_id=? AND round_id=? AND execution_id=? AND candidate_id=? AND status='READ_OK')",
+                                    "SELECT EXISTS(SELECT 1 FROM discovery.read_receipt WHERE id=? AND session_id=? AND round_id=? AND candidate_id=? AND status='READ_OK' AND receipt->>'near_duplicate_of' IS NULL)",
                                     Boolean.class,
                                     read,
                                     c.scope().sessionId(),
                                     c.round(),
-                                    c.execution(),
                                     candidate));
                 });
     }

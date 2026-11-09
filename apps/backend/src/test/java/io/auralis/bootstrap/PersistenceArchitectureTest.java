@@ -45,7 +45,8 @@ class PersistenceArchitectureTest {
                                         "card_slot",
                                         "long_review",
                                         "delivery_receipt",
-                                        "recovery_projection"),
+                                        "recovery_projection",
+                                        "publication_round"),
                         "catalog", Set.of("audience_snapshot", "audience_count"));
         Path source = Path.of(System.getProperty("basedir"), "src/main/java/io/auralis");
         for (var entry : owners.entrySet()) {
