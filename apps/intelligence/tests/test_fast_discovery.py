@@ -116,12 +116,14 @@ def test_batch_one_call_and_audience_verified_at_publication(
 
             def reply(binding, request):
                 seen.append(request.schema_name)
-                if request.schema_name != "batch_v3":
+                if request.schema_name != "batch_v4":
                     return _reply(binding, request)
                 from auralis_intelligence.agents import CallResult, Usage
 
                 text = "这张专辑在合成测试资料中呈现克制的编配，钢琴与轻缓鼓点之间留有清晰空间，旋律以渐进的方式展开而不过度依赖厚重音墙[R1]。另一份资料强调人声与吉他的亲近感；如果这次想在深夜安静地听，可以留意这种舒缓而细致的安排，这里只验证程序流程而不代表真实试听评价[R2]。"
                 candidates = request.input["candidates"]
+                assert all("primary_genres" not in c["album"] for c in candidates)
+                assert all("catalog_genre_hints" in c for c in candidates)
                 return CallResult(
                     {
                         "assessments": [
@@ -151,7 +153,7 @@ def test_batch_one_call_and_audience_verified_at_publication(
                 await harness.supervisor.wait(execution.id)
                 entry = harness.control.executions[execution.id]
                 first_ids = set(entry["display"]["shown_candidate_ids"])
-                assert seen == ["batch_v3"]
+                assert seen == ["batch_v4"]
                 if cold:
                     deferred = [
                         screening
@@ -199,7 +201,7 @@ def test_batch_one_call_and_audience_verified_at_publication(
                     if d["kind"] == "SUPPLY_STATUS"
                 ]
                 assert supply_states[-1] == "R_EXHAUSTED"
-            assert seen == (["batch_v3", "batch_v3"] if background else ["batch_v3"])
+            assert seen == (["batch_v4", "batch_v4"] if background else ["batch_v4"])
             assert any(
                 call["plan"]["purpose"] == "SELECT" for call in harness.control.invocations.values()
             )

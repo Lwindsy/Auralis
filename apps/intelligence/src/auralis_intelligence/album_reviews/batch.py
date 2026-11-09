@@ -14,7 +14,7 @@ from .types import AlbumDossier, ReadRecord, ResearchResult
 from .validation import validate_short
 from .writing import ShortWriteResult, WriteStage
 
-PROMPT = files(__package__).joinpath("batch.v3.txt").read_text(encoding="utf-8")
+PROMPT = files(__package__).joinpath("batch.v4.txt").read_text(encoding="utf-8")
 REFS = array({"type": "string"}, maximum=4)
 SCHEMA = object_schema(
     {
@@ -226,7 +226,12 @@ class BatchResearchStage:
             "candidates": [
                 {
                     "c": alias,
-                    "album": dossier.identity,
+                    "album": {
+                        key: value
+                        for key, value in dossier.identity.items()
+                        if key != "primary_genres"
+                    },
+                    "catalog_genre_hints": dossier.identity.get("primary_genres", []),
                     "sample_listeners": audiences[dossier.candidate_id]["listeners"],
                     "sources": [
                         {"ref": r.ref, "text": excerpt(r.excerpt, 1800)} for r in dossier.reads
@@ -247,7 +252,7 @@ class BatchResearchStage:
                 system=PROMPT,
                 input=payload,
                 output_schema=SCHEMA,
-                prompt_version="batch.v3",
+                prompt_version="batch.v4",
                 read_ids=read_ids,
             )
             if reply.finish == "COMPLETE":
@@ -312,9 +317,9 @@ class BatchResearchStage:
                     "status": "OK",
                     "score": score,
                     "invocation_id": reply.invocation_id,
-                    "prompt_version": self.model.version("batch.v3")
+                    "prompt_version": self.model.version("batch.v4")
                     if hasattr(self.model, "version")
-                    else "batch.v3",
+                    else "batch.v4",
                 },
                 "disposition": "RESERVE"
                 if qualified and score >= 3
@@ -341,9 +346,9 @@ class BatchResearchStage:
                     "text": row["text"],
                     "citations": [{"marker": ref, "read_id": lookup[ref]} for ref in row["refs"]],
                     "invocation_id": reply.invocation_id,
-                    "prompt_version": self.model.version("batch.v3")
+                    "prompt_version": self.model.version("batch.v4")
                     if hasattr(self.model, "version")
-                    else "batch.v3",
+                    else "batch.v4",
                 },
             )
         execution.counters["qualified"] += sum(
