@@ -330,7 +330,20 @@ abstract class ProductApiFixture extends PublicationFixture {
                 CandidateValidation validator,
                 DiscoveryStore discovery,
                 SessionStore sessions,
-                io.auralis.publication.api.PublicationAuthority publication) {
+                io.auralis.publication.api.PublicationAuthority publication,
+                io.auralis.catalog.application.CatalogDirectory directory,
+                CatalogVersion versions,
+                GenreQuery genres)
+                throws java.io.IOException {
+            String prepared = System.getenv("AURALIS_CURATED_PRODUCT_TEST_CONTENT");
+            if (prepared != null)
+                return new io.auralis.discovery.adapters.PreparedCuratedRecommendations(
+                        io.auralis.discovery.adapters.CuratedContentFiles.load(Path.of(prepared)),
+                        directory,
+                        versions,
+                        genres,
+                        sessions,
+                        publication);
             return (scope, round, text) -> {
                 try {
                     var info = discovery.roundInfo(scope, round);
@@ -379,8 +392,8 @@ abstract class ProductApiFixture extends PublicationFixture {
                     pref.path("required_tags").forEach(n -> required.add(n.asText()));
                     var excludedIds = new HashSet<UUID>();
                     excludes.keySet().forEach(id -> excludedIds.add(UUID.fromString(id)));
-                    return validator
-                            .validate(
+                    var bundle =
+                            validator.validate(
                                     "curated-" + round,
                                     p,
                                     new CandidateValidation.Context(
@@ -398,8 +411,47 @@ abstract class ProductApiFixture extends PublicationFixture {
                                             required,
                                             forbidden,
                                             disliked,
-                                            Set.of()))
-                            .toString();
+                                            Set.of()));
+                    var items = new ArrayList<CuratedRecommendations.Item>();
+                    for (var candidate : bundle.path("accepted")) {
+                        String id = candidate.path("release_group_id").asText();
+                        var shortReview =
+                                JSON.createObjectNode()
+                                        .put("text", "合成策展短评 [R1]")
+                                        .put("invocation_id", "curated-import:test")
+                                        .put("prompt_version", "curated-test-v1");
+                        shortReview
+                                .putArray("citations")
+                                .addObject()
+                                .put("marker", "R1")
+                                .put("read_id", "curated-source:test:R1");
+                        var longReview =
+                                JSON.createObjectNode()
+                                        .put("candidate_id", id)
+                                        .put("status", "READY")
+                                        .put("han_char_count", 7)
+                                        .put("prompt_version", "curated-test-v1")
+                                        .putNull("reason_code");
+                        longReview
+                                .putObject("sections")
+                                .put("production", "合成策展完整长评 [R1]")
+                                .put("instrumentation", "")
+                                .put("vocals", "")
+                                .put("mood", "");
+                        longReview.set("citations", shortReview.path("citations"));
+                        longReview.putArray("extra_read_ids");
+                        longReview.putArray("missing_sections");
+                        longReview.putArray("invocation_ids");
+                        items.add(
+                                new CuratedRecommendations.Item(
+                                        id,
+                                        candidate.path("identity").toString(),
+                                        shortReview.toString(),
+                                        longReview.toString(),
+                                        "{\"origin\":\"SYNTHETIC_TEST\"}"));
+                    }
+                    return new CuratedRecommendations.Batch(
+                            "curated-test-v1", items, bundle.path("rejected").toString());
                 } catch (java.io.IOException e) {
                     throw new IllegalStateException(e);
                 }

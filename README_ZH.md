@@ -86,3 +86,7 @@ python -m auralis_intelligence.recall --snapshot apps/intelligence/tests/fixture
 Java目录接口通过本地只读Lucene索引搜索完整MusicBrainz作品组快照，支持专辑、艺人署名和别名；不会把召回核心子集当成完整目录。启动时用`AURALIS_CATALOG_SEARCH_INDEX`和`AURALIS_CATALOG_SEARCH_MANIFEST_SHA256`提供离线核验索引及对应候选manifest摘要。未配置时目录返回503；错误索引拒绝启动。
 
 匿名bootstrap后可读取`/v1/catalog/albums?query=...`、`/v1/catalog/albums/{mb_release_group_id}`和`/v1/genres`；GET不续期，未知作品与无匹配分别处理。库外作品可选择，只有已核验可用信息进入召回；封面暂用占位。索引由离线`io.auralis.catalog.adapters.CatalogIndexBuild`从完整候选导入，输入目录、全新输出目录和manifest摘要必须显式提供。更新在维护窗口换路径及摘要后重启，失败恢复旧完整索引；没有在线下载或远端回退。目录与推荐API已实现，真实供应商验证和完整网站验收仍待完成。
+
+### 本地固定策展推荐
+
+无正向信号时使用固定10张有序候选池，短评和长评独立保存。Java显式配置 `AURALIS_CURATED_CONTENT_DIRECTORY`，Windows运行包则设置 `curated_content_directory`。该分支跳过召回、在线乐评生成与听众门槛，保留目录身份、本轮限制与去重。内容只在本地保存，不随Git分发。将准备好的 `auralis-curated-v1.json` 用后端运行classpath中的 `io.auralis.discovery.adapters.CuratedContentFiles <输入JSON> <新目录>` 导入。

@@ -62,7 +62,8 @@ class PersistenceArchitectureTest {
                     while (imports.find())
                         assertEquals(entry.getKey(), imports.group(1), path.toString());
                     assertFalse(
-                            text.contains("java.net.")
+                            // URI parses source identifiers without opening a network connection.
+                            text.replace("import java.net.URI;", "").contains("java.net.")
                                     || text.contains("WebClient")
                                     || text.contains("RestClient")
                                     || text.contains("RestTemplate"),

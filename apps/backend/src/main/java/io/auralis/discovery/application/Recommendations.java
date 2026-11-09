@@ -292,15 +292,12 @@ public class Recommendations {
             String operation,
             Set<String> targets,
             boolean continuing,
-            Instant accepted,
-            JsonNode curatedBundle) {
+            Instant accepted) {
         var settings = config.path("settings");
         var out =
                 JSON.createObjectNode()
                         .put("execution_id", "pending-execution")
-                        .put(
-                                "operation",
-                                curatedBundle == null ? "DISCOVERY_ROUND" : "CURATED_REVIEWS")
+                        .put("operation", "DISCOVERY_ROUND")
                         .put("start_mode", continuing ? "CONTINUE" : "FRESH")
                         .put("session_id", scope.sessionId())
                         .put("round_id", round.id())
@@ -359,7 +356,7 @@ public class Recommendations {
                             publication.continuation(
                                     scope, round.id(), operation, targets, digest(excludes))));
         else out.putNull("continuation");
-        out.set("curated_candidates", curatedBundle == null ? JSON.nullNode() : curatedBundle);
+        out.putNull("curated_candidates");
         out.put("payload_digest", contentDigest(out, "payload_digest"));
         if (!schema.validDefinition("RoundStart", out)) fail("INVALID_EXECUTION_CONFIGURATION");
         return out;
@@ -373,15 +370,12 @@ public class Recommendations {
             String key,
             Set<String> targets,
             boolean continuing,
-            Instant accepted,
-            JsonNode curatedBundle) {
+            Instant accepted) {
         discovery.extendDeadline(
                 scope, round.id(), accepted.plusSeconds(limits.executionSeconds()));
-        var start =
-                plan(scope, round, config, operation, targets, continuing, accepted, curatedBundle);
+        var start = plan(scope, round, config, operation, targets, continuing, accepted);
         var mapping = new HashMap<String, String>();
-        JsonNode bound =
-                continuing ? start.path("continuation").path("candidate_bundle") : curatedBundle;
+        JsonNode bound = continuing ? start.path("continuation").path("candidate_bundle") : null;
         if (bound != null)
             bound.path("accepted")
                     .forEach(
@@ -418,10 +412,6 @@ public class Recommendations {
         if (!subjects.validCsrf(token, csrf)) fail("FORBIDDEN");
         var settings = json(policy.snapshot());
         long dataset = versions.current();
-        audience.audience(
-                dataset,
-                convert(settings.path("audience_binding"), AudienceQuery.Binding.class),
-                List.of());
         var input = resolve(request.path("input"), dataset, settings);
         var reuse = reuse(token, key, request, input, settings, dataset);
         if (reuse.cached() != null) return reuse.cached();
@@ -498,12 +488,37 @@ public class Recommendations {
                             accepted.plusSeconds(limits.executionSeconds()));
                     var round = discovery.roundInfo(scope, roundId);
                     var snapshot = effective(scope, config);
-                    JsonNode fixed = null;
-                    if (!snapshot.isNull() && !snapshot.path("has_positive_signal").asBoolean())
-                        fixed =
-                                parse(
-                                        curated.candidates(scope, roundId, snapshot.toString()),
-                                        "CandidateBundle");
+                    if (!snapshot.isNull() && !snapshot.path("has_positive_signal").asBoolean()) {
+                        var fixed = curated.candidates(scope, roundId, snapshot.toString());
+                        String run = scopeId("curated", key);
+                        discovery.createIntent(
+                                scope,
+                                roundId,
+                                run,
+                                "INITIAL",
+                                sessions.inputRevision(scope),
+                                digest(request),
+                                accepted,
+                                accepted.plusSeconds(limits.queueSeconds()));
+                        if (!discovery.transitionRun(scope, run, 0, "WAITING", "SUCCEEDED"))
+                            fail("REVISION_CONFLICT");
+                        config.put("curated_prepared", true)
+                                .put("curated_revision", fixed.revision());
+                        discovery.configureRound(scope, roundId, config.toString());
+                        publication.publishCurated(
+                                scope,
+                                roundId,
+                                run,
+                                settings.path("selection_config")
+                                        .path("recommendation_target_count")
+                                        .asInt(),
+                                fixed);
+                        return state(token, scope.sessionId(), false);
+                    }
+                    audience.audience(
+                            dataset,
+                            convert(settings.path("audience_binding"), AudienceQuery.Binding.class),
+                            List.of());
                     var queued =
                             enqueue(
                                     scope,
@@ -513,8 +528,7 @@ public class Recommendations {
                                     scopeId("submit", key),
                                     Set.of(),
                                     false,
-                                    accepted,
-                                    fixed);
+                                    accepted);
                     publication.begin(
                             scope,
                             roundId,
@@ -523,11 +537,6 @@ public class Recommendations {
                                     .path("recommendation_target_count")
                                     .asInt(),
                             "WAITING");
-                    if (fixed != null) {
-                        config.set("curated_bundle", fixed);
-                        discovery.configureRound(
-                                sessions.refresh(scope), roundId, config.toString());
-                    }
                     return state(token, scope.sessionId(), false);
                 });
     }
@@ -559,6 +568,9 @@ public class Recommendations {
 
     private String supply(
             Scope scope, String roundId, String operation, String key, Set<String> targets) {
+        if (json(discovery.roundInfo(scope, roundId).configuration())
+                .path("curated_prepared")
+                .asBoolean()) return null;
         if (operation.equals("SUPPLY")) {
             var merged = queue.mergeSupply(scope, roundId, key, targets, limits);
             if (merged.isPresent()) return merged.get().run();
@@ -572,14 +584,12 @@ public class Recommendations {
                                 .asText()
                                 .equals("R_EXHAUSTED");
         Instant accepted = now();
-        if (next && config.has("curated_bundle")) return null;
         if (next) {
             if (round.sequence() >= 5) return null;
             String id = UUID.randomUUID().toString();
             config.put("parent_round", round.id())
                     .put("accepted_at", accepted.toString())
                     .put("curated_pending", false);
-            config.remove("curated_bundle");
             discovery.createRound(
                     scope,
                     id,
@@ -589,17 +599,7 @@ public class Recommendations {
                     accepted.plusSeconds(limits.executionSeconds()));
             round = discovery.roundInfo(scope, id);
         }
-        return enqueue(
-                        scope,
-                        round,
-                        config,
-                        operation,
-                        key,
-                        targets,
-                        !next,
-                        accepted,
-                        config.has("curated_bundle") ? config.path("curated_bundle") : null)
-                .run();
+        return enqueue(scope, round, config, operation, key, targets, !next, accepted).run();
     }
 
     public String action(
@@ -658,7 +658,11 @@ public class Recommendations {
                         publication.longReview(
                                 current, publication.candidateRound(current, target), target);
                         queue.prioritize(current, target, key);
-                    } else if (operation.equals("REGENERATE"))
+                    } else if (operation.equals("REGENERATE")
+                            && json(round.configuration()).path("curated_prepared").asBoolean())
+                        publication.longReview(
+                                current, publication.candidateRound(current, target), target);
+                    else if (operation.equals("REGENERATE"))
                         publication.regenerate(
                                 current,
                                 publication.candidateRound(current, target),
@@ -737,10 +741,10 @@ public class Recommendations {
                     if (!value.path("has_positive_signal").asBoolean()) {
                         try {
                             config.set(
-                                    "curated_bundle",
-                                    parse(
-                                            curated.candidates(scope, round.id(), value.toString()),
-                                            "CandidateBundle"));
+                                    "curated_content",
+                                    JSON.valueToTree(
+                                            curated.candidates(
+                                                    scope, round.id(), value.toString())));
                             config.put("curated_pending", true);
                         } catch (PersistenceRejected unavailable) {
                             if (!unavailable.getMessage().equals("CURATED_UNAVAILABLE"))
@@ -828,18 +832,6 @@ public class Recommendations {
                     var config = (ObjectNode) json(round.configuration());
                     var message = parse(body, "Delivery");
                     var start = json(queue.startPayload(execution));
-                    if (start.path("operation").asText().equals("CURATED_REVIEWS")
-                            && config.has("curated_bundle"))
-                        publication.register(
-                                new PublicationAuthority.Context(
-                                        c,
-                                        config.path("preference_resolution").asText(),
-                                        population(config),
-                                        start.path("agent_policy").toString(),
-                                        start.path("selection_config")
-                                                .path("recommendation_target_count")
-                                                .asInt()),
-                                start.path("curated_candidates").toString());
                     boolean handoff =
                             config.path("curated_pending").asBoolean()
                                     && message.path("kind").asText().equals("ROUND_REPORT")
@@ -867,19 +859,23 @@ public class Recommendations {
                         var scope = sessions.refresh(c.evidence().scope());
                         config.put("curated_pending", false);
                         discovery.configureRound(scope, round.id(), config.toString());
-                        var accepted = Instant.parse(config.path("accepted_at").asText());
-                        var queued =
-                                enqueue(
-                                        scope,
-                                        round,
-                                        config,
-                                        "INITIAL",
-                                        "curated:" + execution,
-                                        Set.of(),
-                                        false,
-                                        accepted,
-                                        config.path("curated_bundle"));
-                        publication.waitFor(scope, round.id(), queued.run());
+                        var fixed =
+                                convert(
+                                        config.path("curated_content"),
+                                        CuratedRecommendations.Batch.class);
+                        config.remove("curated_content");
+                        config.put("curated_prepared", true)
+                                .put("curated_revision", fixed.revision());
+                        discovery.configureRound(scope, round.id(), config.toString());
+                        publication.publishCurated(
+                                scope,
+                                round.id(),
+                                c.budget().run(),
+                                config.path("settings")
+                                        .path("selection_config")
+                                        .path("recommendation_target_count")
+                                        .asInt(),
+                                fixed);
                     }
                     return result;
                 });
@@ -908,16 +904,12 @@ public class Recommendations {
                 ((ObjectNode) continuation.path("pending"))
                         .put("rescreen_run_id", start.path("run_id").asText());
             start.set("continuation", continuation);
-            if (start.path("operation").asText().equals("CURATED_REVIEWS"))
-                start.set("curated_candidates", continuation.path("candidate_bundle"));
             publication.bindRun(
                     scope,
                     round,
                     start.path("run_id").asText(),
                     continuation.path("candidate_bundle").toString());
-        } else if (!start.path("curated_candidates").isNull())
-            ((ObjectNode) start.path("curated_candidates").path("binding"))
-                    .put("exclusion_digest", digest(excludes));
+        }
         return start.toString();
     }
 
@@ -935,16 +927,7 @@ public class Recommendations {
                             UUID.nameUUIDFromBytes(
                                             key.getBytes(java.nio.charset.StandardCharsets.UTF_8))
                                     .toString();
-                    return enqueue(
-                                    s,
-                                    info,
-                                    config,
-                                    "REGENERATE",
-                                    command,
-                                    ids,
-                                    true,
-                                    accepted,
-                                    null)
+                    return enqueue(s, info, config, "REGENERATE", command, ids, true, accepted)
                             .run();
                 });
     }

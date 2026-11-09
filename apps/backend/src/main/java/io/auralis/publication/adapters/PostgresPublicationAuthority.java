@@ -175,6 +175,77 @@ public class PostgresPublicationAuthority implements PublicationAuthority {
     }
 
     @Override
+    public String publishCurated(
+            Scope s, String r, String run, int target, CuratedRecommendations.Batch batch) {
+        return tx.write(
+                () -> {
+                    discovery.lockRuntime();
+                    sessions.lockActive(s);
+                    begin(s, r, run, target, "RUNNING");
+                    var current = sessions.refresh(s);
+                    int rank = 0;
+                    var seen = new HashSet<String>();
+                    for (var item : batch.items()) {
+                        if (!seen.add(item.id())) fail("DUPLICATE_CANDIDATE");
+                        UUID id = UUID.fromString(item.id());
+                        var identity = parse(item.identity(), "Identity");
+                        var shortReview = parse(item.shortReview(), "ShortReview");
+                        var longReview = parse(item.longReview(), "LongReview");
+                        if (!longReview.path("candidate_id").asText().equals(item.id())
+                                || !longReview.path("status").asText().equals("READY"))
+                            fail("INVALID_PAYLOAD");
+                        if (sessions.heardAlbums(current).contains(id)) continue;
+                        store.addCandidate(
+                                current,
+                                new PublicationStore.Candidate(
+                                        r,
+                                        item.id(),
+                                        id,
+                                        ++rank,
+                                        identity.toString(),
+                                        "{\"policy\":\"CURATED_EXEMPT\"}",
+                                        "ELIGIBLE"));
+                        var card =
+                                JSON.createObjectNode()
+                                        .put("candidate_id", item.id())
+                                        .put("selection_basis", "CURATED");
+                        card.set("short_review", shortReview);
+                        card.set("prepared_provenance", json(item.provenance()));
+                        store.saveCard(current, r, item.id(), card.toString(), "CURATED", "READY");
+                        store.putLongReview(
+                                current,
+                                r,
+                                item.id(),
+                                run,
+                                "READY",
+                                longReview.toString(),
+                                null,
+                                -1);
+                        jdbc.update(
+                                "UPDATE discovery.round_candidate SET display_rank=? WHERE round_id=? AND candidate_id=?",
+                                rank,
+                                r,
+                                item.id());
+                    }
+                    fill(current, r, JSON.createArrayNode());
+                    long count =
+                            jdbc.queryForObject(
+                                    "SELECT count(*) FROM discovery.card_slot WHERE session_id=? AND state='READY'",
+                                    Long.class,
+                                    current.sessionId());
+                    var diagnostic = JSON.createObjectNode().put("revision", batch.revision());
+                    diagnostic.set("decisions", json(batch.diagnostics()));
+                    jdbc.update(
+                            "UPDATE discovery.publication_round SET status=?,analysis_mode='CURATED',supply_state='FINAL_EXHAUSTED',reason=?,policy=?::jsonb WHERE round_id=?",
+                            count == 0 ? "NO_MATCH" : count < target ? "PARTIAL" : "SUCCEEDED",
+                            count < target ? "recommendation.final_exhausted" : null,
+                            diagnostic.toString(),
+                            r);
+                    return saveState(sessions.advanceRevision(current), r);
+                });
+    }
+
+    @Override
     public void register(Context original, String body) {
         var bundle = parse(body, "CandidateBundle");
         if (!bundle.path("digest").asText().equals(digest(bundle.path("accepted")))
@@ -581,10 +652,11 @@ public class PostgresPublicationAuthority implements PublicationAuthority {
                     round(s, r);
                     var targets =
                             jdbc.queryForList(
-                                    "SELECT slot_id,candidate_id,round_id,revision,state FROM discovery.card_slot WHERE session_id=? AND (?='BATCH' OR slot_id=?) ORDER BY slot_id",
+                                    "SELECT slot_id,candidate_id,round_id,revision,state FROM discovery.card_slot WHERE session_id=? AND (?='BATCH' OR slot_id=?) AND (?<>'BATCH' OR state='READY') ORDER BY slot_id",
                                     s.sessionId(),
                                     operation,
-                                    slotId);
+                                    slotId,
+                                    operation);
                     if (targets.isEmpty()) fail("RESOURCE_UNAVAILABLE");
                     var available = new ArrayDeque<>(ready(s, r));
                     var replacements = new LinkedHashMap<String, String>();
