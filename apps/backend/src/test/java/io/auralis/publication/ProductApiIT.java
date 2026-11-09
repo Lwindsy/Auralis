@@ -298,6 +298,7 @@ class ProductApiIT extends ProductApiFixture {
         assertTrue(Set.of(200, 202).contains(submitted.status()), submitted.body().toString());
         b.awaitState(s -> s.path("status").asText().equals("SUCCEEDED"));
         assertEquals("CURATED", b.state.path("analysis_mode").asText());
+        assertEquals("SUFFICIENT", b.state.path("supply_state").asText());
         assertTrue(
                 peer.jobs.values().stream()
                         .noneMatch(j -> j.start.path("session_id").asText().equals(b.session())));

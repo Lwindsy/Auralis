@@ -67,9 +67,10 @@ export class ReviewDialog {
       );
       if (epoch !== this.epoch) return;
       this.pending = null;
+      await this.refresh();
+      if (epoch !== this.epoch) return;
       this.render(view);
       this.schedule(view);
-      void this.refresh();
     } catch (error) {
       if (epoch !== this.epoch) return;
       const retry =
