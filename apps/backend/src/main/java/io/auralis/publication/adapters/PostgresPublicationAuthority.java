@@ -1,0 +1,1030 @@
+package io.auralis.publication.adapters;
+
+import static io.auralis.contracts.CanonicalJson.*;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import io.auralis.budget.api.BudgetAuthority;
+import io.auralis.catalog.api.*;
+import io.auralis.contracts.MessageDefinitions;
+import io.auralis.discovery.api.*;
+import io.auralis.evidence.api.EvidenceAuthority;
+import io.auralis.persistence.*;
+import io.auralis.preference.api.PreferenceStore;
+import io.auralis.publication.api.*;
+import io.auralis.session.api.SessionStore;
+import io.auralis.session.api.SessionStore.Scope;
+import java.time.Clock;
+import java.util.*;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.stereotype.Service;
+
+/** Atomic result admission and display consumption; external work is delegated after commit. */
+@Service
+public class PostgresPublicationAuthority implements PublicationAuthority {
+    private final JdbcTemplate jdbc;
+    private final ShortTransactions tx;
+    private final SessionStore sessions;
+    private final DiscoveryStore discovery;
+    private final ExecutionReadAccess executions;
+    private final DispatchQueue queue;
+    private final BudgetAuthority budget;
+    private final EvidenceAuthority evidence;
+    private final PreferenceStore preferences;
+    private final CatalogQuery catalog;
+    private final AudienceQuery audience;
+    private final PublicationStore store;
+    private final RecoveryProjection projection;
+    private final MessageDefinitions schema;
+    private final Clock clock;
+
+    public PostgresPublicationAuthority(
+            JdbcTemplate jdbc,
+            ShortTransactions tx,
+            SessionStore sessions,
+            DiscoveryStore discovery,
+            ExecutionReadAccess executions,
+            DispatchQueue queue,
+            BudgetAuthority budget,
+            EvidenceAuthority evidence,
+            PreferenceStore preferences,
+            CatalogQuery catalog,
+            AudienceQuery audience,
+            PublicationStore store,
+            RecoveryProjection projection,
+            MessageDefinitions schema,
+            Clock clock) {
+        this.jdbc = jdbc;
+        this.tx = tx;
+        this.sessions = sessions;
+        this.discovery = discovery;
+        this.executions = executions;
+        this.queue = queue;
+        this.budget = budget;
+        this.evidence = evidence;
+        this.preferences = preferences;
+        this.catalog = catalog;
+        this.audience = audience;
+        this.store = store;
+        this.projection = projection;
+        this.schema = schema;
+        this.clock = clock;
+    }
+
+    private static void fail(String code) {
+        throw new PersistenceRejected(code);
+    }
+
+    private JsonNode json(String text) {
+        try {
+            return JSON.readTree(text);
+        } catch (Exception e) {
+            throw new PersistenceRejected("INVALID_PAYLOAD");
+        }
+    }
+
+    private JsonNode parse(String text, String definition) {
+        var n = json(text);
+        if (!schema.validDefinition(definition, n)) fail("INVALID_PAYLOAD");
+        return n;
+    }
+
+    private static boolean same(JsonNode a, JsonNode b) {
+        return digest(a).equals(digest(b));
+    }
+
+    private Context current(Context c) {
+        var e = c.execution().evidence();
+        var scope = sessions.refresh(e.scope());
+        var next =
+                new EvidenceAuthority.Context(
+                        scope,
+                        e.round(),
+                        e.execution(),
+                        e.coordinatorBoot(),
+                        e.pythonBoot(),
+                        e.catalogDataset(),
+                        e.readLimit(),
+                        e.candidates(),
+                        e.allowPrepared());
+        var b = c.execution().budget();
+        var nextBudget =
+                new BudgetAuthority.Context(
+                        next,
+                        b.run(),
+                        b.sessionScope(),
+                        b.roundScope(),
+                        b.sessionCap(),
+                        b.roundCap(),
+                        b.foregroundCap(),
+                        b.backgroundCap(),
+                        b.modelCalls(),
+                        b.searchCalls(),
+                        b.prices());
+        return new Context(
+                new DispatchQueue.Context(next, nextBudget),
+                c.preferenceResolution(),
+                c.audience(),
+                c.policy(),
+                c.target());
+    }
+
+    private void guard(Context c) {
+        var e = c.execution().evidence();
+        sessions.lockActive(e.scope());
+        executions.guard(e.scope(), e.round(), e.execution(), e.coordinatorBoot(), e.pythonBoot());
+    }
+
+    private Map<String, Object> round(Scope s, String r) {
+        var rows =
+                jdbc.queryForList(
+                        "SELECT *,bundle::text AS bundle_text,policy::text AS policy_text FROM discovery.publication_round WHERE round_id=? AND session_id=?",
+                        r,
+                        s.sessionId());
+        if (rows.size() != 1) fail("PUBLICATION_UNAVAILABLE");
+        return rows.getFirst();
+    }
+
+    @Override
+    public String begin(Scope s, String r, String run, int target, String status) {
+        if (target < 1 || target > 1000 || !Set.of("WAITING", "RUNNING").contains(status))
+            fail("INVALID_PAYLOAD");
+        return tx.write(
+                () -> {
+                    discovery.lockRuntime();
+                    sessions.lockActive(s);
+                    if (jdbc.queryForObject(
+                                    "SELECT count(*) FROM discovery.publication_round WHERE round_id=?",
+                                    Long.class,
+                                    r)
+                            > 0) return state(s, r);
+                    jdbc.update(
+                            "INSERT INTO discovery.publication_round(session_id,round_id,run_id,target,status) VALUES(?,?,?,?,?)",
+                            s.sessionId(),
+                            r,
+                            run,
+                            target,
+                            status);
+                    for (int i = 1; i <= target; i++)
+                        jdbc.update(
+                                "INSERT INTO discovery.card_slot(session_id,slot_id,state) VALUES(?,?,'EMPTY') ON CONFLICT(session_id,slot_id) DO NOTHING",
+                                s.sessionId(),
+                                String.format("slot-%04d", i));
+                    return saveState(sessions.advanceRevision(s), r);
+                });
+    }
+
+    @Override
+    public void register(Context original, String body) {
+        var bundle = parse(body, "CandidateBundle");
+        if (!bundle.path("digest").asText().equals(digest(bundle.path("accepted")))
+                || !bundle.path("binding")
+                        .path("candidate_bundle_digest")
+                        .asText()
+                        .equals(bundle.path("digest").asText())) fail("BINDING_MISMATCH");
+        tx.write(
+                () -> {
+                    discovery.lockRuntime();
+                    var c = current(original);
+                    guard(c);
+                    var s = c.execution().evidence().scope();
+                    var r = c.execution().evidence().round();
+                    var preference =
+                            parse(
+                                    preferences
+                                            .find(s, c.preferenceResolution())
+                                            .orElseThrow(
+                                                    () ->
+                                                            new PersistenceRejected(
+                                                                    "PREFERENCE_UNAVAILABLE")),
+                                    "EffectivePreferenceSnapshot");
+                    if (!preference
+                            .path("effective_preference_digest")
+                            .equals(bundle.path("binding").path("effective_preference_digest")))
+                        fail("BINDING_MISMATCH");
+                    var row = round(s, r);
+                    if (row.get("bundle_text") != null) {
+                        if (!same(json((String) row.get("bundle_text")), bundle))
+                            fail("IDEMPOTENCY_CONFLICT");
+                        return null;
+                    }
+                    var ids = new HashSet<String>();
+                    for (var candidate : bundle.path("accepted")) {
+                        String id = candidate.path("release_group_id").asText();
+                        if (!ids.add(id) || !identityValid(c, candidate))
+                            fail("ADMISSION_UNVERIFIED");
+                        store.addCandidate(
+                                s,
+                                new PublicationStore.Candidate(
+                                        r,
+                                        id,
+                                        UUID.fromString(id),
+                                        candidate.path("recall_rank").asInt(),
+                                        candidate.path("identity").toString(),
+                                        candidate.path("audience").toString(),
+                                        "DEFERRED"));
+                    }
+                    jdbc.update(
+                            "UPDATE discovery.publication_round SET bundle=?::jsonb,policy=?::jsonb,preference_resolution=?,audience_binding=?::jsonb WHERE round_id=?",
+                            body,
+                            c.policy(),
+                            c.preferenceResolution(),
+                            JSON.valueToTree(c.audience()).toString(),
+                            r);
+                    return null;
+                });
+    }
+
+    private boolean identityValid(Context c, JsonNode candidate) {
+        UUID id;
+        try {
+            id = UUID.fromString(candidate.path("release_group_id").asText());
+        } catch (IllegalArgumentException e) {
+            return false;
+        }
+        var album = catalog.albums(c.execution().evidence().catalogDataset(), List.of(id)).get(id);
+        if (album == null || !album.id().equals(id)) return false;
+        var identity =
+                JSON.createObjectNode()
+                        .put("title", album.title())
+                        .put("artist_credit", album.artistCredit());
+        if (album.year() == null) identity.putNull("first_release_year");
+        else identity.put("first_release_year", album.year());
+        if (album.primaryType() == null) identity.putNull("release_type");
+        else identity.put("release_type", album.primaryType());
+        var genres = identity.putArray("primary_genres");
+        album.genres()
+                .forEach(
+                        g -> genres.addObject().put("genre_id", g.genreId()).put("name", g.name()));
+        Long listeners =
+                audience.audience(
+                                c.execution().evidence().catalogDataset(),
+                                c.audience(),
+                                List.of(id))
+                        .get(id);
+        var a = candidate.path("audience");
+        return same(identity, candidate.path("identity"))
+                && listeners != null
+                && listeners >= 50
+                && a.path("listeners").asLong() == listeners
+                && a.path("dataset_id").asText().equals(c.audience().dataset())
+                && a.path("window").asText().equals(c.audience().window())
+                && a.path("sample_listeners").asLong() == c.audience().sampleListeners();
+    }
+
+    private boolean invocation(Context c, JsonNode id) {
+        return id.isTextual() && budget.completed(c.execution().budget(), id.asText());
+    }
+
+    private boolean candidateRead(Context c, String read, String candidate) {
+        return evidence.usableRead(c.execution().evidence(), read, candidate, false);
+    }
+
+    private boolean anyRead(Context c, String read, String candidate) {
+        if (candidateRead(c, read, candidate)) return true;
+        var raw =
+                json(
+                        sessions.current(c.execution().evidence().scope().subjectId())
+                                .orElseThrow()
+                                .rawInput());
+        for (var seed : raw.path("liked_albums"))
+            if (seed.path("release_group_id").isTextual()
+                    && evidence.usableRead(
+                            c.execution().evidence(),
+                            read,
+                            seed.path("release_group_id").asText(),
+                            true)) return true;
+        return false;
+    }
+
+    private String cardFailure(Context c, JsonNode batch, JsonNode card, JsonNode candidate) {
+        String id = card.path("candidate_id").asText();
+        var s = c.execution().evidence().scope();
+        String r = c.execution().evidence().round();
+        if (candidate == null) return "NOT_IN_BUNDLE";
+        if (!identityValid(c, candidate)) return "ADMISSION_UNVERIFIED";
+        if (sessions.heardAlbums(s).contains(UUID.fromString(id))
+                || jdbc.queryForObject(
+                                "SELECT count(*) FROM discovery.round_candidate WHERE session_id=? AND candidate_id=? AND shown AND round_id<>?",
+                                Long.class,
+                                s.sessionId(),
+                                id,
+                                r)
+                        > 0) return "EXCLUDED";
+        var screens =
+                jdbc.queryForList(
+                        "SELECT screening::text FROM discovery.round_candidate WHERE round_id=? AND candidate_id=?",
+                        String.class,
+                        r,
+                        id);
+        var screen =
+                screens.isEmpty() || screens.getFirst() == null ? null : json(screens.getFirst());
+        var admission = card.path("admission");
+        var review = card.path("short_review");
+        if (screen == null
+                || !screen.path("screen").path("status").asText().equals("OK")
+                || screen.path("screen").path("score").asInt()
+                        != admission.path("screen_score").asInt()
+                || !screen.path("screen")
+                        .path("invocation_id")
+                        .equals(admission.path("screen_invocation_id")))
+            return "ADMISSION_UNVERIFIED";
+        if (!budget.completed(
+                        c.execution().budget(),
+                        admission.path("screen_invocation_id").asText(),
+                        Set.of("SCREEN", "SELECT", "STRUCTURE_REPAIR"))
+                || !budget.completed(
+                        c.execution().budget(),
+                        review.path("invocation_id").asText(),
+                        Set.of("WRITE_SHORT", "SELECT", "STRUCTURE_REPAIR")))
+            return "ADMISSION_UNVERIFIED";
+        var policy = parse(c.policy(), "AgentPolicy");
+        int minimum =
+                policy.path("screening")
+                        .path(
+                                batch.path("batch_kind").asText().equals("SUPPLY")
+                                        ? "supplement_min_score"
+                                        : "shortlist_min_score")
+                        .asInt();
+        if (!batch.path("analysis_mode").asText().equals("CURATED")
+                && admission.path("screen_score").asInt() < minimum) return "SCORE_BELOW_THRESHOLD";
+        var qualified = new HashSet<String>();
+        screen.path("qualified_read_ids").forEach(n -> qualified.add(n.asText()));
+        var used = new HashSet<String>();
+        for (var read : admission.path("qualified_read_ids")) {
+            if (!qualified.contains(read.asText()) || !candidateRead(c, read.asText(), id))
+                return "READ_UNKNOWN";
+            used.add(read.asText());
+        }
+        for (var citation : review.path("citations"))
+            if (!used.contains(citation.path("read_id").asText())) return "CITATION_INVALID";
+        long han =
+                review.path("text")
+                        .asText()
+                        .codePoints()
+                        .filter(n -> (n >= 0x3400 && n <= 0x4dbf) || (n >= 0x4e00 && n <= 0x9fff))
+                        .count();
+        if (han < policy.path("writing").path("short_min_han").asInt()
+                || han > policy.path("writing").path("short_max_han").asInt())
+            return "LENGTH_INVALID";
+        String expected =
+                batch.path("analysis_mode").asText().equals("PERSONALIZED")
+                        ? "SELECTED"
+                        : batch.path("analysis_mode").asText().equals("CURATED")
+                                ? "CURATED"
+                                : "SCREEN_ONLY";
+        return expected.equals(card.path("selection_basis").asText()) ? null : "BINDING_MISMATCH";
+    }
+
+    private List<String> ready(Scope s, String r) {
+        var heard = sessions.heardAlbums(s);
+        return jdbc
+                .queryForList(
+                        "SELECT c.candidate_id FROM discovery.round_candidate c JOIN discovery.recommendation_card k ON k.round_id=c.round_id AND k.candidate_id=c.candidate_id WHERE c.session_id=? AND c.round_id=? AND NOT c.shown AND NOT c.heard AND c.disposition<>'INELIGIBLE' AND k.state='READY' ORDER BY CASE WHEN k.selection_basis='BASIC' THEN 1 ELSE 0 END,c.display_rank,c.rank,c.candidate_id",
+                        String.class,
+                        s.sessionId(),
+                        r)
+                .stream()
+                .filter(id -> !heard.contains(UUID.fromString(id)))
+                .toList();
+    }
+
+    private void fill(Scope s, String r, com.fasterxml.jackson.databind.node.ArrayNode published) {
+        var remaining = new ArrayDeque<>(ready(s, r));
+        for (var slot :
+                jdbc.queryForList(
+                        "SELECT slot_id,revision FROM discovery.card_slot WHERE session_id=? AND state IN ('EMPTY','SUPPLYING') ORDER BY slot_id",
+                        s.sessionId())) {
+            if (remaining.isEmpty()) break;
+            String id = remaining.removeFirst();
+            store.putSlot(
+                    s,
+                    (String) slot.get("slot_id"),
+                    r,
+                    id,
+                    "READY",
+                    ((Number) slot.get("revision")).longValue());
+            jdbc.update(
+                    "UPDATE discovery.round_candidate SET shown=true WHERE round_id=? AND candidate_id=?",
+                    r,
+                    id);
+            published.add(id);
+        }
+    }
+
+    private ObjectNode display(Scope s, String r) {
+        var out = JSON.createObjectNode().put("display_seq", s.revision());
+        var shown = out.putArray("shown_candidate_ids");
+        var heard = out.putArray("heard_candidate_ids");
+        for (var row :
+                jdbc.queryForList(
+                        "SELECT candidate_id,shown,heard FROM discovery.round_candidate WHERE round_id=? ORDER BY rank,candidate_id",
+                        r)) {
+            if ((Boolean) row.get("shown")) shown.add((String) row.get("candidate_id"));
+            if ((Boolean) row.get("heard")) heard.add((String) row.get("candidate_id"));
+        }
+        var remaining = out.putArray("ready_unshown_ids");
+        ready(s, r).forEach(remaining::add);
+        boolean waiting =
+                jdbc.queryForObject(
+                                "SELECT count(*) FROM discovery.card_slot WHERE session_id=? AND state='SUPPLYING'",
+                                Long.class,
+                                s.sessionId())
+                        > 0;
+        out.put("user_waiting", waiting);
+        if (waiting) out.put("run_id", (String) round(s, r).get("run_id"));
+        else out.putNull("run_id");
+        return out;
+    }
+
+    private String saveState(Scope s, String r) {
+        String state = render(s, r);
+        projection.save(s, state);
+        return state;
+    }
+
+    @Override
+    public String state(Scope s, String r) {
+        return tx.write(
+                () -> {
+                    sessions.lockActive(s);
+                    return render(s, r);
+                });
+    }
+
+    private String render(Scope s, String r) {
+        var info = round(s, r);
+        var admission = queue.status(s, (String) info.get("run_id"));
+        String status = (String) info.get("status");
+        if (Set.of("WAITING", "RUNNING").contains(status))
+            status =
+                    admission.status().equals("WAITING")
+                            ? "WAITING"
+                            : Set.of("CANCELLED", "INTERRUPTED", "EXPIRED", "SUPERSEDED")
+                                            .contains(admission.status())
+                                    ? "INTERRUPTED"
+                                    : "RUNNING";
+        var out =
+                JSON.createObjectNode()
+                        .put("session_id", s.sessionId())
+                        .put("round_id", r)
+                        .put("run_id", (String) info.get("run_id"))
+                        .put("revision", s.revision())
+                        .put("status", status)
+                        .put("analysis_mode", (String) info.get("analysis_mode"))
+                        .put(
+                                "recommendation_target_count",
+                                ((Number) info.get("target")).intValue())
+                        .put("supply_state", (String) info.get("supply_state"))
+                        .put("message_key", (String) info.get("reason"))
+                        .putNull("editable_input")
+                        .put(
+                                "expires_at",
+                                sessions.current(s.subjectId())
+                                        .orElseThrow()
+                                        .expiresAt()
+                                        .toString())
+                        .put("restored", false);
+        out.set("input_issues", json(info.get("input_issues").toString()));
+        out.putObject("admission")
+                .put("intent_id", admission.run())
+                .put("status", admission.status())
+                .put("accepted_at", admission.acceptedAt().toString())
+                .put("queue_deadline", admission.queueDeadline().toString())
+                .put("input_revision", sessions.inputRevision(s));
+        var slots = out.putArray("slots");
+        for (var row :
+                jdbc.queryForList(
+                        "SELECT s.slot_id,s.state,s.round_id,s.candidate_id,k.content::text AS card,c.identity_binding::text AS identity,l.state AS long_state FROM discovery.card_slot s LEFT JOIN discovery.recommendation_card k ON k.round_id=s.round_id AND k.candidate_id=s.candidate_id LEFT JOIN discovery.round_candidate c ON c.round_id=s.round_id AND c.candidate_id=s.candidate_id LEFT JOIN discovery.long_review l ON l.round_id=s.round_id AND l.candidate_id=s.candidate_id WHERE s.session_id=? ORDER BY s.slot_id",
+                        s.sessionId())) {
+            var slot =
+                    slots.addObject()
+                            .put("slot_id", (String) row.get("slot_id"))
+                            .put("status", (String) row.get("state"))
+                            .putNull("message_key");
+            if (row.get("card") == null) {
+                slot.putNull("card");
+                continue;
+            }
+            var card = json((String) row.get("card"));
+            var product =
+                    slot.putObject("card")
+                            .put("candidate_id", (String) row.get("candidate_id"))
+                            .putNull("cover_url")
+                            .put(
+                                    "long_review_state",
+                                    row.get("long_state") == null
+                                            ? "NOT_STARTED"
+                                            : (String) row.get("long_state"));
+            product.set("identity", json((String) row.get("identity")));
+            product.set("short_review", card.path("short_review"));
+        }
+        if (!schema.validDefinition("ProductState", out)) fail("INVALID_PRODUCT_STATE");
+        return out.toString();
+    }
+
+    @Override
+    public String operate(
+            Scope s, String r, String command, String operation, String slotId, Supply supply) {
+        if (!Set.of("HEARD", "REPLACE", "BATCH").contains(operation)) fail("INVALID_OPERATION");
+        var request =
+                JSON.createObjectNode()
+                        .put("round", r)
+                        .put("operation", operation)
+                        .put("slot", slotId)
+                        .put("revision", s.revision());
+        String hash = digest(request);
+        return tx.write(
+                () -> {
+                    discovery.lockRuntime();
+                    var latest = sessions.refresh(s);
+                    var previous = sessions.command(latest, operation, command, hash);
+                    if (previous.isPresent()) return previous.get();
+                    sessions.lockActive(s);
+                    round(s, r);
+                    var targets =
+                            jdbc.queryForList(
+                                    "SELECT slot_id,candidate_id,round_id,revision,state FROM discovery.card_slot WHERE session_id=? AND (?='BATCH' OR slot_id=?) ORDER BY slot_id",
+                                    s.sessionId(),
+                                    operation,
+                                    slotId);
+                    if (targets.isEmpty()) fail("RESOURCE_UNAVAILABLE");
+                    var available = new ArrayDeque<>(ready(s, r));
+                    var replacements = new LinkedHashMap<String, String>();
+                    var empty = new TreeSet<String>();
+                    for (var slot : targets) {
+                        if (!slot.get("state").equals("READY")) fail("REVISION_CONFLICT");
+                        String id = (String) slot.get("candidate_id");
+                        if (operation.equals("HEARD")) {
+                            sessions.recordHeard(s, UUID.fromString(id), clock.instant());
+                            jdbc.update(
+                                    "UPDATE discovery.round_candidate SET heard=true WHERE round_id=? AND candidate_id=?",
+                                    slot.get("round_id"),
+                                    id);
+                        }
+                        String next = available.pollFirst();
+                        replacements.put((String) slot.get("slot_id"), next);
+                        if (next == null) empty.add((String) slot.get("slot_id"));
+                    }
+                    var updated = sessions.advanceRevision(s);
+                    if (!empty.isEmpty()) {
+                        String run = supply.enqueue(updated, r, Set.copyOf(empty));
+                        if (run == null) fail("SUPPLY_UNAVAILABLE");
+                        jdbc.update(
+                                "UPDATE discovery.publication_round SET run_id=?,supply_state='SUPPLYING' WHERE round_id=?",
+                                run,
+                                r);
+                    }
+                    for (var slot : targets) {
+                        String id = replacements.get((String) slot.get("slot_id"));
+                        store.putSlot(
+                                updated,
+                                (String) slot.get("slot_id"),
+                                id == null ? null : r,
+                                id,
+                                id == null ? "SUPPLYING" : "READY",
+                                ((Number) slot.get("revision")).longValue());
+                        if (id != null)
+                            jdbc.update(
+                                    "UPDATE discovery.round_candidate SET shown=true WHERE round_id=? AND candidate_id=?",
+                                    r,
+                                    id);
+                    }
+                    String state = saveState(updated, r);
+                    sessions.saveCommand(updated, operation, command, hash, state, clock.instant());
+                    return state;
+                });
+    }
+
+    @Override
+    public String longReview(Scope s, String r, String candidate) {
+        return tx.write(
+                () -> {
+                    sessions.lockActive(s);
+                    var rows =
+                            jdbc.queryForList(
+                                    "SELECT state,content::text,reason FROM discovery.long_review WHERE session_id=? AND round_id=? AND candidate_id=?",
+                                    s.sessionId(),
+                                    r,
+                                    candidate);
+                    if (rows.size() != 1) fail("RESOURCE_UNAVAILABLE");
+                    var row = rows.getFirst();
+                    var out =
+                            JSON.createObjectNode()
+                                    .put("candidate_id", candidate)
+                                    .put("status", (String) row.get("state"))
+                                    .put("message_key", (String) row.get("reason"));
+                    out.set(
+                            "review",
+                            row.get("content") == null
+                                    ? JSON.nullNode()
+                                    : json((String) row.get("content")));
+                    if (!schema.validDefinition("LongReviewView", out))
+                        fail("INVALID_LONG_REVIEW_STATE");
+                    return out.toString();
+                });
+    }
+
+    @Override
+    public String regenerate(Scope s, String r, String candidate, Supply supply) {
+        return tx.write(
+                () -> {
+                    discovery.lockRuntime();
+                    sessions.lockActive(s);
+                    var rows =
+                            jdbc.queryForList(
+                                    "SELECT state,revision FROM discovery.long_review WHERE session_id=? AND round_id=? AND candidate_id=?",
+                                    s.sessionId(),
+                                    r,
+                                    candidate);
+                    if (rows.size() != 1 || rows.getFirst().get("state").equals("GENERATING"))
+                        fail("REVISION_CONFLICT");
+                    var updated = sessions.advanceRevision(s);
+                    String run = supply.enqueue(updated, r, Set.of(candidate));
+                    store.putLongReview(
+                            updated,
+                            r,
+                            candidate,
+                            run,
+                            "GENERATING",
+                            null,
+                            null,
+                            ((Number) rows.getFirst().get("revision")).longValue());
+                    saveState(updated, r);
+                    return longReview(updated, r, candidate);
+                });
+    }
+
+    @Override
+    public String bundle(Scope s, String r) {
+        return tx.write(
+                () -> {
+                    sessions.lockActive(s);
+                    var row = round(s, r);
+                    if (row.get("bundle_text") == null) fail("BUNDLE_UNAVAILABLE");
+                    return (String) row.get("bundle_text");
+                });
+    }
+
+    @Override
+    public String deliver(Context original, String body) {
+        var delivery = parse(body, "Delivery");
+        if (!delivery.path("payload_digest").asText().equals(digest(delivery.path("payload"))))
+            fail("BINDING_MISMATCH");
+        return tx.write(
+                () -> {
+                    discovery.lockRuntime();
+                    var c = current(original);
+                    var e = c.execution().evidence();
+                    var s = e.scope();
+                    sessions.lockActive(s);
+                    String id = delivery.path("delivery_id").asText(),
+                            kind = delivery.path("kind").asText(),
+                            r = e.round();
+                    if (!id.startsWith(e.execution() + ":")
+                            || !delivery.path("round_id").asText().equals(r))
+                        fail("BINDING_MISMATCH");
+                    var old =
+                            jdbc.queryForList(
+                                    "SELECT payload_digest,result::text FROM discovery.delivery_receipt WHERE id=? AND session_id=? AND execution_id=?",
+                                    id,
+                                    s.sessionId(),
+                                    e.execution());
+                    if (!old.isEmpty()) {
+                        if (!digest(delivery).equals(old.getFirst().get("payload_digest")))
+                            fail("IDEMPOTENCY_CONFLICT");
+                        return (String) old.getFirst().get("result");
+                    }
+                    guard(c);
+                    var row = round(s, r);
+                    var bound =
+                            row.get("bundle_text") == null
+                                    ? null
+                                    : json((String) row.get("bundle_text"));
+                    if (row.get("policy_text") != null
+                            && (!same(json((String) row.get("policy_text")), json(c.policy()))
+                                    || ((Number) row.get("target")).intValue() != c.target()))
+                        fail("BINDING_MISMATCH");
+                    if (!delivery.path("binding").isNull()) {
+                        if (bound == null || !same(delivery.path("binding"), bound.path("binding")))
+                            fail("BINDING_MISMATCH");
+                        var pref =
+                                parse(
+                                        preferences
+                                                .find(s, (String) row.get("preference_resolution"))
+                                                .orElseThrow(
+                                                        () ->
+                                                                new PersistenceRejected(
+                                                                        "PREFERENCE_UNAVAILABLE")),
+                                        "EffectivePreferenceSnapshot");
+                        if (!pref.path("effective_preference_digest")
+                                .equals(bound.path("binding").path("effective_preference_digest")))
+                            fail("BINDING_MISMATCH");
+                    }
+                    budget.state(c.execution().budget());
+                    LockOrder.before(LockOrder.Level.DELIVERY, id);
+                    var payload = delivery.path("payload");
+                    var items = JSON.createArrayNode();
+                    var published = JSON.createArrayNode();
+                    var candidates = new HashMap<String, JsonNode>();
+                    if (bound != null)
+                        bound.path("accepted")
+                                .forEach(
+                                        n ->
+                                                candidates.put(
+                                                        n.path("release_group_id").asText(), n));
+                    if (kind.equals("SCREENINGS") || kind.equals("CARD_BATCH")) {
+                        var screens =
+                                kind.equals("SCREENINGS") ? payload : payload.path("screenings");
+                        var seen = new HashSet<String>();
+                        for (var screen : screens) {
+                            String candidate = screen.path("candidate_id").asText();
+                            if (!candidates.containsKey(candidate) || !seen.add(candidate))
+                                fail("NOT_IN_BUNDLE");
+                            jdbc.update(
+                                    "UPDATE discovery.round_candidate SET screening=?::jsonb,disposition=? WHERE round_id=? AND candidate_id=?",
+                                    screen.toString(),
+                                    screen.path("disposition").asText(),
+                                    r,
+                                    candidate);
+                        }
+                    }
+                    if (kind.equals("CARD_BATCH"))
+                        publishBatch(c, delivery, row, candidates, items, published);
+                    else if (kind.equals("LONG_REVIEW")) publishLong(c, payload);
+                    else if (kind.equals("ORDER_UPDATE")) {
+                        if (payload.path("basis_display_seq").asLong() != s.revision())
+                            fail("REVISION_CONFLICT");
+                        int n = 0;
+                        var seen = new HashSet<String>();
+                        for (var chosen : payload.path("order")) {
+                            String candidate = chosen.path("candidate_id").asText();
+                            if (!seen.add(candidate)
+                                    || jdbc.queryForObject(
+                                                    "SELECT count(*) FROM discovery.round_candidate WHERE round_id=? AND candidate_id=? AND NOT shown AND NOT heard",
+                                                    Long.class,
+                                                    r,
+                                                    candidate)
+                                            != 1) fail("BINDING_MISMATCH");
+                            jdbc.update(
+                                    "UPDATE discovery.round_candidate SET display_rank=?,disposition=? WHERE round_id=? AND candidate_id=?",
+                                    n++,
+                                    chosen.path("verdict").asText().equals("reject")
+                                            ? "INELIGIBLE"
+                                            : "SHORTLISTED",
+                                    r,
+                                    candidate);
+                        }
+                    } else if (kind.equals("SUPPLY_STATUS"))
+                        jdbc.update(
+                                "UPDATE discovery.publication_round SET supply_state=?,reason=? WHERE round_id=?",
+                                payload.path("state").asText(),
+                                payload.path("reason_code").isNull()
+                                        ? null
+                                        : payload.path("reason_code").asText(),
+                                r);
+                    else if (kind.equals("ROUND_REPORT")) {
+                        jdbc.update(
+                                "UPDATE discovery.long_review SET state='INTERRUPTED',revision=revision+1 WHERE round_id=? AND generation_run=? AND state='GENERATING'",
+                                r,
+                                c.execution().budget().run());
+                        if (row.get("run_id").equals(c.execution().budget().run())) {
+                            jdbc.update(
+                                    "UPDATE discovery.card_slot SET state='FAILED',revision=revision+1 WHERE session_id=? AND state='SUPPLYING'",
+                                    s.sessionId());
+                            jdbc.update(
+                                    "UPDATE discovery.publication_round SET supply_state=CASE WHEN supply_state='SUPPLYING' THEN 'PAUSED' ELSE supply_state END WHERE round_id=?",
+                                    r);
+                            jdbc.update(
+                                    "UPDATE discovery.publication_round SET status='INTERRUPTED',reason='execution.interrupted' WHERE round_id=? AND status IN ('WAITING','RUNNING')",
+                                    r);
+                        }
+                    }
+                    var updated = sessions.advanceRevision(s);
+                    if ((kind.equals("CARD_BATCH") && !delivery.path("run_id").isNull())
+                            || kind.equals("ROUND_REPORT")) {
+                        String outcome = (String) round(updated, r).get("status");
+                        queue.complete(
+                                updated,
+                                c.execution().budget().run(),
+                                outcome.equals("SUCCEEDED")
+                                        ? ("BASIC".equals(round(updated, r).get("analysis_mode"))
+                                                ? "DEGRADED"
+                                                : "SUCCEEDED")
+                                        : outcome.equals("PARTIAL")
+                                                ? "DEGRADED"
+                                                : outcome.equals("NO_MATCH")
+                                                        ? "NO_MATCH"
+                                                        : "FAILED");
+                    }
+                    saveState(updated, r);
+                    var result =
+                            JSON.createObjectNode()
+                                    .put(
+                                            "status",
+                                            items.isEmpty() ? "ACCEPTED" : acceptedStatus(items));
+                    result.set("items", items);
+                    result.set("published_candidate_ids", published);
+                    result.set("display_state", display(updated, r));
+                    if (!schema.validDefinition("DeliveryResult", result))
+                        fail("INVALID_DELIVERY_RESULT");
+                    long seq =
+                            jdbc.queryForObject(
+                                    "SELECT coalesce(max(seq),0)+1 FROM discovery.delivery_receipt WHERE execution_id=?",
+                                    Long.class,
+                                    e.execution());
+                    store.saveDelivery(
+                            updated,
+                            id,
+                            r,
+                            e.execution(),
+                            seq,
+                            digest(delivery),
+                            result.toString());
+                    return result.toString();
+                });
+    }
+
+    private String acceptedStatus(JsonNode items) {
+        int accepted = 0;
+        for (var n : items) if (n.path("decision").asText().equals("ACCEPTED")) accepted++;
+        return accepted == 0
+                ? "REJECTED"
+                : accepted == items.size() ? "ACCEPTED" : "PARTIALLY_ACCEPTED";
+    }
+
+    private void publishBatch(
+            Context c,
+            JsonNode delivery,
+            Map<String, Object> row,
+            Map<String, JsonNode> candidates,
+            com.fasterxml.jackson.databind.node.ArrayNode items,
+            com.fasterxml.jackson.databind.node.ArrayNode published) {
+        var e = c.execution().evidence();
+        var s = e.scope();
+        String r = e.round();
+        var payload = delivery.path("payload");
+        boolean publish =
+                !delivery.path("run_id").isNull()
+                        && delivery.path("run_id").asText().equals(row.get("run_id"));
+        if (!delivery.path("run_id").isNull() && !publish) fail("BINDING_MISMATCH");
+        var accepted = new HashMap<String, JsonNode>();
+        var seen = new HashSet<String>();
+        for (var card : payload.path("cards")) {
+            String candidate = card.path("candidate_id").asText();
+            if (!seen.add(candidate)) fail("DUPLICATE_CANDIDATE");
+            String reason = cardFailure(c, payload, card, candidates.get(candidate));
+            items.addObject()
+                    .put("candidate_id", candidate)
+                    .put("decision", reason == null ? "ACCEPTED" : "REJECTED")
+                    .put("reason", reason);
+            if (reason == null) accepted.put(candidate, card);
+        }
+        var order = new ArrayList<String>();
+        if (payload.path("analysis_mode").asText().equals("PERSONALIZED")
+                && !payload.path("cards").isEmpty()) {
+            if (!payload.path("selection").path("status").asText().equals("COMPLETED")
+                    || !budget.completed(
+                            c.execution().budget(),
+                            payload.path("selection").path("invocation_id").asText(),
+                            Set.of("SELECT", "STRUCTURE_REPAIR"))) fail("SELECTION_UNVERIFIED");
+            for (var chosen : payload.path("selection").path("order"))
+                if (!chosen.path("verdict").asText().equals("reject"))
+                    order.add(chosen.path("candidate_id").asText());
+        } else payload.path("screen_order").forEach(n -> order.add(n.asText()));
+        if (new HashSet<>(order).size() != order.size() || !order.containsAll(accepted.keySet()))
+            fail("SELECTION_UNVERIFIED");
+        int rank = 0;
+        for (String candidate : order)
+            if (accepted.containsKey(candidate)) {
+                var card = accepted.get(candidate);
+                var existing =
+                        jdbc.queryForList(
+                                "SELECT content::text FROM discovery.recommendation_card WHERE round_id=? AND candidate_id=?",
+                                String.class,
+                                r,
+                                candidate);
+                if (existing.isEmpty()) {
+                    String basis =
+                            card.path("selection_basis").asText().equals("SELECTED")
+                                    ? "PERSONALIZED"
+                                    : card.path("selection_basis").asText().equals("CURATED")
+                                            ? "CURATED"
+                                            : "BASIC";
+                    store.saveCard(s, r, candidate, card.toString(), basis, "READY");
+                    store.putLongReview(
+                            s,
+                            r,
+                            candidate,
+                            c.execution().budget().run(),
+                            card.path("long_review_state").asText(),
+                            null,
+                            null,
+                            -1);
+                } else if (!same(json(existing.getFirst()), card)) fail("IDEMPOTENCY_CONFLICT");
+                jdbc.update(
+                        "UPDATE discovery.round_candidate SET display_rank=? WHERE round_id=? AND candidate_id=?",
+                        rank++,
+                        r,
+                        candidate);
+            }
+        if (!publish) return;
+        fill(s, r, published);
+        long count =
+                jdbc.queryForObject(
+                        "SELECT count(*) FROM discovery.card_slot WHERE session_id=? AND state='READY'",
+                        Long.class,
+                        s.sessionId());
+        String outcome = payload.path("outcome").asText();
+        String status =
+                count > 0
+                        ? (count < c.target() ? "PARTIAL" : "SUCCEEDED")
+                        : outcome.equals("NO_MATCH") ? "NO_MATCH" : "FAILED";
+        jdbc.update(
+                "UPDATE discovery.publication_round SET status=?,analysis_mode=?,supply_state=?,reason=?,input_issues=?::jsonb WHERE round_id=?",
+                status,
+                payload.path("analysis_mode").asText(),
+                payload.path("pending").path("supply_state").asText(),
+                payload.path("reason_code").isNull() ? null : payload.path("reason_code").asText(),
+                payload.path("input_issues").toString(),
+                r);
+    }
+
+    private void publishLong(Context c, JsonNode payload) {
+        var e = c.execution().evidence();
+        var s = e.scope();
+        String r = e.round(), candidate = payload.path("candidate_id").asText();
+        var reviews =
+                jdbc.queryForList(
+                        "SELECT generation_run,revision,state,content::text FROM discovery.long_review WHERE session_id=? AND round_id=? AND candidate_id=?",
+                        s.sessionId(),
+                        r,
+                        candidate);
+        if (reviews.size() != 1
+                || !reviews.getFirst().get("generation_run").equals(c.execution().budget().run()))
+            fail("STALE_LONG_REVIEW");
+        var old = reviews.getFirst();
+        if (old.get("state").equals("READY")) {
+            if (old.get("content") == null || !same(json((String) old.get("content")), payload))
+                fail("IDEMPOTENCY_CONFLICT");
+            return;
+        }
+        if (payload.path("status").asText().equals("READY")) {
+            if (payload.path("sections").isNull()
+                    || payload.path("citations").isEmpty()
+                    || payload.path("invocation_ids").isEmpty()) fail("ADMISSION_UNVERIFIED");
+            boolean written = false;
+            for (var call : payload.path("invocation_ids"))
+                written |=
+                        budget.completed(
+                                c.execution().budget(),
+                                call.asText(),
+                                Set.of("WRITE_LONG", "LONG_TOOL_TURN", "STRUCTURE_REPAIR"));
+            if (!written) fail("ADMISSION_UNVERIFIED");
+            for (var call : payload.path("invocation_ids"))
+                if (!invocation(c, call)) fail("ADMISSION_UNVERIFIED");
+            for (var citation : payload.path("citations"))
+                if (!anyRead(c, citation.path("read_id").asText(), candidate))
+                    fail("CITATION_INVALID");
+        }
+        store.putLongReview(
+                s,
+                r,
+                candidate,
+                c.execution().budget().run(),
+                payload.path("status").asText(),
+                payload.toString(),
+                payload.path("reason_code").isNull() ? null : payload.path("reason_code").asText(),
+                ((Number) old.get("revision")).longValue());
+    }
+
+    @Override
+    public Context context(DispatchQueue.Context execution) {
+        return tx.write(
+                () -> {
+                    var scope = sessions.refresh(execution.evidence().scope());
+                    sessions.lockActive(scope);
+                    var row = round(scope, execution.evidence().round());
+                    AudienceQuery.Binding binding = null;
+                    if (row.get("audience_binding") != null)
+                        try {
+                            binding =
+                                    JSON.treeToValue(
+                                            json(row.get("audience_binding").toString()),
+                                            AudienceQuery.Binding.class);
+                        } catch (java.io.IOException e) {
+                            throw new IllegalStateException(e);
+                        }
+                    String policy =
+                            json(queue.startPayload(execution.evidence().execution()))
+                                    .path("agent_policy")
+                                    .toString();
+                    return new Context(
+                            execution,
+                            (String) row.get("preference_resolution"),
+                            binding,
+                            policy,
+                            ((Number) row.get("target")).intValue());
+                });
+    }
+}

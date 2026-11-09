@@ -1,6 +1,7 @@
 package io.auralis.session.api;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -34,6 +35,28 @@ public interface SessionStore {
     Optional<View> status(String subjectId);
 
     Optional<Snapshot> current(String subjectId);
+
+    /**
+     * Presentation revisions may advance; identity and revocation epochs may never be refreshed.
+     */
+    default Scope refresh(Scope original) {
+        var latest =
+                current(original.subjectId())
+                        .orElseThrow(
+                                () ->
+                                        new io.auralis.persistence.PersistenceRejected(
+                                                "EXECUTION_GONE"))
+                        .scope();
+        if (!latest.sessionId().equals(original.sessionId())
+                || latest.subjectEpoch() != original.subjectEpoch()
+                || latest.sessionEpoch() != original.sessionEpoch())
+            throw new io.auralis.persistence.PersistenceRejected("EXECUTION_GONE");
+        return latest;
+    }
+
+    long inputRevision(Scope scope);
+
+    List<UUID> heardAlbums(Scope scope);
 
     boolean close(Scope scope, String terminalStatus);
 

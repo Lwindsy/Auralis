@@ -538,22 +538,24 @@ public class PostgresBudgetAuthority implements BudgetAuthority {
                                     charge,
                                     scope);
                         jdbc.update(
-                                "UPDATE discovery.invocation SET settled_microusd=?,outcome=?,input_tokens=?,cached_input_tokens=?,output_tokens=? WHERE id=?",
+                                "UPDATE discovery.invocation SET settled_microusd=?,outcome=?,input_tokens=?,cached_input_tokens=?,output_tokens=?,finish=? WHERE id=?",
                                 charge,
                                 outcome,
                                 nullable(r, "input_tokens"),
                                 nullable(r, "cached_input_tokens"),
                                 nullable(r, "output_tokens"),
+                                r.path("finish").asText(),
                                 id);
                     } else if (charge == null) {
                         // An uncertain/processed call can never be downgraded to definitely unsent.
                         if (!outcome.equals("NOT_PROCESSED"))
                             jdbc.update(
-                                    "UPDATE discovery.invocation SET outcome=?,input_tokens=?,cached_input_tokens=?,output_tokens=? WHERE id=?",
+                                    "UPDATE discovery.invocation SET outcome=?,input_tokens=?,cached_input_tokens=?,output_tokens=?,finish=? WHERE id=?",
                                     outcome,
                                     nullable(r, "input_tokens"),
                                     nullable(r, "cached_input_tokens"),
                                     nullable(r, "output_tokens"),
+                                    r.path("finish").asText(),
                                     id);
                     }
                     jdbc.update(
@@ -585,6 +587,16 @@ public class PostgresBudgetAuthority implements BudgetAuthority {
 
     private static Long nullable(JsonNode r, String key) {
         return r.path(key).isNull() ? null : r.path(key).asLong();
+    }
+
+    @Override
+    public boolean completed(Context c, String invocation) {
+        binding(c);
+        return count(
+                        "SELECT count(*) FROM discovery.invocation WHERE id=? AND scope_id=? AND send_consumed AND outcome='COMPLETED' AND finish='COMPLETE'",
+                        invocation,
+                        c.roundScope())
+                == 1;
     }
 
     @Override
@@ -623,5 +635,16 @@ public class PostgresBudgetAuthority implements BudgetAuthority {
                     }
                     return result(r, "BudgetState");
                 });
+    }
+
+    @Override
+    public boolean completed(Context c, String invocation, Set<String> purposes) {
+        if (!completed(c, invocation)) return false;
+        String purpose =
+                jdbc.queryForObject(
+                        "SELECT purpose FROM discovery.invocation WHERE id=?",
+                        String.class,
+                        invocation);
+        return purposes.contains(purpose);
     }
 }

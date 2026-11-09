@@ -530,7 +530,7 @@ class DiscoveryPersistenceIT {
                             .load();
             flyway.migrate();
             flyway.validate();
-            assertEquals("11", flyway.info().current().getVersion().toString());
+            assertEquals("12", flyway.info().current().getVersion().toString());
             assertEquals(0, flyway.migrate().migrationsExecuted);
             try (var c = DriverManager.getConnection(target, "be005_migrator", PASSWORD);
                     var s = c.createStatement()) {
@@ -1070,7 +1070,16 @@ class DiscoveryPersistenceIT {
                                     jdbc.queryForList(
                                             "EXPLAIN SELECT id FROM discovery.discovery_intent WHERE status='WAITING' ORDER BY accepted_at,id LIMIT 5",
                                             String.class));
-                    assertTrue(fifoPlan.contains("intent_fifo"), fifoPlan);
+                    assertTrue(
+                            fifoPlan.contains("intent_fifo")
+                                    || fifoPlan.contains("one_active_intent"),
+                            fifoPlan);
+                    assertFalse(fifoPlan.contains("Seq Scan on discovery_intent"), fifoPlan);
+                    assertEquals(
+                            1,
+                            jdbc.queryForObject(
+                                    "SELECT count(*) FROM pg_indexes WHERE schemaname='discovery' AND indexname='intent_fifo' AND indexdef LIKE '%(status, accepted_at, id)%'",
+                                    Integer.class));
                     String candidatePlan =
                             String.join(
                                     "\n",

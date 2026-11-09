@@ -95,4 +95,8 @@ public interface DispatchQueue {
 
     /** Publication decides the semantic outcome before physical execution cleanup. */
     void complete(Scope scope, String run, String outcome);
+
+    String startPayload(String execution);
+
+    void bindCandidates(String execution, Map<String, String> verifiedCandidates);
 }

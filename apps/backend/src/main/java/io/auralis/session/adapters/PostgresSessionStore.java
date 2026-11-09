@@ -293,4 +293,22 @@ public class PostgresSessionStore implements SessionStore {
                         scope.subjectEpoch());
         if (inserted != 1) throw new PersistenceRejected("DELETION_BARRIER_REQUIRED");
     }
+
+    @Override
+    public long inputRevision(Scope scope) {
+        lockActive(scope);
+        return jdbc.queryForObject(
+                "SELECT input_revision FROM discovery.session WHERE id=?",
+                Long.class,
+                scope.sessionId());
+    }
+
+    @Override
+    public java.util.List<UUID> heardAlbums(Scope scope) {
+        lockActive(scope);
+        return jdbc.queryForList(
+                "SELECT release_group_id FROM discovery.heard_album WHERE subject_id=?",
+                UUID.class,
+                scope.subjectId());
+    }
 }
