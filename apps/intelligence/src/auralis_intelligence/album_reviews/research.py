@@ -331,11 +331,7 @@ class ResearchStage:
             if lane == "FOREGROUND"
             else policy["supplement_min_score"]
         )
-        eligible = qualified and (
-            not require_score
-            or output["score"] >= threshold
-            or execution.start["operation"] == "CURATED_REVIEWS"
-        )
+        eligible = qualified and (not require_score or output["score"] >= threshold)
         screening = {
             "candidate_id": dossier.candidate_id,
             "recall_rank": candidate["recall_rank"],

@@ -24,8 +24,9 @@ from .resources import drain
 from .runtime import Execution
 
 
-async def _drain_worker(worker: asyncio.Task, *, cancelled: bool = False):
+async def _drain_worker(worker: asyncio.Future):
     """Keep ownership through cancellation, including while draining a timeout."""
+    cancelled = False
     while not worker.done():
         try:
             await asyncio.shield(worker)
@@ -120,10 +121,7 @@ class RecallStage:
 
     async def _recall(self, execution: Execution, preferences: dict) -> dict:
         execution.ensure_active()
-        if (
-            execution.start["start_mode"] == "CONTINUE"
-            or execution.start["operation"] == "CURATED_REVIEWS"
-        ):
+        if execution.start["start_mode"] == "CONTINUE":
             raise ContractError("RECALL_NOT_ALLOWED")
         require_binding(self.binding, execution.start["recall_binding"])
         if self.min_listeners:
@@ -153,29 +151,21 @@ class RecallStage:
         else:
             # SciPy CPU calls cannot be killed safely. Drain before slot release;
             # never allow a cancelled thread to keep using the next round's slot.
-            worker = asyncio.create_task(
-                execution.scheduler.cpu(self._compute, request)
-                if hasattr(execution.scheduler, "cpu")
-                else asyncio.to_thread(self._compute, request)
-            )
+            worker = asyncio.create_task(execution.scheduler.cpu(self._compute, request))
             try:
                 status, reason, result = await asyncio.wait_for(
                     asyncio.shield(worker),
                     execution.start["agent_policy"]["timing"]["recall_timeout_ms"] / 1000,
                 )
             except asyncio.TimeoutError:
-                if hasattr(execution.scheduler, "cpu"):
-                    worker.cancel()
-                    await drain([worker])
-                else:
-                    await _drain_worker(worker)
+                worker.cancel()
+                # Drain physical CPU work, but retain cancellation arriving during that drain.
+                await _drain_worker(asyncio.gather(worker, return_exceptions=True))
                 status, reason, result = "TIMED_OUT", "recall_timed_out", None
             except asyncio.CancelledError:
-                if hasattr(execution.scheduler, "cpu"):
-                    worker.cancel()
-                    await drain([worker])
-                    raise
-                await _drain_worker(worker, cancelled=True)
+                worker.cancel()
+                await drain([worker])
+                raise
         execution.ensure_active()
         candidates = (
             []

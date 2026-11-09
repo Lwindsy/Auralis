@@ -278,7 +278,6 @@ class RoundPipeline(FirstBatchPipeline):
 
     def reserves(self, execution, work):
         floor = execution.start["agent_policy"]["screening"]["supplement_min_score"]
-        curated = execution.start["operation"] == "CURATED_REVIEWS"
         available = []
         for identifier, result in work.results.items():
             if identifier in work.shown | work.heard | work.existing_ready | set(work.cards):
@@ -297,16 +296,15 @@ class RoundPipeline(FirstBatchPipeline):
             if (
                 result.screening["screen"]["status"] == "OK"
                 and len(result.screening["qualified_read_ids"]) >= 1
-                and (curated or result.screening["screen"]["score"] >= floor)
+                and result.screening["screen"]["score"] >= floor
                 and result.screening["disposition"] in {"RESERVE", "SHORTLISTED", "BELOW_FLOOR"}
             ):
                 available.append(result)
         return sorted(
             available,
             key=lambda result: (
-                (result.screening["recall_rank"],)
-                if curated
-                else (-result.screening["screen"]["score"], result.screening["recall_rank"])
+                -result.screening["screen"]["score"],
+                result.screening["recall_rank"],
             ),
         )
 
@@ -321,7 +319,6 @@ class RoundPipeline(FirstBatchPipeline):
         ):
             eligible = (
                 qualification_only
-                or execution.start["operation"] == "CURATED_REVIEWS"
                 or old.screening["screen"]["score"]
                 >= execution.start["agent_policy"]["screening"]["supplement_min_score"]
             )
@@ -435,33 +432,19 @@ class RoundPipeline(FirstBatchPipeline):
                     )
                 )
                 work.jobs[result.dossier.candidate_id] = WritingJobs(short, previous.long)
-        curated = execution.start["operation"] == "CURATED_REVIEWS"
-        selection_task = (
-            None
-            if curated
-            else execution.spawn(
-                lambda: self.selection.run(
-                    execution,
-                    [result.screening for result in hydrated],
-                    work.preferences,
-                    shown_ids=work.shown | work.heard,
-                    lane=lane,
-                )
+        selection_task = execution.spawn(
+            lambda: self.selection.run(
+                execution,
+                [result.screening for result in hydrated],
+                work.preferences,
+                shown_ids=work.shown | work.heard,
+                lane=lane,
             )
         )
         shorts = await asyncio.gather(
             *(work.jobs[result.dossier.candidate_id].short for result in hydrated)
         )
-        selection = (
-            SelectionResult(
-                {"status": "NOT_RUN", "order": [], "invocation_id": None},
-                "CURATED",
-                [result.dossier.candidate_id for result in hydrated],
-                {},
-            )
-            if curated
-            else await selection_task
-        )
+        selection = await selection_task
         rejected = {
             item["candidate_id"]
             for item in selection.selection["order"]
@@ -482,9 +465,7 @@ class RoundPipeline(FirstBatchPipeline):
                 continue
             card = {
                 "candidate_id": identifier,
-                "selection_basis": "CURATED"
-                if curated
-                else "SELECTED"
+                "selection_basis": "SELECTED"
                 if selection.analysis_mode == "PERSONALIZED"
                 else "SCREEN_ONLY",
                 "short_review": short.review,
@@ -532,8 +513,6 @@ class RoundPipeline(FirstBatchPipeline):
             run_id=execution.start["run_id"] if lane == "FOREGROUND" and publish else None,
         )
         self.display_result(work, receipt)
-        if curated:
-            return
         order = (
             selection.selection["order"]
             if selection.analysis_mode == "PERSONALIZED"

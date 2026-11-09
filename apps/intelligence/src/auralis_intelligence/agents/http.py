@@ -4,6 +4,7 @@ import asyncio
 import hmac
 import ipaddress
 import json
+import logging
 from hashlib import sha256
 from typing import Any, Callable
 from urllib.parse import quote, urlsplit
@@ -185,7 +186,10 @@ def service_middleware(token: str, audience: str):
             return _error("INVALID_PAYLOAD", request["request_id"])
         except ControlUnavailable:
             return _error("DEPENDENCY_UNAVAILABLE", request["request_id"])
-        except Exception:
+        except Exception as error:
+            logging.getLogger(__name__).error(
+                "AURALIS_AGENT_REQUEST_FAILED %s", type(error).__name__
+            )
             return _error("DEPENDENCY_UNAVAILABLE", request["request_id"])
 
     return boundary

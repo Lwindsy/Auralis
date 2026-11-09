@@ -28,7 +28,7 @@ class OnlineBootstrapTest {
                                             "schema_version",
                                             "intel.v1",
                                             "contract_revision",
-                                            "0.30",
+                                            "0.31",
                                             "request_id",
                                             "probe",
                                             "trace_context",
@@ -81,7 +81,7 @@ class OnlineBootstrapTest {
         p.setProductOrigin("http://127.0.0.1:8080");
         p.setPythonUrl("http://127.0.0.1:1");
         p.setServiceToken(TOKEN);
-        p.setContractRevision("0.30");
+        p.setContractRevision("0.31");
         p.setSubjectSecret("test-subject-secret-abcdefghijklmnopqrstuvwxyz0123456789");
         p.setAllowInsecureCookie(true);
         return p;
@@ -89,7 +89,7 @@ class OnlineBootstrapTest {
 
     @Test
     void configurationRejectsMissingSecretsForeignAddressesAndVersionsWithoutEchoing() {
-        properties().validate("0.30");
+        properties().validate("0.31");
         for (var field :
                 java.util.List.of(
                         "password", "token", "python", "origin", "database", "revision")) {
@@ -104,7 +104,7 @@ class OnlineBootstrapTest {
             }
             assertEquals(
                     "INVALID_ONLINE_CONFIGURATION",
-                    assertThrows(IllegalArgumentException.class, () -> p.validate("0.30"))
+                    assertThrows(IllegalArgumentException.class, () -> p.validate("0.31"))
                             .getMessage());
         }
     }
@@ -191,5 +191,18 @@ class OnlineBootstrapTest {
         } finally {
             server.stop(0);
         }
+    }
+
+    @Test
+    void startupDiagnosticsRetainCategoryWithoutPrivateExceptionText() {
+        assertEquals(
+                "AURALIS_STARTUP_FAILED IllegalArgumentException",
+                OnlineApplication.startupFailure(
+                        new RuntimeException(
+                                "private-outer", new IllegalArgumentException("private-secret"))));
+        assertEquals(
+                "AURALIS_STARTUP_FAILED SQLException",
+                OnlineApplication.startupFailure(
+                        new java.sql.SQLException("private-database-url")));
     }
 }

@@ -356,7 +356,6 @@ public class Recommendations {
                             publication.continuation(
                                     scope, round.id(), operation, targets, digest(excludes))));
         else out.putNull("continuation");
-        out.putNull("curated_candidates");
         out.put("payload_digest", contentDigest(out, "payload_digest"));
         if (!schema.validDefinition("RoundStart", out)) fail("INVALID_EXECUTION_CONFIGURATION");
         return out;

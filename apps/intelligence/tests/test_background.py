@@ -822,7 +822,7 @@ def test_slow_usage_control_does_not_hold_physical_resources_forever(tmp_path):
             )
             await asyncio.wait_for(execution.cleanup(), 1)
             assert len(sent) == 5 and len(attempts) == len(closed) <= 2
-            assert execution.slot_released and not execution.scheduler.running
+            assert execution.slot_released and not execution.scheduler.service.running
             assert (
                 harness.control.sessions[
                     harness.request["budget"]["session_budget_scope_id"]

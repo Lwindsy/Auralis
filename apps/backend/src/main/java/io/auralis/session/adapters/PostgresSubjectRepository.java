@@ -237,7 +237,7 @@ public class PostgresSubjectRepository implements SubjectRepository {
     public void enqueueSubject(String subject, long epoch, Instant at) {
         ShortTransactions.requireWrite();
         jdbc.update(
-                "INSERT INTO discovery.deletion_job(id,subject_id,barrier_epoch,state,step,next_attempt_at) VALUES (?,?,?,'PENDING','WAIT_RELEASE',?) ON CONFLICT DO NOTHING",
+                "INSERT INTO discovery.deletion_job(id,subject_id,barrier_epoch,next_attempt_at) VALUES (?,?,?,?) ON CONFLICT DO NOTHING",
                 UUID.randomUUID().toString(),
                 subject,
                 epoch,
@@ -248,7 +248,7 @@ public class PostgresSubjectRepository implements SubjectRepository {
     public void enqueueSession(Session session, Instant at) {
         ShortTransactions.requireWrite();
         jdbc.update(
-                "INSERT INTO discovery.deletion_job(id,subject_id,session_id,barrier_epoch,state,step,next_attempt_at) VALUES (?,?,?,?,'PENDING','WAIT_RELEASE',?) ON CONFLICT DO NOTHING",
+                "INSERT INTO discovery.deletion_job(id,subject_id,session_id,barrier_epoch,next_attempt_at) VALUES (?,?,?,?,?) ON CONFLICT DO NOTHING",
                 UUID.randomUUID().toString(),
                 session.subject(),
                 session.id(),
@@ -279,7 +279,7 @@ public class PostgresSubjectRepository implements SubjectRepository {
     public Optional<Job> nextJob(Instant now) {
         return jdbc
                 .query(
-                        "SELECT id,subject_id,session_id,barrier_epoch FROM discovery.deletion_job WHERE state<>'COMPLETED' AND next_attempt_at<=? ORDER BY next_attempt_at,id LIMIT 1 FOR UPDATE SKIP LOCKED",
+                        "SELECT id,subject_id,session_id,barrier_epoch FROM discovery.deletion_job WHERE next_attempt_at<=? ORDER BY next_attempt_at,id LIMIT 1 FOR UPDATE SKIP LOCKED",
                         (r, n) ->
                                 new Job(
                                         r.getString(1),

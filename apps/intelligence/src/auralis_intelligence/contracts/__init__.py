@@ -59,7 +59,7 @@ def envelope(
 ) -> dict[str, Any]:
     result = {
         "schema_version": "intel.v1",
-        "contract_revision": "0.30",
+        "contract_revision": "0.31",
         "request_id": request_id,
         "trace_context": {"trace_id": trace_id, "span_id": span_id},
         "message_type": name,
@@ -219,8 +219,6 @@ def _semantic(name: str, value: Any) -> None:
             raise ContractError("MISSING_PREFERENCES")
         if value["foreground"] and (value["run_id"] is None or value["run_kind"] is None):
             raise ContractError("MISSING_RUN")
-        if (value["operation"] == "CURATED_REVIEWS") != (value["curated_candidates"] is not None):
-            raise ContractError("INVALID_CURATED_INPUT")
         if digest(value["input"]["exclusions"]) != value["input"]["exclusion_digest"]:
             raise ContractError("BINDING_MISMATCH")
         limits = value["budget"]["limits"]

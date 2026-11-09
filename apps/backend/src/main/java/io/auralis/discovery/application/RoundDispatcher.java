@@ -10,6 +10,8 @@ import java.time.Instant;
 
 /** One coordinator loop. Network calls never participate in a database transaction. */
 public final class RoundDispatcher {
+    private static final org.slf4j.Logger LOG =
+            org.slf4j.LoggerFactory.getLogger(RoundDispatcher.class);
     private final DispatchQueue queue;
     private final PythonClient python;
     private final DispatchQueue.Limits limits;
@@ -133,6 +135,7 @@ public final class RoundDispatcher {
                             if (next != null) send(next);
                         }
                     } catch (RuntimeException failure) {
+                        LOG.warn("AURALIS_DISPATCH_FAILED {}", failure.getClass().getSimpleName());
                         // A failed observation cannot authorize another execution or reset a paid
                         // attempt.
                         queue.unavailable(boot);

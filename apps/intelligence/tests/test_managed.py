@@ -42,3 +42,54 @@ web.run_app(app, host='127.0.0.1', port=0, print=None, access_log=None)
             process.wait(timeout=5)
         process.stdout.close()
         process.stderr.close()
+
+
+def test_startup_diagnostics_distinguish_failures_without_exposing_details(tmp_path):
+    env = dict(os.environ, PYTHONPATH=str(Path(__file__).parents[1] / "src"))
+    missing = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "auralis_intelligence.agents",
+            "serve",
+            "--config",
+            str(tmp_path / "private-config.json"),
+        ],
+        capture_output=True,
+        text=True,
+        env=env,
+        timeout=10,
+    )
+    assert missing.returncode == 1
+    assert missing.stderr.strip() == "AURALIS_AGENT_STARTUP_FAILED FileNotFoundError"
+    script = """
+import logging, sys
+from auralis_intelligence.agents import __main__ as cli
+sys.argv = ['auralis-agent', 'serve', '--config', 'unused']
+def fail(args):
+    logging.getLogger('httpx').error('private-provider-body')
+    logging.getLogger('auralis_intelligence.agents').warning('SERVICE_CONFIGURATION_FAILED')
+    raise ValueError(sys.argv_saved)
+cli.serve = fail
+sys.argv_saved = sys.argv_original
+raise SystemExit(cli.main())
+"""
+    for detail, expected in [
+        ("MODEL_QUOTA_NOT_CONFIGURED", "MODEL_QUOTA_NOT_CONFIGURED"),
+        ("private-secret", "ValueError"),
+    ]:
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                "import sys; sys.argv_original = " + repr(detail) + "\n" + script,
+            ],
+            capture_output=True,
+            text=True,
+            env=env,
+            timeout=10,
+        )
+        assert result.returncode == 1
+        assert "AURALIS_AGENT_STARTUP_FAILED " + expected in result.stderr
+        assert "SERVICE_CONFIGURATION_FAILED" in result.stderr
+        assert "private-" not in result.stderr

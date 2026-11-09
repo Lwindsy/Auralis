@@ -430,7 +430,7 @@ def test_web_timeout_and_cancel_release_resources(cancel):
                 await task
         else:
             assert (await task).receipt["failure_reason"] == "READ_TIMEOUT"
-        assert closed.is_set() and not execution.scheduler.running
+        assert closed.is_set() and not execution.scheduler.service.running
         await execution.cleanup()
 
     asyncio.run(run())

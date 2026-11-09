@@ -160,7 +160,7 @@ class JavaControlDouble:
             bundle = deepcopy(continuation["candidate_bundle"])
             display = deepcopy(continuation["display_state"])
         else:
-            bundle = deepcopy(start.get("curated_candidates"))
+            bundle = None
             display = {
                 "display_seq": 0,
                 "shown_candidate_ids": [],
@@ -946,8 +946,7 @@ class JavaControlDouble:
                 ):
                     reason = "ADMISSION_UNVERIFIED"
                 elif (
-                    entry["start"]["operation"] != "CURATED_REVIEWS"
-                    and card["admission"]["screen_score"]
+                    card["admission"]["screen_score"]
                     < entry["start"]["agent_policy"]["screening"][
                         "supplement_min_score"
                         if payload["batch_kind"] == "SUPPLY"

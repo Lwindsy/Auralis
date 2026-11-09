@@ -135,7 +135,7 @@ abstract class ProductApiFixture extends PublicationFixture {
         props.put("auralis.product-origin", origin);
         props.put("auralis.python-url", peer.url());
         props.put("auralis.service-token", SyntheticExecutionPeer.TOKEN);
-        props.put("auralis.contract-revision", "0.30");
+        props.put("auralis.contract-revision", "0.31");
         props.put(
                 "auralis.subject-secret",
                 "be003-subject-secret-abcdefghijklmnopqrstuvwxyz0123456789");

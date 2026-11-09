@@ -23,8 +23,13 @@ public class OnlineApplication {
             System.out.println("AURALIS_ONLINE_STARTED");
         } catch (Exception failure) {
             // Framework exception chains can contain database URLs and rejected credentials.
-            System.err.println("AURALIS_STARTUP_FAILED");
+            System.err.println(startupFailure(failure));
             System.exit(1);
         }
+    }
+
+    static String startupFailure(Throwable failure) {
+        while (failure.getCause() != null) failure = failure.getCause();
+        return "AURALIS_STARTUP_FAILED " + failure.getClass().getSimpleName();
     }
 }

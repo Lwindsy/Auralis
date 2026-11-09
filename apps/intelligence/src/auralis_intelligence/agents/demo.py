@@ -382,7 +382,6 @@ class DemoHarness:
             },
             "capabilities": ["web_search.v1", "web_read.v1"],
             "continuation": None,
-            "curated_candidates": None,
         }
         result["payload_digest"] = content_digest(result)
         return result
