@@ -636,7 +636,8 @@ public class PostgresPublicationAuthority implements PublicationAuthority {
     @Override
     public String operate(
             Scope s, String r, String command, String operation, String slotId, Supply supply) {
-        if (!Set.of("HEARD", "REPLACE", "BATCH").contains(operation)) fail("INVALID_OPERATION");
+        if (!Set.of("HEARD", "REPLACE", "BATCH", "SUPPLY").contains(operation))
+            fail("INVALID_OPERATION");
         var request =
                 JSON.createObjectNode()
                         .put("round", r)
@@ -654,8 +655,9 @@ public class PostgresPublicationAuthority implements PublicationAuthority {
                     round(s, r);
                     var targets =
                             jdbc.queryForList(
-                                    "SELECT slot_id,candidate_id,round_id,revision,state FROM discovery.card_slot WHERE session_id=? AND (?='BATCH' OR slot_id=?) AND (?<>'BATCH' OR state='READY') ORDER BY slot_id",
+                                    "SELECT slot_id,candidate_id,round_id,revision,state FROM discovery.card_slot WHERE session_id=? AND ((?='SUPPLY' AND state='EMPTY') OR ((?='BATCH' OR slot_id=?) AND (?<>'BATCH' OR state='READY'))) ORDER BY slot_id",
                                     s.sessionId(),
+                                    operation,
                                     operation,
                                     slotId,
                                     operation);
@@ -664,7 +666,9 @@ public class PostgresPublicationAuthority implements PublicationAuthority {
                     var replacements = new LinkedHashMap<String, String>();
                     var empty = new TreeSet<String>();
                     for (var slot : targets) {
-                        if (!slot.get("state").equals("READY")) fail("REVISION_CONFLICT");
+                        if (!slot.get("state")
+                                .equals(operation.equals("SUPPLY") ? "EMPTY" : "READY"))
+                            fail("REVISION_CONFLICT");
                         String id = (String) slot.get("candidate_id");
                         if (operation.equals("HEARD")) {
                             sessions.recordHeard(s, UUID.fromString(id), clock.instant());
@@ -954,9 +958,27 @@ public class PostgresPublicationAuthority implements PublicationAuthority {
                                 c.execution().budget().run());
                         if (currentRound
                                 && row.get("run_id").equals(c.execution().budget().run())) {
-                            jdbc.update(
-                                    "UPDATE discovery.card_slot SET state='FAILED',revision=revision+1 WHERE session_id=? AND state='SUPPLYING'",
-                                    s.sessionId());
+                            boolean exhausted =
+                                    "R_EXHAUSTED".equals(round(s, r).get("supply_state"))
+                                            && payload.path("close_reason")
+                                                    .asText()
+                                                    .equals("DRAINED");
+                            int unfinished =
+                                    jdbc.update(
+                                            "UPDATE discovery.card_slot SET state=?,revision=revision+1 WHERE session_id=? AND state='SUPPLYING'",
+                                            exhausted ? "EMPTY" : "FAILED",
+                                            s.sessionId());
+                            if (unfinished > 0 && exhausted) {
+                                long ready =
+                                        jdbc.queryForObject(
+                                                "SELECT count(*) FROM discovery.card_slot WHERE session_id=? AND state='READY'",
+                                                Long.class,
+                                                s.sessionId());
+                                jdbc.update(
+                                        "UPDATE discovery.publication_round SET status=?,reason=NULL WHERE round_id=?",
+                                        ready > 0 ? "PARTIAL" : "NO_MATCH",
+                                        r);
+                            }
                             jdbc.update(
                                     "UPDATE discovery.publication_round SET supply_state=CASE WHEN supply_state='SUPPLYING' THEN 'PAUSED' ELSE supply_state END WHERE round_id=?",
                                     r);

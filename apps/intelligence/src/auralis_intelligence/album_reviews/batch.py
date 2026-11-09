@@ -96,15 +96,23 @@ class BatchResearchStage:
         return await asyncio.shield(self.task)
 
     async def _evaluate(self, execution, preferences):
+        self.order = []
         minimum = execution.start["agent_policy"].get("audience_min_listeners")
         if minimum is None:
             raise ContractError("AUDIENCE_POLICY_REQUIRED")
         excluded = (
             execution.work.shown | execution.work.heard if execution.work is not None else set()
         )
+        if execution.work is not None:
+            excluded |= {
+                identifier
+                for identifier, result in execution.work.results.items()
+                if result.screening["disposition"] in {"INELIGIBLE", "BELOW_FLOOR"}
+            }
         candidates = [
             c for c in execution.candidates.values() if c["release_group_id"] not in excluded
         ]
+        searched = set()
         if getattr(self.evidence, "cold", False):
             eligible_sources = [
                 c
@@ -126,6 +134,7 @@ class BatchResearchStage:
                     c for c in eligible_sources if c["release_group_id"] not in chosen_ids
                 ][: self.candidate_limit - len(searchable)]
             await self.evidence.prepare(execution, searchable, self.tools)
+            searched = {c["release_group_id"] for c in searchable}
         results, prepared, audiences = {}, [], {}
         audience_passed = 0
         for candidate in candidates:
@@ -147,6 +156,8 @@ class BatchResearchStage:
             else:
                 audience_passed += 1
                 sources = self.evidence.sources(identifier)
+                if getattr(self.evidence, "cold", False) and identifier not in searched:
+                    reason = "NOT_SELECTED"
                 if sources:
                     reason = "NOT_SELECTED"
                 if sources and len(prepared) < self.candidate_limit:

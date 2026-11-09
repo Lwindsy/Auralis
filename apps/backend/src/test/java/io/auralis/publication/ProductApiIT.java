@@ -11,6 +11,48 @@ import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @EnabledIfEnvironmentVariable(named = "AURALIS_TEST_POSTGRES_URL", matches = ".+")
 class ProductApiIT extends ProductApiFixture {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(ints = {1, 5})
+    void exhaustedContinuationContinuesThePendingBatchIntoANewRound(int sequence) throws Exception {
+        var b = browser();
+        b.submit(userInput(""), "drained-initial");
+        b.awaitState(s -> s.path("status").asText().equals("SUCCEEDED"));
+        String originalRound = b.state.path("round_id").asText();
+        for (var job : peer.jobs.values()) job.done.get(10, java.util.concurrent.TimeUnit.SECONDS);
+        jdbc.update(
+                "UPDATE discovery.publication_round SET supply_state='SUFFICIENT' WHERE round_id=?",
+                originalRound);
+        jdbc.update(
+                "UPDATE discovery.recommendation_round SET round_seq=? WHERE id=?",
+                sequence,
+                originalRound);
+        peer.exhaustSupplyNext.set(true);
+        b.refresh();
+        var response = b.action("next-batch", null, "drained-batch");
+        assertEquals(202, response.status(), response.body().toString());
+        if (sequence == 5) {
+            b.awaitState(s -> s.path("supply_state").asText().equals("FINAL_EXHAUSTED"));
+            assertEquals("NO_MATCH", b.state.path("status").asText());
+            assertEquals(originalRound, b.state.path("round_id").asText());
+            assertTrue(
+                    java.util.stream.StreamSupport.stream(
+                                    b.state.path("slots").spliterator(), false)
+                            .allMatch(slot -> slot.path("status").asText().equals("EMPTY")));
+            assertTrue(peer.failures.isEmpty(), peer.failures.toString());
+            return;
+        }
+        b.awaitState(
+                s ->
+                        !s.path("round_id").asText().equals(originalRound)
+                                && s.path("status").asText().equals("SUCCEEDED"));
+        assertEquals(
+                2,
+                java.util.stream.StreamSupport.stream(b.state.path("slots").spliterator(), false)
+                        .filter(slot -> slot.path("status").asText().equals("READY"))
+                        .count());
+        assertTrue(peer.failures.isEmpty(), peer.failures.toString());
+    }
+
     @Test
     void explicitThresholdAlsoFiltersTheOtherwiseExemptCuratedPool() throws Exception {
         var b = browser();

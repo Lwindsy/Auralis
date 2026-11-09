@@ -860,61 +860,118 @@ public class Recommendations {
     }
 
     public String deliver(String execution, String body) {
-        return tx.write(
-                () -> {
-                    discovery.lockRuntime();
-                    var c = queue.context(execution);
-                    var round = discovery.roundInfo(c.evidence().scope(), c.evidence().round());
-                    var config = (ObjectNode) json(round.configuration());
-                    var message = parse(body, "Delivery");
-                    var start = json(queue.startPayload(execution));
-                    boolean handoff =
-                            config.path("curated_pending").asBoolean()
-                                    && message.path("kind").asText().equals("ROUND_REPORT")
-                                    && message.path("payload")
-                                            .path("trigger_reason")
-                                            .asText()
-                                            .equals("JAVA_CURATED");
-                    if (handoff) queue.complete(c.evidence().scope(), c.budget().run(), "DEGRADED");
-                    String result = publication.deliver(publication.context(c), body);
-                    var published = json(result).path("published_candidate_ids");
-                    if (!published.isEmpty()) {
-                        var ids = strings(published);
-                        autoLong(
-                                sessions.refresh(c.evidence().scope()),
-                                round.id(),
-                                ids,
-                                "published:" + message.path("delivery_id").asText(),
-                                Instant.parse(
-                                                start.path("deadlines")
-                                                        .path("round_deadline_at")
-                                                        .asText())
-                                        .minusSeconds(limits.executionSeconds()));
-                    }
-                    if (handoff) {
+        String deliveryResult =
+                tx.write(
+                        () -> {
+                            discovery.lockRuntime();
+                            var c = queue.context(execution);
+                            var round =
+                                    discovery.roundInfo(c.evidence().scope(), c.evidence().round());
+                            var config = (ObjectNode) json(round.configuration());
+                            var message = parse(body, "Delivery");
+                            var start = json(queue.startPayload(execution));
+                            boolean handoff =
+                                    config.path("curated_pending").asBoolean()
+                                            && message.path("kind").asText().equals("ROUND_REPORT")
+                                            && message.path("payload")
+                                                    .path("trigger_reason")
+                                                    .asText()
+                                                    .equals("JAVA_CURATED");
+                            if (handoff)
+                                queue.complete(c.evidence().scope(), c.budget().run(), "DEGRADED");
+                            String result = publication.deliver(publication.context(c), body);
+                            var published = json(result).path("published_candidate_ids");
+                            if (!published.isEmpty()) {
+                                var ids = strings(published);
+                                autoLong(
+                                        sessions.refresh(c.evidence().scope()),
+                                        round.id(),
+                                        ids,
+                                        "published:" + message.path("delivery_id").asText(),
+                                        Instant.parse(
+                                                        start.path("deadlines")
+                                                                .path("round_deadline_at")
+                                                                .asText())
+                                                .minusSeconds(limits.executionSeconds()));
+                            }
+                            if (handoff) {
+                                var scope = sessions.refresh(c.evidence().scope());
+                                config.put("curated_pending", false);
+                                discovery.configureRound(scope, round.id(), config.toString());
+                                var fixed =
+                                        convert(
+                                                config.path("curated_content"),
+                                                CuratedRecommendations.Batch.class);
+                                config.remove("curated_content");
+                                config.put("curated_prepared", true)
+                                        .put("curated_revision", fixed.revision());
+                                discovery.configureRound(scope, round.id(), config.toString());
+                                publication.publishCurated(
+                                        scope,
+                                        round.id(),
+                                        c.budget().run(),
+                                        config.path("settings")
+                                                .path("selection_config")
+                                                .path("recommendation_target_count")
+                                                .asInt(),
+                                        fixed);
+                            }
+                            return result;
+                        });
+        if (json(body).path("kind").asText().equals("ROUND_REPORT")) {
+            tx.write(
+                    () -> {
+                        discovery.lockRuntime();
+                        var c = queue.context(execution);
                         var scope = sessions.refresh(c.evidence().scope());
-                        config.put("curated_pending", false);
-                        discovery.configureRound(scope, round.id(), config.toString());
-                        var fixed =
-                                convert(
-                                        config.path("curated_content"),
-                                        CuratedRecommendations.Batch.class);
-                        config.remove("curated_content");
-                        config.put("curated_prepared", true)
-                                .put("curated_revision", fixed.revision());
-                        discovery.configureRound(scope, round.id(), config.toString());
-                        publication.publishCurated(
-                                scope,
-                                round.id(),
-                                c.budget().run(),
-                                config.path("settings")
-                                        .path("selection_config")
-                                        .path("recommendation_target_count")
-                                        .asInt(),
-                                fixed);
-                    }
-                    return result;
-                });
+                        var round = discovery.roundInfo(scope, c.evidence().round());
+                        var start = json(queue.startPayload(execution));
+                        var state = json(publication.state(scope, round.id()));
+                        boolean empty =
+                                java.util.stream.StreamSupport.stream(
+                                                state.path("slots").spliterator(), false)
+                                        .anyMatch(
+                                                slot ->
+                                                        slot.path("status")
+                                                                .asText()
+                                                                .equals("EMPTY"));
+                        if (start.path("start_mode").asText().equals("CONTINUE")
+                                && start.path("run_kind").asText().equals("SUPPLY")
+                                && discovery
+                                        .latestRound(scope)
+                                        .orElseThrow()
+                                        .id()
+                                        .equals(round.id())
+                                && state.path("run_id").asText().equals(c.budget().run())
+                                && state.path("supply_state").asText().equals("R_EXHAUSTED")
+                                && json(body)
+                                        .path("payload")
+                                        .path("close_reason")
+                                        .asText()
+                                        .equals("DRAINED")
+                                && empty) {
+                            publication.operate(
+                                    scope,
+                                    round.id(),
+                                    scopeId("drained", json(body).path("delivery_id").asText()),
+                                    "SUPPLY",
+                                    null,
+                                    (s, r, slots) ->
+                                            supply(
+                                                    s,
+                                                    r,
+                                                    "SUPPLY",
+                                                    scopeId(
+                                                            "next-round",
+                                                            json(body)
+                                                                    .path("delivery_id")
+                                                                    .asText()),
+                                                    slots));
+                        }
+                        return null;
+                    });
+        }
+        return deliveryResult;
     }
 
     public String prepareExecution(Scope scope, String text, Set<String> targets) {

@@ -31,6 +31,7 @@ public interface PublicationAuthority {
 
     String state(Scope scope, String round);
 
+    /** SUPPLY resumes empty slots internally; public card commands remain HEARD/REPLACE/BATCH. */
     String operate(
             Scope scope,
             String round,

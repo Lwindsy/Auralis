@@ -28,6 +28,7 @@ final class SyntheticExecutionPeer implements AutoCloseable {
     final AtomicInteger sends = new AtomicInteger(), modelCalls = new AtomicInteger();
     final AtomicBoolean basicNext = new AtomicBoolean();
     final AtomicBoolean failLongNext = new AtomicBoolean();
+    final AtomicBoolean exhaustSupplyNext = new AtomicBoolean();
     volatile boolean hold, holdReports;
     volatile long longDelayMs = 600;
     volatile int recallLimit = Integer.MAX_VALUE;
@@ -626,6 +627,20 @@ final class SyntheticExecutionPeer implements AutoCloseable {
                                     .path("recommendation_target_count")
                                     .asInt();
                     fresh = new ArrayList<>(fresh.subList(0, Math.min(target, fresh.size())));
+                    if (exhaustSupplyNext.compareAndSet(true, false)) {
+                        fresh.clear();
+                        var exhausted =
+                                JSON.createObjectNode()
+                                        .put("state", "R_EXHAUSTED")
+                                        .putNull("reason_code");
+                        exhausted
+                                .putObject("counts")
+                                .put("unresearched", 0)
+                                .put("reserve", 0)
+                                .put("in_flight", 0)
+                                .put("ready_unshown_known", 0);
+                        deliver(j, "SUPPLY_STATUS", exhausted, null);
+                    }
                     if (!fresh.isEmpty()) {
                         for (String id : fresh) if (!j.reads.containsKey(id)) read(j, id);
                         String screen = call(j, "SCREEN", null),

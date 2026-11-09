@@ -211,7 +211,10 @@ class FirstBatchPipeline:
                     task.cancel()
             await asyncio.gather(*tasks, return_exceptions=True)
         work.cursor = (
-            0 if getattr(self.research, "prepared_decisions", False) else len(work.candidates)
+            0
+            if getattr(self.research, "prepared_decisions", False)
+            and any(r.screening["disposition"] == "DEFERRED" for r in work.results.values())
+            else len(work.candidates)
         )
         eligible = [result for result in work.results.values() if self.eligible_now(result)]
         eligible.sort(

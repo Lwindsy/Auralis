@@ -34,9 +34,12 @@ def test_generic_route_never_swallows_specific_constraints():
 
 
 @pytest.mark.parametrize("minimum", [10, 50, 500])
-@pytest.mark.parametrize("background,insufficient", [(False, 0), (True, 0), (False, 2), (False, 4)])
+@pytest.mark.parametrize(
+    "background,insufficient,cold",
+    [(False, 0, False), (True, 0, False), (False, 2, False), (False, 4, False), (True, 0, True)],
+)
 def test_batch_one_call_and_audience_verified_at_publication(
-    tmp_path, background, insufficient, minimum
+    tmp_path, background, insufficient, cold, minimum
 ):
     async def run():
         harness = DemoHarness(root=tmp_path, scenario="genre", r=5, k=5, n=3)
@@ -64,8 +67,41 @@ def test_batch_one_call_and_audience_verified_at_publication(
                     {"url": f"https://{host}.example/{identifier}"} for host in ["one", "two"]
                 ]
             )
+            if cold:
+
+                class ColdWindow:
+                    cold = True
+                    failed_ids = set()
+
+                    def __init__(self):
+                        self.prepared = set()
+
+                    async def prepare(self, execution, candidates, tools):
+                        self.prepared = {c["release_group_id"] for c in candidates}
+
+                    def sources(self, identifier):
+                        return (
+                            [
+                                {"url": f"https://{host}.example/{identifier}"}
+                                for host in ["one", "two"]
+                            ]
+                            if identifier in self.prepared
+                            else []
+                        )
+
+                    def take_reads(self, identifier):
+                        return None
+
+                    async def discard_unselected(self, selected):
+                        pass
+
+                evidence = ColdWindow()
             batch = BatchResearchStage(
-                harness.model, harness.tools, evidence, genre_names={"jazz": "爵士"}
+                harness.model,
+                harness.tools,
+                evidence,
+                genre_names={"jazz": "爵士"},
+                candidate_limit=3 if cold else 8,
             )
             writer = BatchWriteStage(harness.model, harness.tools, batch=batch)
             selector = BatchSelectStage(harness.model, batch=batch)
@@ -116,6 +152,14 @@ def test_batch_one_call_and_audience_verified_at_publication(
                 entry = harness.control.executions[execution.id]
                 first_ids = set(entry["display"]["shown_candidate_ids"])
                 assert seen == ["batch_v3"]
+                if cold:
+                    deferred = [
+                        screening
+                        for (round_id, identifier), screening in harness.control.screenings.items()
+                        if identifier not in first_ids and identifier != "album-1"
+                    ]
+                    assert len(deferred) == 1
+                    assert deferred[0]["disposition"] == "DEFERRED"
                 request = harness.control.continuation(
                     execution.id,
                     new_execution_id="fast-continue",
@@ -148,6 +192,13 @@ def test_batch_one_call_and_audience_verified_at_publication(
                     d["kind"] == "LONG_REVIEW" for d in harness.control.deliveries.values()
                 )
             assert execution.status == "CLOSED", execution.error_code
+            if background:
+                supply_states = [
+                    d["payload"]["state"]
+                    for d in harness.control.deliveries.values()
+                    if d["kind"] == "SUPPLY_STATUS"
+                ]
+                assert supply_states[-1] == "R_EXHAUSTED"
             assert seen == (["batch_v3", "batch_v3"] if background else ["batch_v3"])
             assert any(
                 call["plan"]["purpose"] == "SELECT" for call in harness.control.invocations.values()
