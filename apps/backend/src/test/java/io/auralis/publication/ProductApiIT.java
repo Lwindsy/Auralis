@@ -12,6 +12,55 @@ import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 @EnabledIfEnvironmentVariable(named = "AURALIS_TEST_POSTGRES_URL", matches = ".+")
 class ProductApiIT extends ProductApiFixture {
     @Test
+    void explicitThresholdAlsoFiltersTheOtherwiseExemptCuratedPool() throws Exception {
+        var b = browser();
+        var input = userInput("").put("audience_min_listeners", 500);
+        input.putArray("liked_genres");
+        input.putArray("disliked_genre_ids").add(ROCK);
+        assertTrue(Set.of(200, 202).contains(b.submit(input, "curated-500").status()));
+        b.awaitState(s -> s.path("status").asText().equals("NO_MATCH"));
+        input.put("audience_min_listeners", 75);
+        assertTrue(Set.of(200, 202).contains(b.submit(input, "curated-75").status()));
+        b.awaitState(s -> s.path("status").asText().equals("SUCCEEDED"));
+        assertEquals("CURATED", b.state.path("analysis_mode").asText());
+    }
+
+    @Test
+    void requestedThresholdSurvivesRestoreAndCanBeChanged() throws Exception {
+        var b = browser();
+        var input = userInput("").put("audience_min_listeners", 75);
+        assertEquals(202, b.submit(input, "threshold-75").status());
+        b.awaitState(s -> s.path("status").asText().equals("SUCCEEDED"));
+        b.connect();
+        assertEquals(75, b.state.path("editable_input").path("audience_min_listeners").asInt());
+        input.put("audience_min_listeners", 500);
+        assertEquals(202, b.submit(input, "threshold-500").status());
+        b.awaitState(s -> s.path("status").asText().equals("NO_MATCH"));
+        assertEquals(500, b.state.path("editable_input").path("audience_min_listeners").asInt());
+        for (int invalid : new int[] {0, -1}) {
+            input.put("audience_min_listeners", invalid);
+            assertEquals(400, b.submit(input, "invalid-" + invalid).status());
+        }
+    }
+
+    @Test
+    void changingOnlyConfigurationValueRecomputesDigestAndChangesDefault() throws Exception {
+        var changed = settings.deepCopy();
+        ((com.fasterxml.jackson.databind.node.ObjectNode) changed.path("agent_policy"))
+                .put("audience_min_listeners", 500);
+        try {
+            java.nio.file.Files.writeString(configFile, changed.toPrettyString());
+            bootProduct();
+            var b = browser();
+            assertEquals(202, b.submit(userInput(""), "configured-500").status());
+            b.awaitState(s -> s.path("status").asText().equals("NO_MATCH"));
+        } finally {
+            java.nio.file.Files.writeString(configFile, settings.toPrettyString());
+            bootProduct();
+        }
+    }
+
+    @Test
     void interruptedPhysicalExecutionCanRegenerateLongReviewExplicitly() throws Exception {
         peer.failLongNext.set(true);
         var b = browser();

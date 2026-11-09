@@ -40,6 +40,10 @@ public final class WireProtocol implements io.auralis.contracts.MessageDefinitio
         }
     }
 
+    public int defaultAudienceMinimum() {
+        return document.path("$defs").path("AudienceMinimum").path("default").asInt();
+    }
+
     public String revision() {
         return revision;
     }

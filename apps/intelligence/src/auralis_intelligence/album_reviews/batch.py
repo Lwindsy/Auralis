@@ -96,7 +96,8 @@ class BatchResearchStage:
         return await asyncio.shield(self.task)
 
     async def _evaluate(self, execution, preferences):
-        if execution.start["agent_policy"].get("audience_min_listeners") != 50:
+        minimum = execution.start["agent_policy"].get("audience_min_listeners")
+        if minimum is None:
             raise ContractError("AUDIENCE_POLICY_REQUIRED")
         excluded = (
             execution.work.shown | execution.work.heard if execution.work is not None else set()
@@ -109,7 +110,7 @@ class BatchResearchStage:
                 c
                 for c in candidates
                 if matches_policy(c.get("audience"), execution.start["agent_policy"])
-                and c["audience"]["listeners"] >= 50
+                and c["audience"]["listeners"] >= minimum
             ]
             searchable, artists = [], set()
             for candidate in eligible_sources:
@@ -141,7 +142,7 @@ class BatchResearchStage:
                 )
             if not matches_policy(audience, execution.start["agent_policy"]):
                 reason = "AUDIENCE_UNKNOWN"
-            elif audience["listeners"] < 50:
+            elif audience["listeners"] < minimum:
                 reason = "AUDIENCE_BELOW_MINIMUM"
             else:
                 audience_passed += 1

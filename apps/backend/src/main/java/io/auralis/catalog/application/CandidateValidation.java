@@ -28,6 +28,7 @@ public final class CandidateValidation {
     public record Context(
             long catalogDataset,
             AudienceQuery.Binding audienceBinding,
+            int audienceMinimum,
             JsonNode recallBinding,
             String inputDigest,
             String preferenceDigest,
@@ -135,7 +136,8 @@ public final class CandidateValidation {
                         || (!genres.isEmpty() && disliked.containsAll(genres)))
                     reason = "HARD_CONSTRAINT";
                 else if (!counts.containsKey(album.id())) reason = "AUDIENCE_UNKNOWN";
-                else if (counts.get(album.id()) < 50) reason = "AUDIENCE_BELOW_MINIMUM";
+                else if (counts.get(album.id()) < context.audienceMinimum())
+                    reason = "AUDIENCE_BELOW_MINIMUM";
             }
             if (reason != null) {
                 rejected.addObject().put("release_group_id", original).put("reason", reason);

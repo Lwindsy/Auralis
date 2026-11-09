@@ -135,7 +135,7 @@ abstract class ProductApiFixture extends PublicationFixture {
         props.put("auralis.product-origin", origin);
         props.put("auralis.python-url", peer.url());
         props.put("auralis.service-token", SyntheticExecutionPeer.TOKEN);
-        props.put("auralis.contract-revision", "0.31");
+        props.put("auralis.contract-revision", "0.32");
         props.put(
                 "auralis.subject-secret",
                 "be003-subject-secret-abcdefghijklmnopqrstuvwxyz0123456789");
@@ -399,6 +399,9 @@ abstract class ProductApiFixture extends PublicationFixture {
                                     new CandidateValidation.Context(
                                             config.path("catalog_dataset").asLong(),
                                             binding,
+                                            settings.path("agent_policy")
+                                                    .path("audience_min_listeners")
+                                                    .asInt(),
                                             settings.path("recall_binding"),
                                             pref.path("input_digest").asText(),
                                             pref.path("effective_preference_digest").asText(),

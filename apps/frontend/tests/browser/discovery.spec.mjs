@@ -7,6 +7,7 @@ test("actual fixture HTTP restores via HttpOnly cookie without storing input in 
 }) => {
   await page.goto("/");
   await page.getByLabel("这次想听的音乐").fill("中文原文 only on server");
+  await page.getByLabel("最低听众数（可选）").fill("500");
   await page.getByRole("button", { name: "开始发现", exact: true }).click();
   await expect(page.getByRole("article")).toHaveCount(3);
   const cookies = await context.cookies();
@@ -23,6 +24,7 @@ test("actual fixture HTTP restores via HttpOnly cookie without storing input in 
     fullPage: true,
   });
   await reopened.getByRole("button", { name: "修改需求", exact: true }).click();
+  await expect(reopened.getByLabel("最低听众数（可选）")).toHaveValue("500");
   await expect(reopened.getByLabel("这次想听的音乐")).toHaveValue(
     "中文原文 only on server",
   );

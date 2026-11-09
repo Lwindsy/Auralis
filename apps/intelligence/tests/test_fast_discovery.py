@@ -33,13 +33,16 @@ def test_generic_route_never_swallows_specific_constraints():
         assert not GENERIC.fullmatch(text)
 
 
+@pytest.mark.parametrize("minimum", [10, 50, 500])
 @pytest.mark.parametrize("background,insufficient", [(False, 0), (True, 0), (False, 2), (False, 4)])
-def test_batch_one_call_and_audience_verified_at_publication(tmp_path, background, insufficient):
+def test_batch_one_call_and_audience_verified_at_publication(
+    tmp_path, background, insufficient, minimum
+):
     async def run():
         harness = DemoHarness(root=tmp_path, scenario="genre", r=5, k=5, n=3)
         try:
             policy = harness.request["agent_policy"]
-            policy["audience_min_listeners"] = 50
+            policy["audience_min_listeners"] = minimum
             policy["audience_binding"] = {
                 "dataset_id": "full-synthetic",
                 "window": "0",
@@ -54,7 +57,7 @@ def test_batch_one_call_and_audience_verified_at_publication(tmp_path, backgroun
                     "dataset_id": "full-synthetic",
                     "window": "0",
                     "sample_listeners": 1000,
-                    "listeners": 49 if identifier == "album-1" else 50,
+                    "listeners": minimum - 1 if identifier == "album-1" else minimum,
                 }
             evidence = SimpleNamespace(
                 sources=lambda identifier: [
@@ -165,7 +168,7 @@ def test_batch_one_call_and_audience_verified_at_publication(tmp_path, backgroun
                     == insufficient
                 )
                 assert len(seen) == 1
-            assert all(c["admission"]["audience"]["listeners"] >= 50 for c in first["cards"])
+            assert all(c["admission"]["audience"]["listeners"] >= minimum for c in first["cards"])
             assert "album-1" not in {c["candidate_id"] for c in first["cards"]}
             if insufficient == 4:
                 assert first["outcome"] == "NO_MATCH"

@@ -209,6 +209,34 @@ public class Recommendations {
         return c;
     }
 
+    private CuratedRecommendations.Batch curatedCandidates(
+            Scope scope, String round, String preferences, JsonNode config) {
+        var batch = curated.candidates(scope, round, preferences);
+        var raw = json(sessions.current(scope.subjectId()).orElseThrow().rawInput());
+        if (!raw.has("audience_min_listeners")) return batch;
+        int minimum =
+                config.path("settings").path("agent_policy").path("audience_min_listeners").asInt();
+        var ids = batch.items().stream().map(item -> UUID.fromString(item.id())).toList();
+        var counts =
+                audience.audience(config.path("catalog_dataset").asLong(), population(config), ids);
+        var accepted = new ArrayList<CuratedRecommendations.Item>();
+        var diagnostics =
+                (com.fasterxml.jackson.databind.node.ArrayNode)
+                        json(batch.diagnostics()).deepCopy();
+        for (var item : batch.items()) {
+            var count = counts.get(UUID.fromString(item.id()));
+            if (count != null && count >= minimum) accepted.add(item);
+            else
+                diagnostics
+                        .addObject()
+                        .put("release_group_id", item.id())
+                        .put(
+                                "decision",
+                                count == null ? "AUDIENCE_UNKNOWN" : "AUDIENCE_BELOW_MINIMUM");
+        }
+        return new CuratedRecommendations.Batch(batch.revision(), accepted, diagnostics.toString());
+    }
+
     private AudienceQuery.Binding population(JsonNode config) {
         return convert(
                 config.path("settings").path("audience_binding"), AudienceQuery.Binding.class);
@@ -410,6 +438,12 @@ public class Recommendations {
             fail("INPUT_REQUIRED");
         if (!subjects.validCsrf(token, csrf)) fail("FORBIDDEN");
         var settings = json(policy.snapshot());
+        if (request.path("input").has("audience_min_listeners")) {
+            var agentPolicy = (ObjectNode) settings.path("agent_policy");
+            agentPolicy.set(
+                    "audience_min_listeners", request.path("input").path("audience_min_listeners"));
+            agentPolicy.put("digest", contentDigest(agentPolicy, "digest"));
+        }
         long dataset = versions.current();
         var input = resolve(request.path("input"), dataset, settings);
         var reuse = reuse(token, key, request, input, settings, dataset);
@@ -488,7 +522,7 @@ public class Recommendations {
                     var round = discovery.roundInfo(scope, roundId);
                     var snapshot = effective(scope, config);
                     if (!snapshot.isNull() && !snapshot.path("has_positive_signal").asBoolean()) {
-                        var fixed = curated.candidates(scope, roundId, snapshot.toString());
+                        var fixed = curatedCandidates(scope, roundId, snapshot.toString(), config);
                         String run = scopeId("curated", key);
                         discovery.createIntent(
                                 scope,
@@ -742,8 +776,8 @@ public class Recommendations {
                             config.set(
                                     "curated_content",
                                     JSON.valueToTree(
-                                            curated.candidates(
-                                                    scope, round.id(), value.toString())));
+                                            curatedCandidates(
+                                                    scope, round.id(), value.toString(), config)));
                             config.put("curated_pending", true);
                         } catch (PersistenceRejected unavailable) {
                             if (!unavailable.getMessage().equals("CURATED_UNAVAILABLE"))
@@ -786,6 +820,9 @@ public class Recommendations {
                             new CandidateValidation.Context(
                                     config.path("catalog_dataset").asLong(),
                                     population(config),
+                                    start.path("agent_policy")
+                                            .path("audience_min_listeners")
+                                            .asInt(),
                                     start.path("recall_binding"),
                                     pref.path("input_digest").asText(),
                                     pref.path("effective_preference_digest").asText(),

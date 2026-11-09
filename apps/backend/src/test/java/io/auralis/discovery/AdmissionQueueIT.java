@@ -85,7 +85,7 @@ class AdmissionQueueIT {
                         "auralis.service-token",
                         "be010-synthetic-service-token-12345678",
                         "auralis.contract-revision",
-                        "0.31"));
+                        "0.32"));
         app =
                 start.run(
                         "--auralis.subject-secret=be010-subject-secret-abcdefghijklmnopqrstuvwxyz0123456789",

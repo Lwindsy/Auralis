@@ -366,7 +366,7 @@ class Host:
             AURALIS_DATABASE_USER="auralis_online",
             AURALIS_PRODUCT_ORIGIN=f"http://127.0.0.1:{c['java_port']}",
             AURALIS_PYTHON_URL=f"http://127.0.0.1:{c['python_port']}",
-            AURALIS_CONTRACT_REVISION="0.31",
+            AURALIS_CONTRACT_REVISION="0.32",
             AURALIS_ALLOW_INSECURE_COOKIE="true",
             AURALIS_MANAGED_STDIN="true",
             AURALIS_DISPATCH_ENABLED="true",
@@ -445,7 +445,7 @@ class Host:
                     body = json.loads(response.read(65537))
                     if authenticated:
                         if (
-                            body.get("contract_revision") == "0.31"
+                            body.get("contract_revision") == "0.32"
                             and body["payload"]["status"] == "READY"
                         ):
                             return

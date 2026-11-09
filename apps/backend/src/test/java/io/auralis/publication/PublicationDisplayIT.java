@@ -22,6 +22,25 @@ import org.springframework.boot.*;
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @EnabledIfEnvironmentVariable(named = "AURALIS_TEST_POSTGRES_URL", matches = ".+")
 class PublicationDisplayIT extends PublicationFixture {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(ints = {10, 100, 101, 500})
+    void publicationUsesTheAuthorizedThresholdIncludingItsBoundary(int minimum) throws Exception {
+        if (minimum > 100) {
+            assertEquals(
+                    "ADMISSION_UNVERIFIED",
+                    assertThrows(PersistenceRejected.class, () -> flow(1, minimum)).getMessage());
+            return;
+        }
+        var f = flow(1, minimum);
+        var result =
+                JSON.readTree(
+                        publication.deliver(
+                                f.context(),
+                                delivery(f, "CARD_BATCH", batch(f, 1, "PERSONALIZED"), "threshold")
+                                        .toString()));
+        assertEquals(1, result.path("published_candidate_ids").size());
+    }
+
     @Test
     void actualPythonClientConsumesTransactionalDeliveryReceipt() throws Exception {
         var f = flow(2);
@@ -45,7 +64,7 @@ class PublicationDisplayIT extends PublicationFixture {
                         var response =
                                 JSON.createObjectNode()
                                         .put("schema_version", "intel.v1")
-                                        .put("contract_revision", "0.31")
+                                        .put("contract_revision", "0.32")
                                         .put("request_id", message.path("request_id").asText())
                                         .put("message_type", "DeliveryResult");
                         response.putObject("trace_context")

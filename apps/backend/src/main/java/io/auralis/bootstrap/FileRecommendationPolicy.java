@@ -44,6 +44,25 @@ public final class FileRecommendationPolicy implements RecommendationPolicy {
                             "audience_binding",
                             "idle_close_ms",
                             "stage_capacity"))) throw new IllegalArgumentException();
+            var agentPolicy =
+                    (com.fasterxml.jackson.databind.node.ObjectNode) n.path("agent_policy");
+            if (!agentPolicy.has("audience_min_listeners"))
+                agentPolicy.put("audience_min_listeners", schema.defaultAudienceMinimum());
+            if (!agentPolicy.has("audience_binding")) {
+                var binding = n.path("audience_binding");
+                agentPolicy
+                        .putObject("audience_binding")
+                        .set("dataset_id", binding.path("dataset"));
+                var target =
+                        (com.fasterxml.jackson.databind.node.ObjectNode)
+                                agentPolicy.path("audience_binding");
+                target.set("window", binding.path("window"));
+                target.set("sample_listeners", binding.path("sampleListeners"));
+                target.set("snapshot_digest", binding.path("snapshotDigest"));
+            }
+            agentPolicy.put(
+                    "digest",
+                    io.auralis.contracts.CanonicalJson.contentDigest(agentPolicy, "digest"));
             for (var pair :
                     Map.of(
                                     "agent_policy",
@@ -104,9 +123,6 @@ public final class FileRecommendationPolicy implements RecommendationPolicy {
                 if (!capacity.path(name).isIntegralNumber()
                         || capacity.path(name).asLong() < select.path(name).asLong())
                     throw new IllegalArgumentException();
-            if (!io.auralis.contracts.CanonicalJson.contentDigest(n.path("agent_policy"), "digest")
-                    .equals(n.path("agent_policy").path("digest").asText()))
-                throw new IllegalArgumentException();
             var check =
                     JSON.createObjectNode()
                             .put("session_budget_scope_id", "configuration-session")

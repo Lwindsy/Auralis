@@ -101,6 +101,7 @@ class GenreExceptionsTest {
                     new CandidateValidation.Context(
                             1,
                             new AudienceQuery.Binding("full", "0", 100, HASH),
+                            50,
                             recall,
                             HASH,
                             HASH,

@@ -9,7 +9,8 @@ from auralis_intelligence.recall import Preference, RecallRequest, WeightConfig,
 from auralis_intelligence.recall.full_audience import FullAudience, matches_policy
 
 
-def test_full_population_changes_eligibility_not_training_scores(tmp_path):
+@pytest.mark.parametrize("minimum", [10, 50, 500])
+def test_full_population_changes_eligibility_not_training_scores(tmp_path, minimum):
     ids = [str(UUID(int=i)) for i in (1, 2, 3)]
     train = tmp_path / "train.json"
     train.write_text(
@@ -30,7 +31,7 @@ def test_full_population_changes_eligibility_not_training_scores(tmp_path):
     request = RecallRequest(limit=2, tags=(Preference("rock"),))
     before = engine.recall(request)
     with pytest.raises(ValueError, match="FULL_AUDIENCE_REQUIRED"):
-        engine.recall(request, min_listeners=50)
+        engine.recall(request, min_listeners=minimum)
     artifact = {
         "format_version": 2,
         "scope": "FULL_CATALOG",
@@ -39,8 +40,11 @@ def test_full_population_changes_eligibility_not_training_scores(tmp_path):
         "source_manifest_sha256": "a" * 64,
         "dataset_id": "core:" + "a" * 64,
         "window": "0",
-        "sample_listeners": 100,
-        "counts": [{"release_group_id": i, "listeners": n} for i, n in zip(ids, [50, 60, 49])],
+        "sample_listeners": 1000,
+        "counts": [
+            {"release_group_id": i, "listeners": n}
+            for i, n in zip(ids, [minimum, minimum + 10, minimum - 1])
+        ],
     }
     artifact["digest"] = content_digest(artifact, "digest")
     path = tmp_path / "full.json"
@@ -51,11 +55,11 @@ def test_full_population_changes_eligibility_not_training_scores(tmp_path):
     full = FullAudience(path, binding)
     engine.bind_full_audience(full)
     assert engine.recall(request) == before
-    result = engine.recall(request, min_listeners=50)
+    result = engine.recall(request, min_listeners=minimum)
     assert {row.album_id for row in result.candidates} == set(ids[:2])
     assert engine.training_audience(ids)["counts"][ids[0]] == 1
     assert engine.audience(ids + ["missing"])["counts"] == dict(
-        zip(ids + ["missing"], [50, 60, 49, None])
+        zip(ids + ["missing"], [minimum, minimum + 10, minimum - 1, None])
     )
     for field, value in (
         ("window", "2025"),

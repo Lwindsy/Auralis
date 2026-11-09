@@ -91,3 +91,14 @@ def test_retired_online_curated_input_is_rejected(retired):
     message["payload"]["payload_digest"] = content_digest(message["payload"])
     with pytest.raises(ContractError):
         validate_message(message)
+
+
+@pytest.mark.parametrize("value", [1, 10, 50, 500, 2147483647])
+def test_audience_minimum_accepts_positive_integer(value):
+    validate_definition("AudienceMinimum", value)
+
+
+@pytest.mark.parametrize("value", [0, -1, 1.5, "500", None, True, 2147483648])
+def test_audience_minimum_rejects_invalid_values(value):
+    with pytest.raises(ContractError):
+        validate_definition("AudienceMinimum", value)

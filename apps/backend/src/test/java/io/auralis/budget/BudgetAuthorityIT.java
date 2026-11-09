@@ -77,7 +77,7 @@ class BudgetAuthorityIT {
                         "auralis.service-token",
                         "be002-synthetic-service-token-12345678",
                         "auralis.contract-revision",
-                        "0.31"));
+                        "0.32"));
         app =
                 start.run(
                         "--auralis.subject-secret=be002-subject-secret-abcdefghijklmnopqrstuvwxyz0123456789",
@@ -407,7 +407,7 @@ class BudgetAuthorityIT {
                         var out =
                                 JSON.createObjectNode()
                                         .put("schema_version", "intel.v1")
-                                        .put("contract_revision", "0.31")
+                                        .put("contract_revision", "0.32")
                                         .put("request_id", message.path("request_id").asText(id()))
                                         .put("message_type", type);
                         out.putObject("trace_context")

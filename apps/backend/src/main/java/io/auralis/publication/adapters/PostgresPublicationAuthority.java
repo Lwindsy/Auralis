@@ -339,7 +339,8 @@ public class PostgresPublicationAuthority implements PublicationAuthority {
         var a = candidate.path("audience");
         return same(identity, candidate.path("identity"))
                 && listeners != null
-                && listeners >= 50
+                && json(c.policy()).has("audience_min_listeners")
+                && listeners >= json(c.policy()).path("audience_min_listeners").asInt()
                 && a.path("listeners").asLong() == listeners
                 && a.path("dataset_id").asText().equals(c.audience().dataset())
                 && a.path("window").asText().equals(c.audience().window())

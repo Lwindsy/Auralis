@@ -154,6 +154,7 @@ class CatalogAudienceIT {
         return new CandidateValidation.Context(
                 1,
                 binding,
+                50,
                 recall,
                 HASH,
                 HASH,

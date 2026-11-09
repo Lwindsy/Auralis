@@ -115,7 +115,7 @@ abstract class PublicationFixture {
         properties.put("auralis.product-origin", "http://127.0.0.1:8080");
         properties.put("auralis.python-url", "http://127.0.0.1:1");
         properties.put("auralis.service-token", "be011-service-synthetic-token-123456789");
-        properties.put("auralis.contract-revision", "0.31");
+        properties.put("auralis.contract-revision", "0.32");
         properties.put(
                 "auralis.subject-secret",
                 "be011-test-subject-secret-abcdefghijklmnopqrstuvwxyz0123456789");
@@ -372,6 +372,10 @@ abstract class PublicationFixture {
     }
 
     Flow flow(int target) throws Exception {
+        return flow(target, 50);
+    }
+
+    Flow flow(int target, int minimum) throws Exception {
         var input = input();
         var old = input.context();
         String run =
@@ -422,6 +426,12 @@ abstract class PublicationFixture {
                         .path("message")
                         .path("payload");
         var policy = (ObjectNode) base.path("agent_policy").deepCopy();
+        policy.put("audience_min_listeners", minimum);
+        policy.putObject("audience_binding")
+                .put("dataset_id", population.dataset())
+                .put("window", population.window())
+                .put("sample_listeners", population.sampleListeners())
+                .put("snapshot_digest", population.snapshotDigest());
         ((ObjectNode) policy.path("writing")).put("short_min_han", 1).put("short_max_han", 1000);
         policy.put("digest", contentDigest(policy, "digest"));
         String resolution = UUID.randomUUID().toString();

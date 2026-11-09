@@ -76,6 +76,19 @@ export class Editor {
         ),
       ),
     );
+    const audience = el("input", {
+      id: "audience-min-listeners",
+      type: "number",
+      min: 1,
+      max: 2147483647,
+      step: 1,
+      value: this.draft.audience_min_listeners ?? "",
+      placeholder: "使用默认值",
+      oninput: (event) => {
+        if (event.target.value === "") delete this.draft.audience_min_listeners;
+        else this.draft.audience_min_listeners = event.target.valueAsNumber;
+      },
+    });
     this.submitButton = el(
       "button",
       { type: "submit", className: "primary" },
@@ -87,6 +100,13 @@ export class Editor {
       el("label", { htmlFor: "request-text" }, "这次想听的音乐"),
       text,
       modes,
+      el("label", { htmlFor: "audience-min-listeners" }, "最低听众数（可选）"),
+      audience,
+      el(
+        "p",
+        { className: "meta" },
+        "留空使用默认门槛；填写后仅推荐达到该人数的专辑。人数来自 ListenBrainz 样本，不代表全网热度。",
+      ),
       el(
         "div",
         { className: "actions" },

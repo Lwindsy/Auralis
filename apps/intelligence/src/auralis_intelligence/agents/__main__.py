@@ -90,7 +90,7 @@ def serve(args):
     long_tools = ToolGateway(search_adapter=adapter, model_gateway=model)
 
     def factory(start):
-        if start["agent_policy"].get("audience_min_listeners") != 50:
+        if "audience_min_listeners" not in start["agent_policy"]:
             raise ValueError("AUDIENCE_POLICY_REQUIRED")
         if mode == "live":
             from auralis_intelligence.album_reviews.cold import ColdEvidence
@@ -117,7 +117,7 @@ def serve(args):
                 binding=start["recall_binding"],
                 weights=WeightConfig(),
                 engine=engine,
-                min_listeners=50,
+                min_listeners=start["agent_policy"]["audience_min_listeners"],
             ),
             batch,
             BatchWriteStage(seeds, long_tools, batch=batch),
