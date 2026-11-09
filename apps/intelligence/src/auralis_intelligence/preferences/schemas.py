@@ -18,7 +18,7 @@ TEXT = {"type": "string", "minLength": 1, "maxLength": 4096}
 ID = {"type": "string", "minLength": 1, "maxLength": 160}
 BASIS = {"type": "string", "enum": ["explicit", "inferred"]}
 PASS_ONE = object_schema(
-    {"branches": array(object_schema({"id": ID, "quote": TEXT}), minimum=1, maximum=3)}
+    {"branches": array(object_schema({"id": ID, "quote": TEXT}), minimum=0, maximum=3)}
 )
 PASS_TWO = object_schema(
     {
