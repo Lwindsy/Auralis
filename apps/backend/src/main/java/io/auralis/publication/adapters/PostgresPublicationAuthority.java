@@ -236,8 +236,9 @@ public class PostgresPublicationAuthority implements PublicationAuthority {
                     var diagnostic = JSON.createObjectNode().put("revision", batch.revision());
                     diagnostic.set("decisions", json(batch.diagnostics()));
                     jdbc.update(
-                            "UPDATE discovery.publication_round SET status=?,analysis_mode='CURATED',supply_state='FINAL_EXHAUSTED',reason=?,policy=?::jsonb WHERE round_id=?",
+                            "UPDATE discovery.publication_round SET status=?,analysis_mode='CURATED',supply_state=?,reason=?,policy=?::jsonb WHERE round_id=?",
                             count == 0 ? "NO_MATCH" : count < target ? "PARTIAL" : "SUCCEEDED",
+                            ready(current, r).isEmpty() ? "FINAL_EXHAUSTED" : "SUFFICIENT",
                             count < target ? "recommendation.final_exhausted" : null,
                             diagnostic.toString(),
                             r);
