@@ -374,9 +374,11 @@ class Execution:
                 return
             await self._flush_usage_locked()
 
-    async def _flush_usage_locked(self) -> None:
+    async def _flush_usage_locked(self, only: set[str] | None = None) -> None:
         deadline = self.clock.now() + self.receipt_timeout_seconds
         for identifier, receipt in list(self.pending_usage.items()):
+            if only is not None and identifier not in only:
+                continue
             remaining = deadline - self.clock.now()
             if remaining <= 0:
                 self._receipt_backoff_until = self.clock.now() + self.receipt_timeout_seconds
@@ -447,6 +449,24 @@ class Execution:
         )
         if identifier in self.delivery_results:
             return deepcopy(self.delivery_results[identifier])
+        # Java verifies paid-call completion before publishing. A bounded receipt flush
+        # may have timed out after invoke returned; retry that receipt, never the provider.
+        required = set()
+        pending = [self.buffer[identifier]["payload"]]
+        while pending:
+            value = pending.pop()
+            if isinstance(value, dict):
+                required.update(value.get("invocation_ids", []))
+                if isinstance(value.get("invocation_id"), str):
+                    required.add(value["invocation_id"])
+                pending.extend(value.values())
+            elif isinstance(value, list):
+                pending.extend(value)
+        if required.intersection(self.pending_usage):
+            async with self._usage_lock:
+                await self._flush_usage_locked(required)
+            if required.intersection(self.pending_usage):
+                raise ControlUnavailable("USAGE_SETTLEMENT_PENDING")
         try:
             result = await self.control_request("delivery", self.buffer[identifier])
         except ContractError:
