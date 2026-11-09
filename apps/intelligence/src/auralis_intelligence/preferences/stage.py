@@ -1,5 +1,6 @@
-"""Exactly two model calls for text; all accepted snapshots come from control."""
+"""Interpret text in up to two passes; accepted snapshots always come from control."""
 
+import re
 from copy import deepcopy
 
 from auralis_intelligence.agents import Execution
@@ -11,7 +12,7 @@ from .prompts import PASS_ONE_PROMPT, PASS_TWO_PROMPT
 from .reference import PreferenceError, ReferenceCatalog, locate
 from .schemas import PASS_ONE, PASS_TWO
 
-PARSER_REVISION = "preferences-v1-pass1-v0.6-pass2-v0.8"
+PARSER_REVISION = "preferences-v1-pass1-v0.7-pass2-v0.8"
 
 
 class PreferencesStage:
@@ -72,13 +73,39 @@ class PreferencesStage:
                 PASS_ONE_PROMPT,
                 {"request_text": text, "branches": branches},
                 PASS_ONE,
-                "genre_pass1_v0.6",
+                "genre_pass1_v0.7",
             )
             ids = [row["id"] for row in first["branches"]]
             if len(set(ids)) != len(ids) or set(ids) - {row["id"] for row in branches}:
                 raise PreferenceError("INTERPRETATION_INVALID_ID")
             for row in first["branches"]:
                 locate(text, row["quote"])
+            if not ids:
+                # A model's empty answer cannot discard a named genre from this reference.
+                folded = text.casefold()
+                for genre in self.reference.genres.values():
+                    for label in [genre["name"], *genre["aliases"]]:
+                        label = label.strip().casefold()
+                        if not label:
+                            continue
+                        mentioned = (
+                            label in folded
+                            if any("\u4e00" <= char <= "\u9fff" for char in label)
+                            else re.search(r"(?<!\w)" + re.escape(label) + r"(?!\w)", folded)
+                        )
+                        if mentioned:
+                            raise PreferenceError("INTERPRETATION_INVALID_OUTPUT")
+                proposal["soft_preferences"] = [
+                    {
+                        "preference_id": "text:open-request",
+                        "description": text,
+                        "kind": "context",
+                        "basis": "explicit",
+                        "strength": "normal",
+                        "focused": False,
+                    }
+                ]
+                return await self._accept(execution, proposal)
             genres = (
                 self.reference.expand(ids)
                 if self.genre_limit is None
@@ -134,6 +161,9 @@ class PreferencesStage:
                 if row["id"] in directions and directions[row["id"]] != positive:
                     raise PreferenceError("PREFERENCE_CONFLICT", "NEEDS_INPUT")
                 directions[row["id"]] = positive
+        return await self._accept(execution, proposal)
+
+    async def _accept(self, execution: Execution, proposal: dict) -> dict:
         proposal["proposal_digest"] = content_digest(proposal, "proposal_digest")
         validate_definition("PreferenceResolutionProposal", proposal)
         accepted = await execution.control_request("preference-resolution", proposal)
