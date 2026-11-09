@@ -316,3 +316,56 @@ if __name__ == "__main__":
             compare_local(arguments.snapshot, arguments.request), ensure_ascii=False, indent=2
         )
     )
+
+
+def test_tag_only_pool_covers_directions_without_changing_scorer_or_hard_constraints():
+    from auralis_intelligence.recall import Candidate, RecallResult
+
+    class Engine:
+        def __init__(self):
+            self.calls = []
+
+        def recall(self, request, **kwargs):
+            self.calls.append((request, kwargs))
+            ids = (
+                [f"hyper-{i}" for i in range(5)]
+                if len(request.tags) > 1
+                else [request.tags[0].id + "-0"]
+            )
+            candidates = tuple(Candidate(i, 1.0) for i in ids[: request.limit])
+            return RecallResult(
+                candidates,
+                request.limit,
+                len(candidates),
+                "complete",
+                "A-V2",
+                "synthetic-code-check-v1",
+                "synthetic",
+            )
+
+    engine = Engine()
+    _, stage = setup(preferences(), engine=engine)
+    stage.min_listeners = 50
+    query = RecallRequest(
+        limit=5,
+        tags=tuple(Preference(i) for i in ["hyper", "post", "trip"]),
+        forbidden_tags=("blocked",),
+        excluded_ids=("heard",),
+        disliked_tags=("avoid",),
+    )
+    status, _, result = stage._compute(query)
+    assert status == "COMPLETE"
+    assert [c.album_id for c in result.candidates] == [
+        "hyper-0",
+        "post-0",
+        "trip-0",
+        "hyper-1",
+        "hyper-2",
+    ]
+    assert len(engine.calls) == 4
+    for request, options in engine.calls:
+        assert request.forbidden_tags == ("blocked",)
+        assert request.disliked_tags == ("avoid",)
+        assert request.excluded_ids == ("heard",)
+        assert options == {"min_listeners": 50}
+    assert all(request.tags[0].id in request.required_tags for request, _ in engine.calls[1:])
