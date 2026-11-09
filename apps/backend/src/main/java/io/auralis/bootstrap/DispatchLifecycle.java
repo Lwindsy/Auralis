@@ -23,6 +23,25 @@ public final class DispatchLifecycle implements AutoCloseable {
     private final java.util.concurrent.atomic.AtomicBoolean closed =
             new java.util.concurrent.atomic.AtomicBoolean();
 
+    @org.springframework.beans.factory.annotation.Autowired
+    public DispatchLifecycle(
+            DataSource source,
+            DispatchQueue queue,
+            PythonClient peer,
+            Clock clock,
+            DispatchQueue.Limits limits)
+            throws Exception {
+        this(
+                source,
+                queue,
+                peer,
+                clock,
+                limits.executions(),
+                limits.waiting(),
+                limits.queueSeconds(),
+                limits.executionSeconds());
+    }
+
     public DispatchLifecycle(
             DataSource source,
             DispatchQueue queue,

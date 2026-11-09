@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.*;
 /** Authenticated internal control only; browser recommendation commands belong to BE-003. */
 @RestController
 public class ExecutionControlController {
+    private final io.auralis.persistence.ShortTransactions tx;
     private final DispatchQueue queue;
     private final BudgetAuthority budget;
     private final EvidenceAuthority evidence;
@@ -28,13 +29,15 @@ public class ExecutionControlController {
             EvidenceAuthority evidence,
             WireProtocol wire,
             HttpErrors errors,
-            io.auralis.publication.api.PublicationAuthority publication) {
+            io.auralis.discovery.application.Recommendations recommendations,
+            io.auralis.persistence.ShortTransactions tx) {
+        this.tx = tx;
         this.queue = queue;
         this.budget = budget;
         this.evidence = evidence;
         this.wire = wire;
         this.errors = errors;
-        this.publication = publication;
+        this.recommendations = recommendations;
     }
 
     private JsonNode read(HttpServletRequest request, String expected) throws java.io.IOException {
@@ -72,13 +75,16 @@ public class ExecutionControlController {
         return response(
                 request,
                 "GrantResults",
-                budget.grants(queue.context(execution).budget(), p.toString()));
+                tx.write(() -> budget.grants(queue.context(execution).budget(), p.toString())));
     }
 
     @GetMapping("/internal/v1/executions/{execution}/budget-state")
     public JsonNode state(@PathVariable String execution, HttpServletRequest request)
             throws java.io.IOException {
-        return response(request, "BudgetState", budget.state(queue.context(execution).budget()));
+        return response(
+                request,
+                "BudgetState",
+                tx.write(() -> budget.state(queue.context(execution).budget())));
     }
 
     @PutMapping("/internal/v1/invocations/{invocation}/usage-receipts/{receipt}")
@@ -104,7 +110,10 @@ public class ExecutionControlController {
         return response(
                 request,
                 "ReadAuthorizationResult",
-                evidence.authorize(queue.context(execution).evidence(), p.toString()));
+                tx.write(
+                        () ->
+                                evidence.authorize(
+                                        queue.context(execution).evidence(), p.toString())));
     }
 
     @PostMapping("/internal/v1/executions/{execution}/read-receipts")
@@ -114,14 +123,19 @@ public class ExecutionControlController {
         return response(
                 request,
                 "ReadRegistrationResult",
-                evidence.receipts(queue.context(execution).evidence(), p.toString()));
+                tx.write(
+                        () ->
+                                evidence.receipts(
+                                        queue.context(execution).evidence(), p.toString())));
     }
 
     @GetMapping("/internal/v1/executions/{execution}/seed-evidence")
     public JsonNode seeds(@PathVariable String execution, HttpServletRequest request)
             throws java.io.IOException {
         return response(
-                request, "SeedEvidenceState", evidence.seeds(queue.context(execution).evidence()));
+                request,
+                "SeedEvidenceState",
+                tx.write(() -> evidence.seeds(queue.context(execution).evidence())));
     }
 
     @PutMapping("/internal/v1/executions/{execution}/seed-evidence")
@@ -131,11 +145,15 @@ public class ExecutionControlController {
         return response(
                 request,
                 "SeedEvidenceState",
-                evidence.saveSeeds(queue.context(execution).evidence(), p.toString()));
+                tx.write(
+                        () ->
+                                evidence.saveSeeds(
+                                        queue.context(execution).evidence(), p.toString())));
     }
 
     @ExceptionHandler({
         PersistenceRejected.class,
+        io.auralis.preference.api.PreferenceRejected.class,
         java.io.IOException.class,
         IllegalArgumentException.class
     })
@@ -156,7 +174,7 @@ public class ExecutionControlController {
                 code);
     }
 
-    private final io.auralis.publication.api.PublicationAuthority publication;
+    private final io.auralis.discovery.application.Recommendations recommendations;
 
     @PutMapping("/internal/v1/executions/{execution}/deliveries/{delivery}")
     public JsonNode delivery(
@@ -168,9 +186,26 @@ public class ExecutionControlController {
         if (!delivery.equals(payload.path("delivery_id").asText()))
             throw new PersistenceRejected("BINDING_MISMATCH");
         return response(
+                request, "DeliveryResult", recommendations.deliver(execution, payload.toString()));
+    }
+
+    @PostMapping("/internal/v1/executions/{execution}/preference-resolution")
+    public JsonNode preferences(@PathVariable String execution, HttpServletRequest request)
+            throws java.io.IOException {
+        var payload = read(request, "PreferenceResolutionProposal");
+        return response(
                 request,
-                "DeliveryResult",
-                publication.deliver(
-                        publication.context(queue.context(execution)), payload.toString()));
+                "EffectivePreferenceSnapshot",
+                recommendations.acceptPreferences(execution, payload.toString()));
+    }
+
+    @PostMapping("/internal/v1/executions/{execution}/candidate-validation")
+    public JsonNode candidates(@PathVariable String execution, HttpServletRequest request)
+            throws java.io.IOException {
+        var payload = read(request, "RecallProposal");
+        return response(
+                request,
+                "CandidateBundle",
+                recommendations.acceptCandidates(execution, payload.toString()));
     }
 }

@@ -38,7 +38,31 @@ public interface DispatchQueue {
             Map<String, BudgetAuthority.Price> prices,
             long catalogDataset,
             Map<String, String> candidates,
-            Set<String> demands) {
+            Set<String> demands,
+            Instant originalAcceptedAt) {
+        public Request(
+                Scope scope,
+                String round,
+                String operation,
+                String command,
+                String template,
+                Map<String, BudgetAuthority.Price> prices,
+                long catalogDataset,
+                Map<String, String> candidates,
+                Set<String> demands) {
+            this(
+                    scope,
+                    round,
+                    operation,
+                    command,
+                    template,
+                    prices,
+                    catalogDataset,
+                    candidates,
+                    demands,
+                    null);
+        }
+
         public Request {
             prices = Map.copyOf(prices);
             candidates = Map.copyOf(candidates);
@@ -46,7 +70,12 @@ public interface DispatchQueue {
         }
     }
 
-    record Accepted(String run, String status, Instant acceptedAt, Instant queueDeadline) {}
+    record Accepted(
+            String run,
+            String status,
+            Instant acceptedAt,
+            Instant queueDeadline,
+            String errorCode) {}
 
     record Job(
             String execution,
@@ -99,4 +128,19 @@ public interface DispatchQueue {
     String startPayload(String execution);
 
     void bindCandidates(String execution, Map<String, String> verifiedCandidates);
+
+    record Command(String id, String execution, String payload) {}
+
+    void prioritize(Scope scope, String candidate, String command);
+
+    List<Command> commands();
+
+    void acknowledge(Command command);
+
+    void display(Scope scope, String round, String state, String command);
+
+    java.util.Optional<Accepted> mergeSupply(
+            Scope scope, String round, String command, Set<String> demands, Limits limits);
+
+    boolean canAccept(Scope scope, Limits limits);
 }

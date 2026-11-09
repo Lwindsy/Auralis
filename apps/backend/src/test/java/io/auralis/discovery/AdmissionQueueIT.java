@@ -228,6 +228,10 @@ class AdmissionQueueIT {
             if (offline) throw new Unavailable();
         }
 
+        public String command(String execution, String command, String payload) {
+            return "{\"accepted\":true}";
+        }
+
         public String runtime() {
             healthy();
             var p =

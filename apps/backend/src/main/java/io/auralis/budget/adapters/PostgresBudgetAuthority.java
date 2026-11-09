@@ -448,6 +448,11 @@ public class PostgresBudgetAuthority implements BudgetAuthority {
                                     hash(execution));
                     if (owners.size() != 1) fail("BINDING_MISMATCH");
                     String round = owners.getFirst();
+                    sessions.lockFinancialOwner(
+                            jdbc.queryForObject(
+                                    "SELECT session_id FROM discovery.invocation WHERE id=?",
+                                    String.class,
+                                    id));
                     lock(financialScopes(round));
                     LockOrder.before(LockOrder.Level.INVOCATION, id);
                     var invocation =

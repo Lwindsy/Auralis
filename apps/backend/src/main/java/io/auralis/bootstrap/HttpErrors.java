@@ -49,10 +49,19 @@ public final class HttpErrors implements ErrorController {
             boolean catalogRetry =
                     code.startsWith("CATALOG_")
                             && (status == 429 || status == 503 || status == 504);
-            body.put("retryable", catalogRetry);
+            boolean retry =
+                    catalogRetry
+                            || code.equals("QUEUE_FULL")
+                            || code.equals("MAINTENANCE")
+                            || code.equals("RECOMMENDATION_UNAVAILABLE");
+            body.put("retryable", retry);
             body.put("idempotency_consumed", false);
             body.put("current_revision", null);
-            body.put("retry_disposition", catalogRetry ? "RETRY_SAME_KEY" : "STOP");
+            body.put(
+                    "retry_disposition",
+                    retry
+                            ? "RETRY_SAME_KEY"
+                            : code.equals("REVISION_CONFLICT") ? "POLL_STATE" : "STOP");
         }
         mapper.writeValue(response.getOutputStream(), body);
     }

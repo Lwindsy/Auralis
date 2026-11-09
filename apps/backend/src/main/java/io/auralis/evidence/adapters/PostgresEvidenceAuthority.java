@@ -571,4 +571,25 @@ public class PostgresEvidenceAuthority implements EvidenceAuthority, SessionDeri
                             copied.toString()));
         }
     }
+
+    @Override
+    public String references(SessionStore.Scope scope, String round, String candidate) {
+        return tx.write(
+                () -> {
+                    sessions.lockActive(scope);
+                    var refs = JSON.createArrayNode();
+                    for (var row :
+                            jdbc.queryForList(
+                                    "SELECT id,final_url,receipt->>'publisher_key' AS publisher FROM discovery.read_receipt WHERE session_id=? AND round_id=? AND candidate_id=? AND status='READ_OK' ORDER BY read_at,id",
+                                    scope.sessionId(),
+                                    round,
+                                    candidate))
+                        refs.addObject()
+                                .put("read_id", (String) row.get("id"))
+                                .put("url", (String) row.get("final_url"))
+                                .put("publisher_key", (String) row.get("publisher"));
+                    if (refs.size() > 100) fail("CONTINUATION_TOO_LARGE");
+                    return refs.toString();
+                });
+    }
 }

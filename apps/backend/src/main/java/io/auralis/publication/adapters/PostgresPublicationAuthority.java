@@ -206,6 +206,7 @@ public class PostgresPublicationAuthority implements PublicationAuthority {
                     if (row.get("bundle_text") != null) {
                         if (!same(json((String) row.get("bundle_text")), bundle))
                             fail("IDEMPOTENCY_CONFLICT");
+                        saveRunBinding(s, r, c.execution().budget().run(), bundle.path("binding"));
                         return null;
                     }
                     var ids = new HashSet<String>();
@@ -231,6 +232,7 @@ public class PostgresPublicationAuthority implements PublicationAuthority {
                             c.preferenceResolution(),
                             JSON.valueToTree(c.audience()).toString(),
                             r);
+                    saveRunBinding(s, r, c.execution().budget().run(), bundle.path("binding"));
                     return null;
                 });
     }
@@ -413,7 +415,13 @@ public class PostgresPublicationAuthority implements PublicationAuthority {
     }
 
     private ObjectNode display(Scope s, String r) {
-        var out = JSON.createObjectNode().put("display_seq", s.revision());
+        return display(s, r, null);
+    }
+
+    private ObjectNode display(Scope s, String r, String observerRun) {
+        var out =
+                JSON.createObjectNode()
+                        .put("display_seq", ((Number) round(s, r).get("display_seq")).longValue());
         var shown = out.putArray("shown_candidate_ids");
         var heard = out.putArray("heard_candidate_ids");
         for (var row :
@@ -431,6 +439,10 @@ public class PostgresPublicationAuthority implements PublicationAuthority {
                                 Long.class,
                                 s.sessionId())
                         > 0;
+        waiting =
+                waiting
+                        && discovery.latestRound(s).map(info -> info.id().equals(r)).orElse(false)
+                        && (observerRun == null || observerRun.equals(round(s, r).get("run_id")));
         out.put("user_waiting", waiting);
         if (waiting) out.put("run_id", (String) round(s, r).get("run_id"));
         else out.putNull("run_id");
@@ -438,7 +450,7 @@ public class PostgresPublicationAuthority implements PublicationAuthority {
     }
 
     private String saveState(Scope s, String r) {
-        String state = render(s, r);
+        String state = render(s, discovery.latestRound(s).map(DiscoveryStore.Round::id).orElse(r));
         projection.save(s, state);
         return state;
     }
@@ -456,6 +468,9 @@ public class PostgresPublicationAuthority implements PublicationAuthority {
         var info = round(s, r);
         var admission = queue.status(s, (String) info.get("run_id"));
         String status = (String) info.get("status");
+        boolean interrupted =
+                Set.of("CANCELLED", "INTERRUPTED", "EXPIRED", "SUPERSEDED", "FAILED")
+                        .contains(admission.status());
         if (Set.of("WAITING", "RUNNING").contains(status))
             status =
                     admission.status().equals("WAITING")
@@ -463,7 +478,21 @@ public class PostgresPublicationAuthority implements PublicationAuthority {
                             : Set.of("CANCELLED", "INTERRUPTED", "EXPIRED", "SUPERSEDED")
                                             .contains(admission.status())
                                     ? "INTERRUPTED"
-                                    : "RUNNING";
+                                    : admission.status().equals("FAILED") ? "FAILED" : "RUNNING";
+        String supply = (String) info.get("supply_state"), reason = (String) info.get("reason");
+        if (interrupted && supply.equals("SUPPLYING")) {
+            supply = "PAUSED";
+            reason =
+                    admission.errorCode() == null ? "EXECUTION_INTERRUPTED" : admission.errorCode();
+            status =
+                    jdbc.queryForObject(
+                                            "SELECT count(*) FROM discovery.card_slot WHERE session_id=? AND state='READY'",
+                                            Long.class,
+                                            s.sessionId())
+                                    > 0
+                            ? "PARTIAL"
+                            : "FAILED";
+        }
         var out =
                 JSON.createObjectNode()
                         .put("session_id", s.sessionId())
@@ -475,8 +504,8 @@ public class PostgresPublicationAuthority implements PublicationAuthority {
                         .put(
                                 "recommendation_target_count",
                                 ((Number) info.get("target")).intValue())
-                        .put("supply_state", (String) info.get("supply_state"))
-                        .put("message_key", (String) info.get("reason"))
+                        .put("supply_state", supply)
+                        .put("message_key", reason)
                         .putNull("editable_input")
                         .put(
                                 "expires_at",
@@ -495,12 +524,16 @@ public class PostgresPublicationAuthority implements PublicationAuthority {
         var slots = out.putArray("slots");
         for (var row :
                 jdbc.queryForList(
-                        "SELECT s.slot_id,s.state,s.round_id,s.candidate_id,k.content::text AS card,c.identity_binding::text AS identity,l.state AS long_state FROM discovery.card_slot s LEFT JOIN discovery.recommendation_card k ON k.round_id=s.round_id AND k.candidate_id=s.candidate_id LEFT JOIN discovery.round_candidate c ON c.round_id=s.round_id AND c.candidate_id=s.candidate_id LEFT JOIN discovery.long_review l ON l.round_id=s.round_id AND l.candidate_id=s.candidate_id WHERE s.session_id=? ORDER BY s.slot_id",
+                        "SELECT s.slot_id,s.state,s.round_id,s.candidate_id,k.content::text AS card,c.identity_binding::text AS identity,l.state AS long_state,l.generation_run AS long_run FROM discovery.card_slot s LEFT JOIN discovery.recommendation_card k ON k.round_id=s.round_id AND k.candidate_id=s.candidate_id LEFT JOIN discovery.round_candidate c ON c.round_id=s.round_id AND c.candidate_id=s.candidate_id LEFT JOIN discovery.long_review l ON l.round_id=s.round_id AND l.candidate_id=s.candidate_id WHERE s.session_id=? ORDER BY s.slot_id",
                         s.sessionId())) {
             var slot =
                     slots.addObject()
                             .put("slot_id", (String) row.get("slot_id"))
-                            .put("status", (String) row.get("state"))
+                            .put(
+                                    "status",
+                                    interrupted && row.get("state").equals("SUPPLYING")
+                                            ? "FAILED"
+                                            : (String) row.get("state"))
                             .putNull("message_key");
             if (row.get("card") == null) {
                 slot.putNull("card");
@@ -515,7 +548,10 @@ public class PostgresPublicationAuthority implements PublicationAuthority {
                                     "long_review_state",
                                     row.get("long_state") == null
                                             ? "NOT_STARTED"
-                                            : (String) row.get("long_state"));
+                                            : liveLongState(
+                                                    s,
+                                                    (String) row.get("long_run"),
+                                                    (String) row.get("long_state")));
             product.set("identity", json((String) row.get("identity")));
             product.set("short_review", card.path("short_review"));
         }
@@ -567,13 +603,32 @@ public class PostgresPublicationAuthority implements PublicationAuthority {
                         if (next == null) empty.add((String) slot.get("slot_id"));
                     }
                     var updated = sessions.advanceRevision(s);
+                    String displayRound = r;
+                    boolean exhausted = false;
                     if (!empty.isEmpty()) {
                         String run = supply.enqueue(updated, r, Set.copyOf(empty));
-                        if (run == null) fail("SUPPLY_UNAVAILABLE");
-                        jdbc.update(
-                                "UPDATE discovery.publication_round SET run_id=?,supply_state='SUPPLYING' WHERE round_id=?",
-                                run,
-                                r);
+                        if (run == null) {
+                            exhausted = true;
+                            jdbc.update(
+                                    "UPDATE discovery.publication_round SET supply_state='FINAL_EXHAUSTED',reason='recommendation.final_exhausted' WHERE round_id=?",
+                                    r);
+                        } else {
+                            String nextRound = discovery.runRound(updated, run);
+                            if (!nextRound.equals(r)) {
+                                begin(
+                                        updated,
+                                        nextRound,
+                                        run,
+                                        ((Number) round(updated, r).get("target")).intValue(),
+                                        "WAITING");
+                                updated = sessions.advanceRevision(sessions.refresh(updated));
+                                displayRound = nextRound;
+                            } else
+                                jdbc.update(
+                                        "UPDATE discovery.publication_round SET run_id=?,supply_state='SUPPLYING' WHERE round_id=?",
+                                        run,
+                                        r);
+                        }
                     }
                     for (var slot : targets) {
                         String id = replacements.get((String) slot.get("slot_id"));
@@ -582,7 +637,7 @@ public class PostgresPublicationAuthority implements PublicationAuthority {
                                 (String) slot.get("slot_id"),
                                 id == null ? null : r,
                                 id,
-                                id == null ? "SUPPLYING" : "READY",
+                                id == null ? (exhausted ? "EMPTY" : "SUPPLYING") : "READY",
                                 ((Number) slot.get("revision")).longValue());
                         if (id != null)
                             jdbc.update(
@@ -590,7 +645,25 @@ public class PostgresPublicationAuthority implements PublicationAuthority {
                                     r,
                                     id);
                     }
-                    String state = saveState(updated, r);
+                    if (exhausted) {
+                        long count =
+                                jdbc.queryForObject(
+                                        "SELECT count(*) FROM discovery.card_slot WHERE session_id=? AND state='READY'",
+                                        Long.class,
+                                        updated.sessionId());
+                        jdbc.update(
+                                "UPDATE discovery.publication_round SET status=? WHERE round_id=?",
+                                count == 0 ? "NO_MATCH" : "PARTIAL",
+                                displayRound);
+                    }
+                    jdbc.update(
+                            "UPDATE discovery.publication_round SET analysis_mode=? WHERE round_id=?",
+                            displayMode(updated),
+                            displayRound);
+                    jdbc.update(
+                            "UPDATE discovery.publication_round SET display_seq=display_seq+1 WHERE round_id=?",
+                            displayRound);
+                    String state = saveState(updated, displayRound);
                     sessions.saveCommand(updated, operation, command, hash, state, clock.instant());
                     return state;
                 });
@@ -603,7 +676,7 @@ public class PostgresPublicationAuthority implements PublicationAuthority {
                     sessions.lockActive(s);
                     var rows =
                             jdbc.queryForList(
-                                    "SELECT state,content::text,reason FROM discovery.long_review WHERE session_id=? AND round_id=? AND candidate_id=?",
+                                    "SELECT state,content::text,reason,generation_run FROM discovery.long_review WHERE session_id=? AND round_id=? AND candidate_id=?",
                                     s.sessionId(),
                                     r,
                                     candidate);
@@ -612,7 +685,12 @@ public class PostgresPublicationAuthority implements PublicationAuthority {
                     var out =
                             JSON.createObjectNode()
                                     .put("candidate_id", candidate)
-                                    .put("status", (String) row.get("state"))
+                                    .put(
+                                            "status",
+                                            liveLongState(
+                                                    s,
+                                                    (String) row.get("generation_run"),
+                                                    (String) row.get("state")))
                                     .put("message_key", (String) row.get("reason"));
                     out.set(
                             "review",
@@ -697,6 +775,14 @@ public class PostgresPublicationAuthority implements PublicationAuthority {
                     }
                     guard(c);
                     var row = round(s, r);
+                    boolean currentRound =
+                            discovery
+                                    .latestRound(s)
+                                    .map(DiscoveryStore.Round::id)
+                                    .orElse(r)
+                                    .equals(r);
+                    if (!currentRound && !delivery.path("run_id").isNull())
+                        fail("BINDING_MISMATCH");
                     var bound =
                             row.get("bundle_text") == null
                                     ? null
@@ -706,8 +792,14 @@ public class PostgresPublicationAuthority implements PublicationAuthority {
                                     || ((Number) row.get("target")).intValue() != c.target()))
                         fail("BINDING_MISMATCH");
                     if (!delivery.path("binding").isNull()) {
-                        if (bound == null || !same(delivery.path("binding"), bound.path("binding")))
-                            fail("BINDING_MISMATCH");
+                        if (bound == null
+                                || !same(
+                                        delivery.path("binding"),
+                                        runBinding(
+                                                s,
+                                                r,
+                                                c.execution().budget().run(),
+                                                bound.path("binding")))) fail("BINDING_MISMATCH");
                         var pref =
                                 parse(
                                         preferences
@@ -724,6 +816,20 @@ public class PostgresPublicationAuthority implements PublicationAuthority {
                     budget.state(c.execution().budget());
                     LockOrder.before(LockOrder.Level.DELIVERY, id);
                     var payload = delivery.path("payload");
+                    boolean visibleChange =
+                            currentRound
+                                    && ((Set.of("CARD_BATCH", "ORDER_UPDATE").contains(kind)
+                                                    && !delivery.path("run_id").isNull())
+                                            || (kind.equals("ROUND_REPORT")
+                                                    && row.get("run_id")
+                                                            .equals(c.execution().budget().run())
+                                                    && (Set.of("WAITING", "RUNNING")
+                                                                    .contains(row.get("status"))
+                                                            || jdbc.queryForObject(
+                                                                            "SELECT count(*) FROM discovery.card_slot WHERE session_id=? AND state='SUPPLYING'",
+                                                                            Long.class,
+                                                                            s.sessionId())
+                                                                    > 0)));
                     var items = JSON.createArrayNode();
                     var published = JSON.createArrayNode();
                     var candidates = new HashMap<String, JsonNode>();
@@ -753,28 +859,7 @@ public class PostgresPublicationAuthority implements PublicationAuthority {
                         publishBatch(c, delivery, row, candidates, items, published);
                     else if (kind.equals("LONG_REVIEW")) publishLong(c, payload);
                     else if (kind.equals("ORDER_UPDATE")) {
-                        if (payload.path("basis_display_seq").asLong() != s.revision())
-                            fail("REVISION_CONFLICT");
-                        int n = 0;
-                        var seen = new HashSet<String>();
-                        for (var chosen : payload.path("order")) {
-                            String candidate = chosen.path("candidate_id").asText();
-                            if (!seen.add(candidate)
-                                    || jdbc.queryForObject(
-                                                    "SELECT count(*) FROM discovery.round_candidate WHERE round_id=? AND candidate_id=? AND NOT shown AND NOT heard",
-                                                    Long.class,
-                                                    r,
-                                                    candidate)
-                                            != 1) fail("BINDING_MISMATCH");
-                            jdbc.update(
-                                    "UPDATE discovery.round_candidate SET display_rank=?,disposition=? WHERE round_id=? AND candidate_id=?",
-                                    n++,
-                                    chosen.path("verdict").asText().equals("reject")
-                                            ? "INELIGIBLE"
-                                            : "SHORTLISTED",
-                                    r,
-                                    candidate);
-                        }
+                        publishOrder(c, payload, row, candidates, published);
                     } else if (kind.equals("SUPPLY_STATUS"))
                         jdbc.update(
                                 "UPDATE discovery.publication_round SET supply_state=?,reason=? WHERE round_id=?",
@@ -788,7 +873,8 @@ public class PostgresPublicationAuthority implements PublicationAuthority {
                                 "UPDATE discovery.long_review SET state='INTERRUPTED',revision=revision+1 WHERE round_id=? AND generation_run=? AND state='GENERATING'",
                                 r,
                                 c.execution().budget().run());
-                        if (row.get("run_id").equals(c.execution().budget().run())) {
+                        if (currentRound
+                                && row.get("run_id").equals(c.execution().budget().run())) {
                             jdbc.update(
                                     "UPDATE discovery.card_slot SET state='FAILED',revision=revision+1 WHERE session_id=? AND state='SUPPLYING'",
                                     s.sessionId());
@@ -800,10 +886,31 @@ public class PostgresPublicationAuthority implements PublicationAuthority {
                                     r);
                         }
                     }
-                    var updated = sessions.advanceRevision(s);
-                    if ((kind.equals("CARD_BATCH") && !delivery.path("run_id").isNull())
+                    if (Set.of("CARD_BATCH", "ORDER_UPDATE").contains(kind))
+                        jdbc.update(
+                                "UPDATE discovery.publication_round SET display_seq=display_seq+1 WHERE round_id=?",
+                                r);
+                    var updated = visibleChange ? sessions.advanceRevision(s) : s;
+                    if (((kind.equals("CARD_BATCH") || kind.equals("ORDER_UPDATE"))
+                                    && !delivery.path("run_id").isNull())
                             || kind.equals("ROUND_REPORT")) {
                         String outcome = (String) round(updated, r).get("status");
+                        if (kind.equals("ROUND_REPORT")
+                                && !round(updated, r)
+                                        .get("run_id")
+                                        .equals(c.execution().budget().run())) {
+                            var longStates =
+                                    jdbc.queryForList(
+                                            "SELECT state FROM discovery.long_review WHERE round_id=? AND generation_run=?",
+                                            String.class,
+                                            r,
+                                            c.execution().budget().run());
+                            outcome =
+                                    !longStates.isEmpty()
+                                                    && longStates.stream().allMatch("READY"::equals)
+                                            ? "SUCCEEDED"
+                                            : "FAILED";
+                        }
                         queue.complete(
                                 updated,
                                 c.execution().budget().run(),
@@ -817,7 +924,7 @@ public class PostgresPublicationAuthority implements PublicationAuthority {
                                                         ? "NO_MATCH"
                                                         : "FAILED");
                     }
-                    saveState(updated, r);
+                    if (visibleChange) saveState(updated, r);
                     var result =
                             JSON.createObjectNode()
                                     .put(
@@ -825,7 +932,7 @@ public class PostgresPublicationAuthority implements PublicationAuthority {
                                             items.isEmpty() ? "ACCEPTED" : acceptedStatus(items));
                     result.set("items", items);
                     result.set("published_candidate_ids", published);
-                    result.set("display_state", display(updated, r));
+                    result.set("display_state", display(updated, r, c.execution().budget().run()));
                     if (!schema.validDefinition("DeliveryResult", result))
                         fail("INVALID_DELIVERY_RESULT");
                     long seq =
@@ -943,7 +1050,7 @@ public class PostgresPublicationAuthority implements PublicationAuthority {
         jdbc.update(
                 "UPDATE discovery.publication_round SET status=?,analysis_mode=?,supply_state=?,reason=?,input_issues=?::jsonb WHERE round_id=?",
                 status,
-                payload.path("analysis_mode").asText(),
+                displayMode(s),
                 payload.path("pending").path("supply_state").asText(),
                 payload.path("reason_code").isNull() ? null : payload.path("reason_code").asText(),
                 payload.path("input_issues").toString(),
@@ -1025,6 +1132,379 @@ public class PostgresPublicationAuthority implements PublicationAuthority {
                             binding,
                             policy,
                             ((Number) row.get("target")).intValue());
+                });
+    }
+
+    @Override
+    public String exclusions(Scope s) {
+        return exclusions(s, null);
+    }
+
+    public String exclusions(Scope s, String currentRound) {
+        return tx.write(
+                () -> {
+                    sessions.lockActive(s);
+                    var result = JSON.createArrayNode();
+                    var seen = new HashSet<String>();
+                    int sequence =
+                            currentRound == null
+                                    ? discovery
+                                            .latestRound(s)
+                                            .map(info -> info.sequence() + 1)
+                                            .orElse(1)
+                                    : discovery.roundInfo(s, currentRound).sequence();
+                    for (var row :
+                            jdbc.queryForList(
+                                    "SELECT candidate_id,shown,round_id,screening->>'research_status' AS research FROM discovery.round_candidate WHERE session_id=? ORDER BY rank,candidate_id",
+                                    s.sessionId())) {
+                        String id = (String) row.get("candidate_id");
+                        if (java.util.Objects.equals(currentRound, row.get("round_id"))
+                                && !(Boolean) row.get("shown")) continue;
+                        if (!(Boolean) row.get("shown")
+                                && "READ_FAILED".equals(row.get("research"))
+                                && discovery.roundInfo(s, (String) row.get("round_id")).sequence()
+                                        < sequence - 1) continue;
+                        if (seen.add(id))
+                            result.addObject()
+                                    .put("release_group_id", id)
+                                    .put(
+                                            "reason",
+                                            (Boolean) row.get("shown")
+                                                    ? "SHOWN"
+                                                    : "PRIOR_ROUND_RECALL");
+                    }
+                    return result.toString();
+                });
+    }
+
+    @Override
+    public String continuation(
+            Scope s, String r, String operation, Set<String> targets, String exclusionDigest) {
+        return tx.write(
+                () -> {
+                    sessions.lockActive(s);
+                    var bound = (ObjectNode) json(bundle(s, r));
+                    ((ObjectNode) bound.path("binding")).put("exclusion_digest", exclusionDigest);
+                    var out = JSON.createObjectNode();
+                    out.set("candidate_bundle", bound);
+                    var rows = out.putArray("candidates");
+                    for (var row :
+                            jdbc.queryForList(
+                                    "SELECT c.candidate_id,c.rank,c.shown,c.disposition,c.screening::text,k.state AS card_state,l.state AS long_state FROM discovery.round_candidate c LEFT JOIN discovery.recommendation_card k ON k.round_id=c.round_id AND k.candidate_id=c.candidate_id LEFT JOIN discovery.long_review l ON l.round_id=c.round_id AND l.candidate_id=c.candidate_id WHERE c.session_id=? AND c.round_id=? ORDER BY c.rank,c.candidate_id",
+                                    s.sessionId(),
+                                    r)) {
+                        String id = (String) row.get("candidate_id"),
+                                state =
+                                        (Boolean) row.get("shown")
+                                                ? "SHOWN"
+                                                : row.get("card_state") != null
+                                                        ? "READY"
+                                                        : Set.of(
+                                                                                "INELIGIBLE",
+                                                                                "BELOW_FLOOR",
+                                                                                "RESERVE")
+                                                                        .contains(
+                                                                                row.get(
+                                                                                        "disposition"))
+                                                                ? (String) row.get("disposition")
+                                                                : "UNRESEARCHED";
+                        var item =
+                                rows.addObject()
+                                        .put("release_group_id", id)
+                                        .put("recall_rank", ((Number) row.get("rank")).intValue())
+                                        .put("state", state)
+                                        .put(
+                                                "long_review_state",
+                                                row.get("long_state") == null
+                                                        ? "NOT_STARTED"
+                                                        : (String) row.get("long_state"));
+                        item.set(
+                                "screening",
+                                row.get("screening") == null
+                                        ? JSON.nullNode()
+                                        : json((String) row.get("screening")));
+                        item.set("read_refs", json(evidence.references(s, r, id)));
+                    }
+                    var display = display(s, r);
+                    display.put("user_waiting", !operation.equals("REGENERATE"))
+                            .put("run_id", operation.equals("REGENERATE") ? null : "pending-run");
+                    out.set("display_state", display);
+                    var pending =
+                            out.putObject("pending")
+                                    .put(
+                                            "rescreen_run_id",
+                                            operation.equals("RESCREEN") ? "pending-run" : null);
+                    var regenerate = pending.putArray("regenerate_long_review_ids");
+                    if (operation.equals("REGENERATE"))
+                        targets.stream().sorted().forEach(regenerate::add);
+                    pending.putArray("prioritized_long_review_ids");
+                    if (!schema.validDefinition("Continuation", out)) fail("INVALID_CONTINUATION");
+                    return out.toString();
+                });
+    }
+
+    @Override
+    public void bindRun(Scope s, String r, String run, String text) {
+        var next = parse(text, "CandidateBundle");
+        tx.write(
+                () -> {
+                    sessions.lockActive(s);
+                    var old = json(bundle(s, r));
+                    if (!same(old.path("accepted"), next.path("accepted")))
+                        fail("BINDING_MISMATCH");
+                    var binding = (ObjectNode) next.path("binding").deepCopy();
+                    binding.set("exclusion_digest", old.path("binding").path("exclusion_digest"));
+                    if (!same(old.path("binding"), binding)) fail("BINDING_MISMATCH");
+                    jdbc.update(
+                            "INSERT INTO discovery.publication_run_binding VALUES(?,?,?,?::jsonb) ON CONFLICT(run_id) DO NOTHING",
+                            s.sessionId(),
+                            r,
+                            run,
+                            next.path("binding").toString());
+                    var stored =
+                            jdbc.queryForObject(
+                                    "SELECT binding::text FROM discovery.publication_run_binding WHERE run_id=?",
+                                    String.class,
+                                    run);
+                    if (!same(json(stored), next.path("binding"))) fail("IDEMPOTENCY_CONFLICT");
+                    jdbc.update(
+                            "UPDATE discovery.publication_round SET bundle=?::jsonb WHERE round_id=?",
+                            text,
+                            r);
+                    return null;
+                });
+    }
+
+    @Override
+    public String waitFor(Scope s, String r, String run) {
+        return tx.write(
+                () -> {
+                    discovery.lockRuntime();
+                    sessions.lockActive(s);
+                    jdbc.update(
+                            "UPDATE discovery.publication_round SET run_id=?,status='WAITING',supply_state='SUPPLYING',reason=NULL WHERE round_id=? AND session_id=?",
+                            run,
+                            r,
+                            s.sessionId());
+                    return saveState(sessions.advanceRevision(s), r);
+                });
+    }
+
+    @Override
+    public String fail(Scope s, String r, String reason) {
+        return tx.write(
+                () -> {
+                    discovery.lockRuntime();
+                    sessions.lockActive(s);
+                    var row = round(s, r);
+                    jdbc.update(
+                            "UPDATE discovery.publication_round SET status='FAILED',supply_state='PAUSED',reason=? WHERE round_id=?",
+                            reason,
+                            r);
+                    var updated = sessions.advanceRevision(s);
+                    queue.complete(updated, (String) row.get("run_id"), "FAILED");
+                    return saveState(updated, r);
+                });
+    }
+
+    private void saveRunBinding(Scope s, String r, String run, JsonNode binding) {
+        jdbc.update(
+                "INSERT INTO discovery.publication_run_binding VALUES(?,?,?,?::jsonb) ON CONFLICT(run_id) DO NOTHING",
+                s.sessionId(),
+                r,
+                run,
+                binding.toString());
+        var stored =
+                jdbc.queryForObject(
+                        "SELECT binding::text FROM discovery.publication_run_binding WHERE run_id=? AND session_id=?",
+                        String.class,
+                        run,
+                        s.sessionId());
+        if (!same(json(stored), binding)) fail("IDEMPOTENCY_CONFLICT");
+    }
+
+    private JsonNode runBinding(Scope s, String r, String run, JsonNode fallback) {
+        var rows =
+                jdbc.queryForList(
+                        "SELECT binding::text FROM discovery.publication_run_binding WHERE run_id=? AND session_id=? AND round_id=?",
+                        String.class,
+                        run,
+                        s.sessionId(),
+                        r);
+        return rows.isEmpty() ? fallback : json(rows.getFirst());
+    }
+
+    @Override
+    public String displayState(Scope s, String r) {
+        return tx.write(
+                () -> {
+                    sessions.lockActive(s);
+                    return display(s, r).toString();
+                });
+    }
+
+    @Override
+    public String candidateRound(Scope s, String candidate) {
+        return tx.write(
+                () -> {
+                    sessions.lockActive(s);
+                    var rows =
+                            jdbc.queryForList(
+                                    "SELECT round_id FROM discovery.recommendation_card WHERE session_id=? AND candidate_id=?",
+                                    String.class,
+                                    s.sessionId(),
+                                    candidate);
+                    if (rows.size() != 1) fail("RESOURCE_UNAVAILABLE");
+                    return rows.getFirst();
+                });
+    }
+
+    private String liveLongState(Scope scope, String run, String state) {
+        if (!state.equals("GENERATING")) return state;
+        var status = queue.status(scope, run).status();
+        return !Set.of("WAITING", "DISPATCHING").contains(status)
+                        && !discovery.physicalWork(scope, run)
+                ? "INTERRUPTED"
+                : state;
+    }
+
+    private String displayMode(Scope scope) {
+        var modes =
+                jdbc.queryForList(
+                        "SELECT k.selection_basis FROM discovery.card_slot s JOIN discovery.recommendation_card k ON k.round_id=s.round_id AND k.candidate_id=s.candidate_id WHERE s.session_id=? AND s.state='READY'",
+                        String.class,
+                        scope.sessionId());
+        if (modes.isEmpty()) return null;
+        if (modes.contains("BASIC")) return "BASIC";
+        return modes.stream().allMatch("CURATED"::equals) ? "CURATED" : "PERSONALIZED";
+    }
+
+    private void publishOrder(
+            Context c,
+            JsonNode payload,
+            Map<String, Object> info,
+            Map<String, JsonNode> candidates,
+            com.fasterxml.jackson.databind.node.ArrayNode published) {
+        var s = c.execution().evidence().scope();
+        String r = c.execution().evidence().round();
+        if (payload.path("basis_display_seq").asLong()
+                != ((Number) round(s, r).get("display_seq")).longValue()) fail("BINDING_MISMATCH");
+        boolean foreground = !payload.path("run_id").isNull();
+        if (foreground && !payload.path("run_id").asText().equals(info.get("run_id")))
+            fail("BINDING_MISMATCH");
+        if (payload.path("analysis_mode").asText().equals("PERSONALIZED")
+                && (!payload.path("selection").path("status").asText().equals("COMPLETED")
+                        || !budget.completed(
+                                c.execution().budget(),
+                                payload.path("selection").path("invocation_id").asText(),
+                                Set.of("SELECT", "STRUCTURE_REPAIR"))))
+            fail("SELECTION_UNVERIFIED");
+        var chosen = new ArrayList<String>();
+        var seen = new HashSet<String>();
+        int rank = 0;
+        for (var item : payload.path("order")) {
+            String id = item.path("candidate_id").asText();
+            if (!seen.add(id) || !ready(s, r).contains(id)) fail("BINDING_MISMATCH");
+            if (item.path("verdict").asText().equals("reject")) {
+                jdbc.update(
+                        "UPDATE discovery.round_candidate SET disposition='INELIGIBLE' WHERE round_id=? AND candidate_id=?",
+                        r,
+                        id);
+                continue;
+            }
+            var card =
+                    (ObjectNode)
+                            json(
+                                    jdbc.queryForObject(
+                                            "SELECT content::text FROM discovery.recommendation_card WHERE round_id=? AND candidate_id=?",
+                                            String.class,
+                                            r,
+                                            id));
+            String basis =
+                    payload.path("analysis_mode").asText().equals("PERSONALIZED")
+                            ? "SELECTED"
+                            : "SCREEN_ONLY";
+            card.put("selection_basis", basis);
+            if (cardFailure(c, payload, card, candidates.get(id)) != null) continue;
+            jdbc.update(
+                    "UPDATE discovery.round_candidate SET display_rank=? WHERE round_id=? AND candidate_id=?",
+                    rank++,
+                    r,
+                    id);
+            jdbc.update(
+                    "UPDATE discovery.recommendation_card SET content=?::jsonb,selection_basis=? WHERE round_id=? AND candidate_id=?",
+                    card.toString(),
+                    basis.equals("SELECTED") ? "PERSONALIZED" : "BASIC",
+                    r,
+                    id);
+            chosen.add(id);
+        }
+        if (foreground && !chosen.isEmpty()) {
+            var slots =
+                    jdbc.queryForList(
+                            "SELECT slot_id,revision FROM discovery.card_slot WHERE session_id=? ORDER BY slot_id",
+                            s.sessionId());
+            int n = 0;
+            for (var slot : slots) {
+                String id = n < chosen.size() ? chosen.get(n++) : null;
+                store.putSlot(
+                        s,
+                        (String) slot.get("slot_id"),
+                        id == null ? null : r,
+                        id,
+                        id == null ? "EMPTY" : "READY",
+                        ((Number) slot.get("revision")).longValue());
+                if (id != null) {
+                    jdbc.update(
+                            "UPDATE discovery.round_candidate SET shown=true WHERE round_id=? AND candidate_id=?",
+                            r,
+                            id);
+                    published.add(id);
+                }
+            }
+            jdbc.update(
+                    "UPDATE discovery.publication_round SET status=?,analysis_mode=?,supply_state='SUFFICIENT',reason=NULL WHERE round_id=?",
+                    published.size() < c.target() ? "PARTIAL" : "SUCCEEDED",
+                    displayMode(s),
+                    r);
+        } else if (foreground)
+            jdbc.update(
+                    "UPDATE discovery.publication_round SET status='PARTIAL',supply_state='PAUSED',reason='recommendation.personalization_incomplete' WHERE round_id=?",
+                    r);
+    }
+
+    @Override
+    public void scheduleLongs(Scope scope, String round, Set<String> candidates, Supply supply) {
+        tx.write(
+                () -> {
+                    discovery.lockRuntime();
+                    sessions.lockActive(scope);
+                    var eligible = new TreeSet<String>();
+                    for (String id : candidates)
+                        if (jdbc.queryForObject(
+                                        "SELECT count(*) FROM discovery.long_review l JOIN discovery.card_slot s ON s.round_id=l.round_id AND s.candidate_id=l.candidate_id WHERE l.session_id=? AND l.round_id=? AND l.candidate_id=? AND l.state='NOT_STARTED' AND s.state='READY'",
+                                        Long.class,
+                                        scope.sessionId(),
+                                        round,
+                                        id)
+                                > 0) eligible.add(id);
+                    if (eligible.isEmpty()) return null;
+                    String run = supply.enqueue(scope, round, eligible);
+                    for (String id : eligible) {
+                        if (run == null)
+                            jdbc.update(
+                                    "UPDATE discovery.long_review SET state='INTERRUPTED',reason='LONG_REVIEW_BUSY',revision=revision+1 WHERE round_id=? AND candidate_id=?",
+                                    round,
+                                    id);
+                        else
+                            jdbc.update(
+                                    "UPDATE discovery.long_review SET generation_run=?,state='GENERATING',reason=NULL,revision=revision+1 WHERE round_id=? AND candidate_id=?",
+                                    run,
+                                    round,
+                                    id);
+                    }
+                    saveState(sessions.advanceRevision(scope), round);
+                    return null;
                 });
     }
 }

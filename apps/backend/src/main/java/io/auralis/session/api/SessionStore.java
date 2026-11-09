@@ -30,6 +30,8 @@ public interface SessionStore {
 
     View lockActive(Scope scope);
 
+    Scope lockRefreshed(Scope original);
+
     Scope advanceRevision(Scope scope);
 
     Optional<View> status(String subjectId);
@@ -79,4 +81,6 @@ public interface SessionStore {
     Optional<String> command(Scope scope, String operation, String commandId, String digest);
 
     void scheduleDeletion(String id, Scope scope, String step, Instant at);
+
+    void lockFinancialOwner(String sessionId);
 }

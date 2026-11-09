@@ -172,4 +172,14 @@ public final class PythonHttpClient implements PythonClient, AutoCloseable {
             delegate.onComplete();
         }
     }
+
+    @Override
+    public String command(String execution, String command, String payload) {
+        return exchange(
+                "PUT",
+                "/executions/" + encode(execution) + "/commands/" + encode(command),
+                "RoundCommand",
+                payload,
+                "Acknowledgement");
+    }
 }

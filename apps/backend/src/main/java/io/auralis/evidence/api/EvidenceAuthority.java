@@ -29,4 +29,6 @@ public interface EvidenceAuthority {
     String saveSeeds(Context context, String request);
 
     boolean usableRead(Context context, String readId, String candidateId, boolean seed);
+
+    String references(Scope scope, String round, String candidate);
 }

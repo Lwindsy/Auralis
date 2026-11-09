@@ -25,6 +25,8 @@ public class PostgresDispatchQueue implements DispatchQueue {
     private final MessageDefinitions schema;
     private final BudgetAuthority budget;
     private final Clock clock;
+    private final org.springframework.beans.factory.ObjectProvider<ExecutionPreparation>
+            preparation;
 
     public PostgresDispatchQueue(
             JdbcTemplate jdbc,
@@ -33,7 +35,8 @@ public class PostgresDispatchQueue implements DispatchQueue {
             ShortTransactions tx,
             MessageDefinitions schema,
             BudgetAuthority budget,
-            Clock clock) {
+            Clock clock,
+            org.springframework.beans.factory.ObjectProvider<ExecutionPreparation> preparation) {
         this.jdbc = jdbc;
         this.sessions = sessions;
         this.discovery = discovery;
@@ -41,6 +44,7 @@ public class PostgresDispatchQueue implements DispatchQueue {
         this.schema = schema;
         this.budget = budget;
         this.clock = clock;
+        this.preparation = preparation;
     }
 
     private static void fail(String code) {
@@ -144,7 +148,10 @@ public class PostgresDispatchQueue implements DispatchQueue {
                                 >= limits.waiting()) fail("QUEUE_FULL");
                         run = UUID.randomUUID().toString();
                         Instant now =
-                                clock.instant().truncatedTo(java.time.temporal.ChronoUnit.MILLIS);
+                                (r.originalAcceptedAt() == null
+                                                ? clock.instant()
+                                                : r.originalAcceptedAt())
+                                        .truncatedTo(java.time.temporal.ChronoUnit.MILLIS);
                         discovery.createIntent(
                                 r.scope(),
                                 r.round(),
@@ -188,13 +195,14 @@ public class PostgresDispatchQueue implements DispatchQueue {
 
     private Accepted accepted(String run) {
         return jdbc.queryForObject(
-                "SELECT id,status,accepted_at,queue_deadline FROM discovery.discovery_intent WHERE id=?",
+                "SELECT id,status,accepted_at,queue_deadline,error_code FROM discovery.discovery_intent WHERE id=?",
                 (rs, n) ->
                         new Accepted(
                                 rs.getString(1),
                                 rs.getString(2),
                                 rs.getTimestamp(3).toInstant(),
-                                rs.getTimestamp(4).toInstant()),
+                                rs.getTimestamp(4).toInstant(),
+                                rs.getString(5)),
                 run);
     }
 
@@ -391,6 +399,15 @@ public class PostgresDispatchQueue implements DispatchQueue {
                         var plan = json((String) row.get("plan"));
                         var payload = (ObjectNode) plan.path("start").deepCopy();
                         payload.put("execution_id", execution).put("run_id", run);
+                        if (payload.path("start_mode").asText().equals("CONTINUE")) {
+                            var continuation = (ObjectNode) payload.path("continuation");
+                            if (continuation.path("display_state").path("user_waiting").asBoolean())
+                                ((ObjectNode) continuation.path("display_state"))
+                                        .put("run_id", run);
+                            if (!continuation.path("pending").path("rescreen_run_id").isNull())
+                                ((ObjectNode) continuation.path("pending"))
+                                        .put("rescreen_run_id", run);
+                        }
                         payload.putObject("boot")
                                 .put("coordinator_boot_id", javaBoot)
                                 .put("python_boot_id", python);
@@ -411,6 +428,15 @@ public class PostgresDispatchQueue implements DispatchQueue {
                         jdbc.update(
                                 "UPDATE discovery.discovery_intent SET status='DISPATCHING',revision=revision+1 WHERE id=?",
                                 run);
+                        var demands = new HashSet<String>();
+                        json(row.get("demand_ids").toString())
+                                .forEach(n -> demands.add(n.asText()));
+                        for (var prepare : preparation.orderedStream().toList())
+                            payload =
+                                    (ObjectNode)
+                                            json(
+                                                    prepare.prepare(
+                                                            scope, payload.toString(), demands));
                         var context = context(scope, payload, plan);
                         budget.register(context.budget());
                         var authoritative = json(budget.state(context.budget()));
@@ -516,17 +542,22 @@ public class PostgresDispatchQueue implements DispatchQueue {
 
     @Override
     public Context context(String execution) {
-        var rows =
-                jdbc.queryForList(
-                        "SELECT e.start_payload::text AS payload,i.dispatch_plan::text AS plan,i.scope_snapshot::text AS scope FROM discovery.execution e JOIN discovery.discovery_intent i ON i.id=e.run_id WHERE e.id=? AND e.start_payload IS NOT NULL",
-                        execution);
-        if (rows.size() != 1) fail("EXECUTION_GONE");
-        var row = rows.getFirst();
-        return context(
-                sessions.refresh(
-                        convert(json((String) row.get("scope")), SessionStore.Scope.class)),
-                json((String) row.get("payload")),
-                json((String) row.get("plan")));
+        return tx.write(
+                () -> {
+                    var rows =
+                            jdbc.queryForList(
+                                    "SELECT e.start_payload::text AS payload,i.dispatch_plan::text AS plan,i.scope_snapshot::text AS scope FROM discovery.execution e JOIN discovery.discovery_intent i ON i.id=e.run_id WHERE e.id=? AND e.start_payload IS NOT NULL",
+                                    execution);
+                    if (rows.size() != 1) fail("EXECUTION_GONE");
+                    var row = rows.getFirst();
+                    return context(
+                            sessions.lockRefreshed(
+                                    convert(
+                                            json((String) row.get("scope")),
+                                            SessionStore.Scope.class)),
+                            json((String) row.get("payload")),
+                            json((String) row.get("plan")));
+                });
     }
 
     @Override
@@ -730,5 +761,182 @@ public class PostgresDispatchQueue implements DispatchQueue {
                             execution);
                     return null;
                 });
+    }
+
+    @Override
+    public void prioritize(SessionStore.Scope scope, String candidate, String command) {
+        tx.write(
+                () -> {
+                    discovery.lockRuntime();
+                    sessions.lockActive(scope);
+                    var jobs =
+                            active().stream()
+                                    .filter(
+                                            j ->
+                                                    j.scope().sessionId().equals(scope.sessionId())
+                                                            && !j.cancel())
+                                    .toList();
+                    for (var job : jobs) {
+                        String id =
+                                java.util
+                                        .UUID
+                                        .nameUUIDFromBytes(
+                                                (command + job.execution())
+                                                        .getBytes(
+                                                                java.nio.charset.StandardCharsets
+                                                                        .UTF_8))
+                                        .toString();
+                        var body =
+                                JSON.createObjectNode()
+                                        .put("command_id", id)
+                                        .put("kind", "PRIORITIZE_LONG_REVIEW");
+                        body.putObject("boot")
+                                .put("coordinator_boot_id", job.coordinatorBoot())
+                                .put("python_boot_id", job.pythonBoot());
+                        body.putObject("payload").put("candidate_id", candidate);
+                        body.put("payload_digest", digest(body.path("payload")));
+                        if (!schema.validDefinition("RoundCommand", body)) fail("INVALID_PAYLOAD");
+                        jdbc.update(
+                                "INSERT INTO discovery.execution_command VALUES(?,?,?::jsonb,false) ON CONFLICT(id) DO NOTHING",
+                                id,
+                                job.execution(),
+                                body.toString());
+                    }
+                    return null;
+                });
+    }
+
+    @Override
+    public List<Command> commands() {
+        return jdbc.query(
+                "SELECT c.id,c.execution_id,c.payload::text FROM discovery.execution_command c JOIN discovery.execution e ON e.id=c.execution_id WHERE NOT c.acknowledged AND e.physical_released_at IS NULL AND NOT e.cancellation_requested ORDER BY c.id LIMIT 3",
+                (r, n) -> new Command(r.getString(1), r.getString(2), r.getString(3)));
+    }
+
+    @Override
+    public void acknowledge(Command c) {
+        tx.write(
+                () -> {
+                    discovery.lockRuntime();
+                    jdbc.update(
+                            "UPDATE discovery.execution_command SET acknowledged=true WHERE id=? AND execution_id=?",
+                            c.id(),
+                            c.execution());
+                    return null;
+                });
+    }
+
+    @Override
+    public void display(SessionStore.Scope scope, String round, String state, String command) {
+        var payload = parseDisplay(state);
+        tx.write(
+                () -> {
+                    discovery.lockRuntime();
+                    sessions.lockActive(scope);
+                    for (var job : active())
+                        if (job.scope().sessionId().equals(scope.sessionId())
+                                && job.round().equals(round)
+                                && !job.cancel()) {
+                            String id =
+                                    UUID.nameUUIDFromBytes(
+                                                    ("display:" + command + job.execution())
+                                                            .getBytes(
+                                                                    java.nio.charset
+                                                                            .StandardCharsets
+                                                                            .UTF_8))
+                                            .toString();
+                            var body =
+                                    JSON.createObjectNode()
+                                            .put("command_id", id)
+                                            .put("kind", "DISPLAY_STATE");
+                            body.putObject("boot")
+                                    .put("coordinator_boot_id", job.coordinatorBoot())
+                                    .put("python_boot_id", job.pythonBoot());
+                            body.set("payload", payload);
+                            body.put("payload_digest", digest(payload));
+                            if (!schema.validDefinition("RoundCommand", body))
+                                fail("INVALID_PAYLOAD");
+                            jdbc.update(
+                                    "INSERT INTO discovery.execution_command VALUES(?,?,?::jsonb,false) ON CONFLICT(id) DO NOTHING",
+                                    id,
+                                    job.execution(),
+                                    body.toString());
+                        }
+                    return null;
+                });
+    }
+
+    private JsonNode parseDisplay(String text) {
+        var node = json(text);
+        if (!schema.validDefinition("DisplayState", node)) fail("INVALID_PAYLOAD");
+        return node;
+    }
+
+    @Override
+    public Optional<Accepted> mergeSupply(
+            SessionStore.Scope scope,
+            String round,
+            String command,
+            Set<String> demands,
+            Limits limits) {
+        return tx.write(
+                () -> {
+                    discovery.lockRuntime();
+                    sessions.lockActive(scope);
+                    var rows =
+                            jdbc.queryForList(
+                                    "SELECT dispatch_plan::text AS plan,accepted_at FROM discovery.discovery_intent WHERE session_id=? AND round_id=? AND operation='SUPPLY' AND status='WAITING'",
+                                    scope.sessionId(),
+                                    round);
+                    if (rows.isEmpty()) return Optional.empty();
+                    var row = rows.getFirst();
+                    var plan = json((String) row.get("plan"));
+                    var prices = new HashMap<String, BudgetAuthority.Price>();
+                    plan.path("prices")
+                            .fields()
+                            .forEachRemaining(
+                                    e ->
+                                            prices.put(
+                                                    e.getKey(),
+                                                    convert(
+                                                            e.getValue(),
+                                                            BudgetAuthority.Price.class)));
+                    var mapping = new HashMap<String, String>();
+                    plan.path("candidates")
+                            .fields()
+                            .forEachRemaining(e -> mapping.put(e.getKey(), e.getValue().asText()));
+                    return Optional.of(
+                            accept(
+                                    new Request(
+                                            scope,
+                                            round,
+                                            "SUPPLY",
+                                            command,
+                                            plan.path("start").toString(),
+                                            prices,
+                                            plan.path("catalog_dataset").asLong(),
+                                            mapping,
+                                            demands,
+                                            ((java.sql.Timestamp) row.get("accepted_at"))
+                                                    .toInstant()),
+                                    limits));
+                });
+    }
+
+    @Override
+    public boolean canAccept(SessionStore.Scope scope, Limits limits) {
+        sessions.lockActive(scope);
+        return !jdbc.queryForObject(
+                        "SELECT maintenance FROM discovery.runtime_control WHERE singleton",
+                        Boolean.class)
+                && jdbc.queryForObject(
+                                "SELECT count(*) FROM discovery.discovery_intent WHERE status='WAITING'",
+                                Long.class)
+                        < limits.waiting()
+                && jdbc.queryForObject(
+                                "SELECT count(*) FROM discovery.discovery_intent WHERE subject_id=? AND status IN ('WAITING','DISPATCHING','RUNNING')",
+                                Long.class,
+                                scope.subjectId())
+                        == 0;
     }
 }

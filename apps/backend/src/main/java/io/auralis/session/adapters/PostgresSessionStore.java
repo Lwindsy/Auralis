@@ -72,6 +72,15 @@ public class PostgresSessionStore implements SessionStore {
     }
 
     @Override
+    public Scope lockRefreshed(Scope original) {
+        ShortTransactions.requireWrite();
+        lockSubject(original.subjectId());
+        var scope = refresh(original);
+        lockActive(scope);
+        return scope;
+    }
+
+    @Override
     public View lockActive(Scope scope) {
         lockSubject(scope.subjectId());
         LockOrder.before(LockOrder.Level.SESSION, scope.sessionId());
@@ -310,5 +319,22 @@ public class PostgresSessionStore implements SessionStore {
                 "SELECT release_group_id FROM discovery.heard_album WHERE subject_id=?",
                 UUID.class,
                 scope.subjectId());
+    }
+
+    @Override
+    public void lockFinancialOwner(String sessionId) {
+        if (sessionId == null) return;
+        var owners =
+                jdbc.queryForList(
+                        "SELECT subject_id FROM discovery.session WHERE id=?",
+                        String.class,
+                        sessionId);
+        if (owners.isEmpty()) return;
+        lockSubject(owners.getFirst());
+        LockOrder.before(LockOrder.Level.SESSION, sessionId);
+        jdbc.queryForList(
+                "SELECT id FROM discovery.session WHERE id=? AND subject_id=? FOR UPDATE",
+                sessionId,
+                owners.getFirst());
     }
 }
