@@ -662,6 +662,24 @@ public class PostgresPublicationAuthority implements PublicationAuthority {
                                     slotId,
                                     operation);
                     if (targets.isEmpty()) fail("RESOURCE_UNAVAILABLE");
+                    if (operation.equals("BATCH")) discardUndo(s);
+                    if (Set.of("HEARD", "REPLACE").contains(operation)) {
+                        var prior = targets.getFirst();
+                        if (!prior.get("state").equals("READY")) fail("REVISION_CONFLICT");
+                        String candidate = (String) prior.get("candidate_id");
+                        boolean heardAdded =
+                                operation.equals("HEARD")
+                                        && !sessions.heardAlbums(s)
+                                                .contains(UUID.fromString(candidate));
+                        jdbc.update(
+                                "INSERT INTO discovery.card_undo VALUES(?,?,?,?,?,?) ON CONFLICT(session_id) DO UPDATE SET slot_id=excluded.slot_id,previous_round_id=excluded.previous_round_id,previous_candidate_id=excluded.previous_candidate_id,operation=excluded.operation,heard_added=excluded.heard_added",
+                                s.sessionId(),
+                                prior.get("slot_id"),
+                                prior.get("round_id"),
+                                candidate,
+                                operation,
+                                heardAdded);
+                    }
                     var available = new ArrayDeque<>(ready(s, r));
                     var replacements = new LinkedHashMap<String, String>();
                     var empty = new TreeSet<String>();
@@ -745,6 +763,65 @@ public class PostgresPublicationAuthority implements PublicationAuthority {
                     String state = saveState(updated, displayRound);
                     sessions.saveCommand(updated, operation, command, hash, state, clock.instant());
                     return state;
+                });
+    }
+
+    @Override
+    public void discardUndo(Scope s) {
+        sessions.lockActive(s);
+        jdbc.update("DELETE FROM discovery.card_undo WHERE session_id=?", s.sessionId());
+    }
+
+    @Override
+    public String undoLastCard(Scope s, String r) {
+        return tx.write(
+                () -> {
+                    discovery.lockRuntime();
+                    sessions.lockActive(s);
+                    var records =
+                            jdbc.queryForList(
+                                    "SELECT * FROM discovery.card_undo WHERE session_id=?",
+                                    s.sessionId());
+                    if (records.isEmpty()) fail("RESOURCE_UNAVAILABLE");
+                    var previous = records.getFirst();
+                    String candidate = (String) previous.get("previous_candidate_id");
+                    String previousRound = (String) previous.get("previous_round_id");
+                    if ((Boolean) previous.get("heard_added")) {
+                        sessions.forgetHeard(s, UUID.fromString(candidate));
+                        jdbc.update(
+                                "UPDATE discovery.round_candidate SET heard=false WHERE session_id=? AND round_id=? AND candidate_id=?",
+                                s.sessionId(),
+                                previousRound,
+                                candidate);
+                    }
+                    var updated = sessions.advanceRevision(s);
+                    long slotRevision =
+                            jdbc.queryForObject(
+                                    "SELECT revision FROM discovery.card_slot WHERE session_id=? AND slot_id=?",
+                                    Long.class,
+                                    s.sessionId(),
+                                    previous.get("slot_id"));
+                    store.putSlot(
+                            updated,
+                            (String) previous.get("slot_id"),
+                            previousRound,
+                            candidate,
+                            "READY",
+                            slotRevision);
+                    discardUndo(updated);
+                    long ready =
+                            jdbc.queryForObject(
+                                    "SELECT count(*) FROM discovery.card_slot WHERE session_id=? AND state='READY'",
+                                    Long.class,
+                                    s.sessionId());
+                    jdbc.update(
+                            "UPDATE discovery.publication_round SET status=?,analysis_mode=?,reason=NULL,display_seq=display_seq+1 WHERE round_id=?",
+                            ready >= ((Number) round(updated, r).get("target")).intValue()
+                                    ? "SUCCEEDED"
+                                    : "PARTIAL",
+                            displayMode(updated),
+                            r);
+                    return saveState(updated, r);
                 });
     }
 

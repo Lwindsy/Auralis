@@ -86,6 +86,13 @@ public class RecommendationHttpController {
         return action(request, session, "BATCH", null);
     }
 
+    @PostMapping("/v1/discovery-sessions/{session_id}/undo-last-card")
+    public ResponseEntity<JsonNode> undo(
+            @PathVariable("session_id") String session, HttpServletRequest request)
+            throws java.io.IOException {
+        return action(request, session, "UNDO", null);
+    }
+
     @PostMapping("/v1/discovery-sessions/{session_id}/rescreen")
     public ResponseEntity<JsonNode> rescreen(
             @PathVariable("session_id") String session, HttpServletRequest request)

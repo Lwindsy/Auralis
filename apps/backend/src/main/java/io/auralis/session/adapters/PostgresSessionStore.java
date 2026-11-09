@@ -234,6 +234,15 @@ public class PostgresSessionStore implements SessionStore {
     }
 
     @Override
+    public void forgetHeard(Scope scope, UUID album) {
+        lockActive(scope);
+        jdbc.update(
+                "DELETE FROM discovery.heard_album WHERE subject_id=? AND release_group_id=?",
+                scope.subjectId(),
+                album);
+    }
+
+    @Override
     public void recordHeard(Scope scope, UUID album, Instant at) {
         lockActive(scope);
         jdbc.update(

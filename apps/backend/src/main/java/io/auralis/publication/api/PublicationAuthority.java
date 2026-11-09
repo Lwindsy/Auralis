@@ -40,6 +40,10 @@ public interface PublicationAuthority {
             String slot,
             Supply supply);
 
+    String undoLastCard(Scope scope, String round);
+
+    void discardUndo(Scope scope);
+
     String longReview(Scope scope, String round, String candidate);
 
     String regenerate(Scope scope, String round, String candidate, Supply supply);

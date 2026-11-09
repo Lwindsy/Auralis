@@ -68,6 +68,8 @@ public interface SessionStore {
 
     boolean purgeSession(Scope scope);
 
+    void forgetHeard(Scope scope, UUID releaseGroupId);
+
     void recordHeard(Scope scope, UUID releaseGroupId, Instant at);
 
     void saveCommand(

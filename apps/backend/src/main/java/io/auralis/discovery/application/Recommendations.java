@@ -675,7 +675,10 @@ public class Recommendations {
                                 target,
                                 (s, r, slots) ->
                                         supply(s, r, "SUPPLY", scopeId("supply", key), slots));
+                    else if (operation.equals("UNDO"))
+                        publication.undoLastCard(current, round.id());
                     else if (operation.equals("RESCREEN")) {
+                        publication.discardUndo(current);
                         var before = json(publication.state(current, round.id()));
                         if (!before.path("analysis_mode").asText().equals("BASIC"))
                             fail("INVALID_OPERATION");
@@ -736,7 +739,8 @@ public class Recommendations {
                     after = sessions.refresh(after);
                     var latest = discovery.latestRound(after).orElseThrow();
                     var display = (ObjectNode) json(publication.displayState(after, latest.id()));
-                    display.put("user_waiting", false).putNull("run_id");
+                    if (!operation.equals("UNDO"))
+                        display.put("user_waiting", false).putNull("run_id");
                     queue.display(after, latest.id(), display.toString(), key);
                     String result =
                             isLong
