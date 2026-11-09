@@ -286,6 +286,7 @@ class BatchResearchStage:
                 results[dossier.candidate_id] = ResearchStage._failed(
                     candidate, dossier, "INSUFFICIENT_REVIEWS"
                 )
+                results[dossier.candidate_id].screening["reason_code"] = row["reason"]
 
         for row in output["cards"]:
             candidate, dossier = aliases[row["c"]]

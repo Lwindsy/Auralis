@@ -219,6 +219,12 @@ def test_batch_one_call_and_audience_verified_at_publication(
                     == insufficient
                 )
                 assert len(seen) == 1
+                rejected = [
+                    screening
+                    for screening in harness.control.screenings.values()
+                    if screening["reason_code"] == "NO_MUSIC_DESCRIPTION"
+                ]
+                assert len(rejected) == insufficient
             assert all(c["admission"]["audience"]["listeners"] >= minimum for c in first["cards"])
             assert "album-1" not in {c["candidate_id"] for c in first["cards"]}
             if insufficient == 4:
