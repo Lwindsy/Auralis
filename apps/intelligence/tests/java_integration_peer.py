@@ -7,7 +7,9 @@ publication pipeline are real. Only model/search answers and page bytes are synt
 import argparse
 import asyncio
 import json
+import os
 import re
+import time
 import traceback
 from pathlib import Path
 
@@ -32,22 +34,23 @@ class Fixtures:
 
     def event(self, kind, **values):
         with (self.root / "provider-events.jsonl").open("a", encoding="utf-8") as output:
-            output.write(json.dumps({"kind": kind, **values}) + "\n")
+            output.write(json.dumps({"kind": kind, "monotonic": time.monotonic(), **values}) + "\n")
 
     def check_binding(self, binding, *, search=False):
         pass
 
     async def complete(self, binding, request):
         self.event("model", schema=request.schema_name)
-        await asyncio.sleep(
-            0.01
-        )  # A measurable synthetic provider interval, not a speed benchmark.
+        await asyncio.sleep(self.controls().get("model_delay_seconds", 0.01))
         faults = self.controls()
         while faults.get("hold_models") or (
             faults.get("hold_long") and request.schema_name.startswith("long_review")
         ):
             await asyncio.sleep(0.05)
             faults = self.controls()
+        if faults.get("provider_429"):
+            self.event("provider_429", schema=request.schema_name)
+            return CallResult(outcome="NOT_PROCESSED", finish="ERROR", provider_http_status=429)
         payload = request.input
         if request.schema_name.startswith("genre_pass1"):
             return CallResult(
@@ -202,6 +205,7 @@ def main():
     parser.add_argument("--port", type=int, required=True)
     args = parser.parse_args()
     fixture = Fixtures(Path(args.config).resolve().parent)
+    (fixture.root / "python-pid.json").write_text(json.dumps({"pid": os.getpid()}))
     original_request = service.ControlHTTPClient.request
 
     async def observed_request(self, execution_id, operation, payload):

@@ -15,6 +15,7 @@ from auralis_intelligence.agents import (
     Usage,
 )
 from auralis_intelligence.agents.control_double import JavaControlDouble
+from auralis_intelligence.agents.ports import DeliveryPending
 from auralis_intelligence.agents.scheduler import BoundedScheduler
 from auralis_intelligence.contracts import (
     ContractError,
@@ -124,6 +125,69 @@ def supply():
         "counts": {"unresearched": 0, "reserve": 0, "in_flight": 0, "ready_unshown_known": 0},
         "reason_code": None,
     }
+
+
+def test_publication_waits_for_usage_ack_without_rebuying_model():
+    async def run():
+        request = start()
+        supervisor, control = setup(request)
+        original = control.request
+        available = False
+        sent = 0
+        delivered = 0
+
+        async def delayed_receipt(execution_id, operation, payload):
+            nonlocal delivered
+            if operation == "usage-receipt" and not available:
+                raise ControlUnavailable("DELAYED_RECEIPT")
+            if operation == "delivery" and payload["kind"] == "LONG_REVIEW":
+                delivered += 1
+            return await original(execution_id, operation, payload)
+
+        control.request = delayed_receipt
+
+        async def stage(execution):
+            nonlocal available, sent
+            await bind(execution, control)
+            plan = execution.invocation_plan("SCREEN", "screen", {"synthetic": True})
+
+            async def send():
+                nonlocal sent
+                sent += 1
+                return CallResult({}, usage=Usage(4, 6, 0))
+
+            await execution.invoke(plan, send, timeout_seconds=1)
+            assert execution.pending_usage
+            payload = {
+                "candidate_id": "album-1",
+                "status": "FAILED",
+                "sections": None,
+                "citations": [],
+                "han_char_count": 0,
+                "extra_read_ids": [],
+                "missing_sections": [],
+                "invocation_ids": [],
+                "prompt_version": "test",
+                "reason_code": "TEST_FAILURE",
+            }
+            # An unrelated pending charge must not block a result that does not cite it.
+            await execution.deliver("LONG_REVIEW", payload)
+            assert delivered == 1 and execution.pending_usage
+            payload["invocation_ids"] = [plan["invocation_id"]]
+            with pytest.raises(DeliveryPending) as pending:
+                await execution.deliver("LONG_REVIEW", payload)
+            assert delivered == 1
+            available = True
+            await execution._send_delivery(pending.value.delivery_id)
+            assert not execution.pending_usage
+            assert delivered == 2 and sent == 1
+
+        _, execution = await supervisor.accept(request, stage, control)
+        await supervisor.wait(execution.id)
+        assert execution.status == "CLOSED", execution.error_code
+        assert delivered == 2 and sent == 1
+
+    asyncio.run(run())
 
 
 def test_control_double_prices_cached_tokens_and_search_separately():
