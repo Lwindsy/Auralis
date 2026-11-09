@@ -127,6 +127,23 @@ class CatalogAudienceIT {
     }
 
     @Test
+    void searchUsesOnlyTheActiveAdmittedAudienceAndClearsRetiredCache() {
+        var expected = audience.audience(1, binding, List.of(id(2))).get(id(2));
+        assertEquals(expected, audience.searchPopularity().get(id(2).toString()));
+        jdbc.update(
+                "UPDATE discovery.audience_snapshot SET active=false WHERE id=?",
+                binding.snapshotDigest());
+        try {
+            assertTrue(audience.searchPopularity().isEmpty());
+        } finally {
+            jdbc.update(
+                    "UPDATE discovery.audience_snapshot SET active=true WHERE id=?",
+                    binding.snapshotDigest());
+        }
+        assertEquals(expected, audience.searchPopularity().get(id(2).toString()));
+    }
+
+    @Test
     void identitiesRedirectActualTypesAndGenreHierarchy() {
         var rows = catalog.albums(1, List.of(id(20), id(2), id(3), id(999)));
         assertEquals(rows.get(id(2)), rows.get(id(20)));

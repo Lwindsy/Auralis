@@ -122,6 +122,25 @@ class LuceneCatalogSearchTest {
                     found.get(1).id(), search.search("Radiohead", 1, 1).albums().getFirst().id());
             assertTrue(search.search("Radiohead impossible", 0, 10).albums().isEmpty());
         }
+        try (var search =
+                new LuceneCatalogSearch(
+                        index,
+                        digest,
+                        () ->
+                                Map.of(
+                                        new UUID(0, 1).toString(),
+                                        10000L,
+                                        new UUID(0, 2).toString(),
+                                        100L))) {
+            var found = search.search("Radiohead", 0, 10).albums();
+            assertEquals(new UUID(0, 1), found.getFirst().id());
+            assertEquals(3, found.size()); // Unknown audience does not exclude other releases.
+            assertEquals(
+                    found.get(1).id(), search.search("Radiohead", 1, 1).albums().getFirst().id());
+            assertEquals(
+                    "Unrelated Artist",
+                    search.search("Unrelated", 0, 10).albums().getFirst().artist());
+        }
     }
 
     @Test

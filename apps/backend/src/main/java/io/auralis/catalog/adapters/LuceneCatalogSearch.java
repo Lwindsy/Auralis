@@ -20,8 +20,18 @@ public final class LuceneCatalogSearch implements CatalogSearchPort, AutoCloseab
     private final CatalogAnalyzer analyzer = new CatalogAnalyzer();
     private final Semaphore slots = new Semaphore(5, true);
     private final String revision;
+    private final java.util.function.Supplier<Map<String, Long>> popularity;
 
     public LuceneCatalogSearch(Path path, String expectedManifest) throws IOException {
+        this(path, expectedManifest, Map::of);
+    }
+
+    public LuceneCatalogSearch(
+            Path path,
+            String expectedManifest,
+            java.util.function.Supplier<Map<String, Long>> popularity)
+            throws IOException {
+        this.popularity = popularity;
         if (!expectedManifest.matches("[0-9a-f]{64}")
                 || !Files.readString(path.resolve("manifest.sha256")).equals(expectedManifest))
             throw new IOException("INDEX_NOT_ADMITTED");
@@ -94,12 +104,15 @@ public final class LuceneCatalogSearch implements CatalogSearchPort, AutoCloseab
                     terms.isEmpty()
                             ? new TermQuery(new Term("exact", CatalogAnalyzer.exact(text)))
                             : query.build();
+            var counts = popularity.get();
             var hits =
                     searcher.search(
                             effective,
                             offset + limit + 1,
                             new Sort(
-                                    SortField.FIELD_SCORE,
+                                    counts.isEmpty()
+                                            ? SortField.FIELD_SCORE
+                                            : new PopularityScore(counts).getSortField(true),
                                     new SortField("sort_id", SortField.Type.STRING)));
             var result = new ArrayList<Album>();
             for (int i = offset; i < Math.min(hits.scoreDocs.length, offset + limit); i++)
@@ -113,6 +126,66 @@ public final class LuceneCatalogSearch implements CatalogSearchPort, AutoCloseab
             throw new CatalogFailure(503, "CATALOG_UNAVAILABLE");
         } finally {
             slots.release();
+        }
+    }
+
+    private static final class PopularityScore extends DoubleValuesSource {
+        private final Map<String, Long> counts;
+
+        PopularityScore(Map<String, Long> counts) {
+            this.counts = counts;
+        }
+
+        @Override
+        public DoubleValues getValues(LeafReaderContext context, DoubleValues scores)
+                throws IOException {
+            var ids = DocValues.getSorted(context.reader(), "sort_id");
+            return new DoubleValues() {
+                private long listeners;
+
+                public boolean advanceExact(int doc) throws IOException {
+                    listeners =
+                            ids.advanceExact(doc)
+                                    ? counts.getOrDefault(
+                                            ids.lookupOrd(ids.ordValue()).utf8ToString(), 0L)
+                                    : 0;
+                    return scores.advanceExact(doc);
+                }
+
+                public double doubleValue() throws IOException {
+                    return scores.doubleValue() + 8 * Math.log1p(listeners);
+                }
+            };
+        }
+
+        @Override
+        public boolean needsScores() {
+            return true;
+        }
+
+        @Override
+        public DoubleValuesSource rewrite(IndexSearcher searcher) {
+            return this;
+        }
+
+        @Override
+        public boolean isCacheable(LeafReaderContext context) {
+            return false;
+        }
+
+        @Override
+        public boolean equals(Object other) {
+            return other instanceof PopularityScore score && counts == score.counts;
+        }
+
+        @Override
+        public int hashCode() {
+            return System.identityHashCode(counts);
+        }
+
+        @Override
+        public String toString() {
+            return "text relevance plus log audience";
         }
     }
 
