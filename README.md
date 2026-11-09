@@ -45,6 +45,10 @@ The backend includes a V7 discovery-state migration and module-owned storage por
 
 ## Agent development
 
+For Windows single-host startup, readiness, graceful shutdown and isolated PostgreSQL recovery, use the [runtime package](apps/runtime/usage.txt). Java/Python stay on loopback; configuration, approved artifacts and budgets must be supplied explicitly. Startup does not make paid model requests.
+
+Windows单机启动、就绪检查、正常停止和隔离恢复见[运行包](apps/runtime/usage.txt)。双端保持本机通信，数据、硬预算和凭据显式配置；启动本身不调用付费模型。
+
 Use Python 3.10+ with the dependencies in [pyproject.toml](apps/intelligence/pyproject.toml). From the repository root, run the complete first-batch flow with synthetic models and pages and the local A-V2 implementation. This performs no paid requests.
 
 ```powershell

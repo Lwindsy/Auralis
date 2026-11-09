@@ -15,6 +15,10 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 public class OnlineApplication {
     public static void main(String[] args) {
         try {
+            if (args.length == 1 && args[0].equals("--offline-migrate")) {
+                OfflineMigration.run();
+                return;
+            }
             SpringApplication.run(OnlineApplication.class, args);
             System.out.println("AURALIS_ONLINE_STARTED");
         } catch (Exception failure) {
