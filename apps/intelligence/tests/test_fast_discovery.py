@@ -116,7 +116,7 @@ def test_batch_one_call_and_audience_verified_at_publication(
 
             def reply(binding, request):
                 seen.append(request.schema_name)
-                if request.schema_name != "batch_v4":
+                if request.schema_name != "batch_v5":
                     return _reply(binding, request)
                 from auralis_intelligence.agents import CallResult, Usage
 
@@ -153,7 +153,7 @@ def test_batch_one_call_and_audience_verified_at_publication(
                 await harness.supervisor.wait(execution.id)
                 entry = harness.control.executions[execution.id]
                 first_ids = set(entry["display"]["shown_candidate_ids"])
-                assert seen == ["batch_v4"]
+                assert seen == ["batch_v5"]
                 if cold:
                     deferred = [
                         screening
@@ -201,7 +201,7 @@ def test_batch_one_call_and_audience_verified_at_publication(
                     if d["kind"] == "SUPPLY_STATUS"
                 ]
                 assert supply_states[-1] == "R_EXHAUSTED"
-            assert seen == (["batch_v4", "batch_v4"] if background else ["batch_v4"])
+            assert seen == (["batch_v5", "batch_v5"] if background else ["batch_v5"])
             assert any(
                 call["plan"]["purpose"] == "SELECT" for call in harness.control.invocations.values()
             )
@@ -318,3 +318,28 @@ def test_prepared_evidence_digest_age_and_original_observation(tmp_path):
     )
     save()
     assert PreparedEvidence(path).sources("a") == []
+
+
+def test_research_window_covers_requested_directions_before_artist_only_fill():
+    batch = BatchResearchStage(None, None, SimpleNamespace(), candidate_limit=3)
+    candidates = [
+        {
+            "release_group_id": str(i),
+            "identity": {"artist_credit": f"Artist {i}", "primary_genres": [{"genre_id": genre}]},
+        }
+        for i, genre in enumerate(["hyperpop", "hyperpop", "hyperpop", "post-rock", "trip-hop"])
+    ]
+    preferences = {"tags": [{"id": genre} for genre in ["hyperpop", "post-rock", "trip-hop"]]}
+    assert [c["release_group_id"] for c in batch._research_window(candidates, preferences)] == [
+        "0",
+        "3",
+        "4",
+    ]
+    assert [c["release_group_id"] for c in batch._research_window(candidates, {"tags": []})] == [
+        "0",
+        "1",
+        "2",
+    ]
+    # Missing coverage never invents candidates or enlarges the research budget.
+    preferences["tags"].append({"id": "missing"})
+    assert len(batch._research_window(candidates, preferences)) == 3
