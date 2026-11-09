@@ -27,15 +27,17 @@ final class SyntheticExecutionPeer implements AutoCloseable {
     final List<String> failures = new CopyOnWriteArrayList<>();
     final AtomicInteger sends = new AtomicInteger(), modelCalls = new AtomicInteger();
     final AtomicBoolean basicNext = new AtomicBoolean();
+    final AtomicBoolean failLongNext = new AtomicBoolean();
     volatile boolean hold, holdReports;
     volatile long longDelayMs = 600;
+    volatile int recallLimit = Integer.MAX_VALUE;
     volatile String controlBase;
     final JsonNode settings;
     final List<String> albums;
 
     static final class Job {
         final ObjectNode start;
-        final boolean basic;
+        final boolean basic, failLong;
         final Map<String, String> reads = new HashMap<>();
         final CompletableFuture<Void> done = new CompletableFuture<>();
         final AtomicInteger delivery = new AtomicInteger(), calls = new AtomicInteger();
@@ -46,9 +48,10 @@ final class SyntheticExecutionPeer implements AutoCloseable {
         JsonNode bundle;
         int longReady;
 
-        Job(ObjectNode start, boolean basic) {
+        Job(ObjectNode start, boolean basic, boolean failLong) {
             this.start = start;
             this.basic = basic;
+            this.failLong = failLong;
         }
 
         String id() {
@@ -201,7 +204,11 @@ final class SyntheticExecutionPeer implements AutoCloseable {
                     if (job == null) {
                         if (jobs.values().stream().filter(j -> !j.released).count() >= 3)
                             throw new IllegalStateException("EXECUTOR_BUSY");
-                        job = new Job(start.deepCopy(), basicNext.getAndSet(false));
+                        job =
+                                new Job(
+                                        start.deepCopy(),
+                                        basicNext.getAndSet(false),
+                                        failLongNext.getAndSet(false));
                         jobs.put(id, job);
                         var running = job;
                         workers.submit(() -> drive(running));
@@ -423,7 +430,11 @@ final class SyntheticExecutionPeer implements AutoCloseable {
                 .path("exclusions")
                 .forEach(n -> excluded.add(n.path("release_group_id").asText()));
         int wanted = j.start.path("selection_config").path("recall_target_count").asInt();
-        var ids = albums.stream().filter(id -> !excluded.contains(id)).limit(wanted).toList();
+        var ids =
+                albums.stream()
+                        .filter(id -> !excluded.contains(id))
+                        .limit(Math.min(wanted, recallLimit))
+                        .toList();
         var p =
                 JSON.createObjectNode()
                         .put("input_digest", pref.path("input_digest").asText())
@@ -533,6 +544,8 @@ final class SyntheticExecutionPeer implements AutoCloseable {
     }
 
     private void longReview(Job j, String candidate) throws Exception {
+        if (j.failLong && j.longReady == 0)
+            throw new IllegalStateException("SYNTHETIC_LONG_FAILURE");
         String call = call(j, "WRITE_LONG", candidate);
         var p =
                 JSON.createObjectNode()

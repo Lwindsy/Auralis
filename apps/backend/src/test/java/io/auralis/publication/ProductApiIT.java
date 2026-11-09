@@ -12,6 +12,36 @@ import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 @EnabledIfEnvironmentVariable(named = "AURALIS_TEST_POSTGRES_URL", matches = ".+")
 class ProductApiIT extends ProductApiFixture {
     @Test
+    void interruptedPhysicalExecutionCanRegenerateLongReviewExplicitly() throws Exception {
+        peer.failLongNext.set(true);
+        var b = browser();
+        b.submit(userInput(""), "interrupted-long");
+        b.awaitState(
+                s ->
+                        s.path("slots")
+                                .get(0)
+                                .path("card")
+                                .path("long_review_state")
+                                .asText()
+                                .equals("INTERRUPTED"));
+        String candidate = b.state.path("slots").get(0).path("card").path("candidate_id").asText();
+        int calls = peer.modelCalls.get();
+        b.refresh();
+        assertEquals(calls, peer.modelCalls.get());
+        var result = b.action("long-reviews/" + candidate + "/regenerate", null, "explicit-retry");
+        assertEquals(200, result.status(), result.body().toString());
+        b.awaitState(
+                s ->
+                        s.path("slots")
+                                .get(0)
+                                .path("card")
+                                .path("long_review_state")
+                                .asText()
+                                .equals("READY"));
+        assertTrue(peer.modelCalls.get() > calls);
+    }
+
+    @Test
     void completedCardsAndReviewsSurviveJavaRestartWithoutDispatch() throws Exception {
         var b = browser();
         assertEquals(202, b.submit(userInput("恢复原值"), "s".repeat(160)).status());
