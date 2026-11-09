@@ -146,6 +146,9 @@ def test_batch_one_call_and_audience_verified_at_publication(tmp_path, backgroun
                 )
             assert execution.status == "CLOSED", execution.error_code
             assert seen == (["batch_v3", "batch_v3"] if background else ["batch_v3"])
+            assert any(
+                call["plan"]["purpose"] == "SELECT" for call in harness.control.invocations.values()
+            )
             first = next(
                 d["payload"]
                 for d in harness.control.deliveries.values()

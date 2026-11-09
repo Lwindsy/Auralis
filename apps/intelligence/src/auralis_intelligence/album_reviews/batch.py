@@ -70,6 +70,11 @@ class BatchResearchStage:
         self.statistics = {}
 
     async def run(self, execution, candidate, preferences, **kwargs):
+        if kwargs.get("require_score") is False:
+            # Resumed long reviews hydrate an already selected album, not a new batch.
+            return await ResearchStage(
+                self.model, self.tools, genre_names=self.genre_names, album_names=self.album_names
+            ).run(execution, candidate, preferences, **kwargs)
         if self.execution_id not in (None, execution.id):
             raise ContractError("BATCH_STAGE_EXECUTION_MISMATCH")
         self.execution_id = execution.id
@@ -226,7 +231,7 @@ class BatchResearchStage:
             reply = await self.model.generate(
                 execution,
                 role="select",
-                purpose="SCREEN" if not attempt else "STRUCTURE_REPAIR",
+                purpose="SELECT" if not attempt else "STRUCTURE_REPAIR",
                 system=PROMPT
                 + (
                     "\n固定策展：按输入顺序为前target_count张资料充分的作品写卡片，不能按偏好改选或重排。"

@@ -241,6 +241,11 @@ abstract class ProductApiFixture extends PublicationFixture {
             assertTrue(
                     app.getBean(WireProtocol.class).validDefinition(definition, value),
                     value.toString());
+            if (definition.equals("ProductState"))
+                assertEquals(
+                        value.path("status").asText().equals("WAITING"),
+                        value.path("admission").path("status").asText().equals("WAITING"),
+                        "Product waiting status must agree with the current admission");
             if (value.has("csrf_token")) {
                 csrf = value.path("csrf_token").asText();
                 state = value.path("state");

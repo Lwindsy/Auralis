@@ -471,7 +471,8 @@ public class PostgresPublicationAuthority implements PublicationAuthority {
         boolean interrupted =
                 Set.of("CANCELLED", "INTERRUPTED", "EXPIRED", "SUPERSEDED", "FAILED")
                         .contains(admission.status());
-        if (Set.of("WAITING", "RUNNING").contains(status))
+        if (admission.status().equals("WAITING")) status = "WAITING";
+        else if (Set.of("WAITING", "RUNNING").contains(status))
             status =
                     admission.status().equals("WAITING")
                             ? "WAITING"

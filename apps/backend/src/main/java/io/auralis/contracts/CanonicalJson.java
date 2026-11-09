@@ -10,7 +10,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.*;
 import java.util.*;
 
-/** RFC8785 integer-only subset used by input, preference and catalog messages. */
+/** RFC8785 wire digests, retaining safe-integer and Unicode rejection at the boundary. */
 public final class CanonicalJson {
     public static final ObjectMapper JSON =
             new ObjectMapper()
@@ -69,6 +69,10 @@ public final class CanonicalJson {
                     || node.longValue() > 9007199254740991L)
                 throw new IllegalArgumentException("UNSAFE_INTEGER");
             raw(out, node.asText());
+        } else if (node.isFloatingPointNumber()) {
+            if (!Double.isFinite(node.doubleValue()))
+                throw new IllegalArgumentException("NON_FINITE_NUMBER");
+            raw(out, org.erdtman.jcs.NumberToJSON.serializeNumber(node.doubleValue()));
         } else if (node.isTextual()) {
             String value = node.textValue();
             for (int i = 0; i < value.length(); i++) {
@@ -79,7 +83,12 @@ public final class CanonicalJson {
                 } else if (Character.isLowSurrogate(c))
                     throw new IllegalArgumentException("INVALID_UNICODE");
             }
-            raw(out, JSON.writeValueAsString(value));
+            // JCS uses lowercase control escapes; ordinary Jackson output is not canonical.
+            String encoded =
+                    new org.erdtman.jcs.JsonCanonicalizer(
+                                    "[" + JSON.writeValueAsString(value) + "]")
+                            .getEncodedString();
+            raw(out, encoded.substring(1, encoded.length() - 1));
         } else if (node.isNull() || node.isBoolean()) raw(out, node.toString());
         else throw new IllegalArgumentException("CATALOG_NON_INTEGER_NUMBER");
     }

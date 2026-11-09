@@ -407,7 +407,7 @@ class FirstBatchPipeline:
                                 c
                                 for c in recent
                                 if c["lane"] == "FOREGROUND"
-                                and c["purpose"] in {"SCREEN", "STRUCTURE_REPAIR"}
+                                and c["purpose"] in {"SELECT", "STRUCTURE_REPAIR"}
                             ]
                         )
                     )

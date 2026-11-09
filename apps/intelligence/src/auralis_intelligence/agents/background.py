@@ -421,6 +421,7 @@ class RoundPipeline(FirstBatchPipeline):
                     work.jobs[result.dossier.candidate_id] = self.writing.start(
                         execution, result.dossier, work.preferences, lane=lane
                     )
+                    work.long_states[result.dossier.candidate_id] = "GENERATING"
             else:
                 from auralis_intelligence.album_reviews.writing import WritingJobs
 
