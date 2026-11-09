@@ -70,7 +70,7 @@ public final class LuceneCatalogSearch implements CatalogSearchPort, AutoCloseab
             for (int i = 0; i < terms.size(); i++) {
                 String word = terms.get(i);
                 Query token = new TermQuery(new Term("text", word));
-                if (i == terms.size() - 1 && word.length() >= 3)
+                if (i == terms.size() - 1 && (terms.size() > 1 || word.length() >= 3))
                     token = new PrefixQuery(new Term("text", word));
                 query.add(token, BooleanClause.Occur.MUST);
             }
@@ -81,8 +81,14 @@ public final class LuceneCatalogSearch implements CatalogSearchPort, AutoCloseab
                 artist.add(new Term("artist", terms.get(i)), i);
             }
             if (!terms.isEmpty()) {
-                query.add(new BoostQuery(title.build(), 4), BooleanClause.Occur.SHOULD);
-                query.add(new BoostQuery(artist.build(), 2), BooleanClause.Occur.SHOULD);
+                query.add(
+                        new BoostQuery(new ConstantScoreQuery(title.build()), 4),
+                        BooleanClause.Occur.SHOULD);
+                // An artist-name query should surface that artist's catalogue before a
+                // coincidentally named album. Keep this bonus independent of term rarity.
+                query.add(
+                        new BoostQuery(new ConstantScoreQuery(artist.build()), 16),
+                        BooleanClause.Occur.SHOULD);
             }
             Query effective =
                     terms.isEmpty()
