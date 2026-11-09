@@ -375,6 +375,10 @@ class Host:
             AURALIS_CATALOG_SEARCH_MANIFEST_SHA256=c["search_manifest_sha256"],
             SERVER_PORT=str(c["java_port"]),
         )
+        if c.get("curated_content_directory"):
+            prepared = (self.path.parent / c["curated_content_directory"]).resolve()
+            require(prepared.is_dir(), "MISSING_CURATED_CONTENT")
+            backend["AURALIS_CURATED_CONTENT_DIRECTORY"] = str(prepared)
         agent_env = self.agent_environment()
         children = []
         stopping = threading.Event()

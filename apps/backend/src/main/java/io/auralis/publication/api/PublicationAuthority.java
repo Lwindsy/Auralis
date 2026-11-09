@@ -1,6 +1,7 @@
 package io.auralis.publication.api;
 
 import io.auralis.catalog.api.AudienceQuery;
+import io.auralis.discovery.api.CuratedRecommendations;
 import io.auralis.discovery.api.DispatchQueue;
 import io.auralis.session.api.SessionStore.Scope;
 import java.util.Set;
@@ -20,6 +21,9 @@ public interface PublicationAuthority {
     }
 
     String begin(Scope scope, String round, String run, int target, String status);
+
+    String publishCurated(
+            Scope scope, String round, String run, int target, CuratedRecommendations.Batch batch);
 
     void register(Context context, String bundle);
 

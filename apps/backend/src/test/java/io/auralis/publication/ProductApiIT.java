@@ -294,12 +294,87 @@ class ProductApiIT extends ProductApiFixture {
         var input = userInput("");
         input.putArray("liked_genres");
         input.putArray("disliked_genre_ids").add(ROCK);
-        b.submit(input, "curated");
+        var submitted = b.submit(input, "curated");
+        assertTrue(Set.of(200, 202).contains(submitted.status()), submitted.body().toString());
         b.awaitState(s -> s.path("status").asText().equals("SUCCEEDED"));
         assertEquals("CURATED", b.state.path("analysis_mode").asText());
         assertTrue(
                 peer.jobs.values().stream()
-                        .anyMatch(
+                        .noneMatch(j -> j.start.path("session_id").asText().equals(b.session())));
+        for (var slot : b.state.path("slots"))
+            assertEquals("READY", slot.path("card").path("long_review_state").asText());
+        assertTrue(peer.failures.isEmpty(), peer.failures.toString());
+    }
+
+    @Test
+    void curatedModesKeepOrderAndAllExcludedProducesNoMatch() throws Exception {
+        int sends = peer.sends.get();
+        for (String mode : List.of("familiar", "explore", "surprise")) {
+            var b = browser();
+            var input = userInput("");
+            input.put("mode", mode);
+            input.putArray("liked_genres");
+            input.putArray("disliked_genre_ids").add(ROCK);
+            assertEquals(200, b.submit(input, "mode-" + mode).status());
+            assertEquals(
+                    album(1),
+                    b.state.path("slots").get(0).path("card").path("candidate_id").asText());
+            assertEquals(
+                    album(2),
+                    b.state.path("slots").get(1).path("card").path("candidate_id").asText());
+        }
+        var empty = browser();
+        var input = userInput("");
+        input.putArray("liked_genres");
+        input.putArray("disliked_genre_ids").add(G);
+        assertEquals(200, empty.submit(input, "all-excluded").status());
+        assertEquals("NO_MATCH", empty.state.path("status").asText());
+        assertEquals("FINAL_EXHAUSTED", empty.state.path("supply_state").asText());
+        assertEquals(sends, peer.sends.get());
+    }
+
+    @Test
+    void preparedCuratedBatchExhaustsAndRestoresWithoutPython() throws Exception {
+        int sends = peer.sends.get();
+        var b = browser();
+        var input = userInput("");
+        input.putArray("liked_genres");
+        input.putArray("disliked_genre_ids").add(ROCK);
+        assertEquals(200, b.submit(input, "prepared").status());
+        assertEquals(
+                album(1), b.state.path("slots").get(0).path("card").path("candidate_id").asText());
+        assertEquals(200, b.action("cards/slot-0001/actions", "HEARD", "heard").status());
+        assertEquals(
+                album(3), b.state.path("slots").get(0).path("card").path("candidate_id").asText());
+        bootProduct();
+        b.connect();
+        assertEquals(
+                album(3), b.state.path("slots").get(0).path("card").path("candidate_id").asText());
+        var batch = b.action("next-batch", null, "batch");
+        assertEquals(200, batch.status(), batch.body().toString());
+        assertEquals("PARTIAL", b.state.path("status").asText());
+        assertEquals(
+                album(4), b.state.path("slots").get(0).path("card").path("candidate_id").asText());
+        assertEquals(200, b.action("cards/slot-0001/actions", "REPLACE", "last").status());
+        assertEquals("NO_MATCH", b.state.path("status").asText());
+        assertEquals("FINAL_EXHAUSTED", b.state.path("supply_state").asText());
+        assertEquals(sends, peer.sends.get());
+    }
+
+    @Test
+    void parsedNoPositiveHandsOffToPreparedContentWithoutSecondExecution() throws Exception {
+        var b = browser();
+        var input = userInput("不要摇滚");
+        input.putArray("liked_genres");
+        input.putArray("disliked_genre_ids").add(ROCK);
+        int sends = peer.sends.get();
+        assertEquals(202, b.submit(input, "parsed-curated").status());
+        b.awaitState(s -> s.path("status").asText().equals("SUCCEEDED"));
+        assertEquals("CURATED", b.state.path("analysis_mode").asText());
+        assertEquals(sends + 1, peer.sends.get());
+        assertTrue(
+                peer.jobs.values().stream()
+                        .noneMatch(
                                 j -> j.start.path("operation").asText().equals("CURATED_REVIEWS")));
         assertTrue(peer.failures.isEmpty(), peer.failures.toString());
     }
