@@ -352,7 +352,7 @@ def test_seeded_batch_and_long_review_use_same_registered_seed(tmp_path):
 
             def reply(binding, request):
                 assert request.input["seed_evidence"][0]["seed_id"] == "album-0"
-                if request.schema_name == "batch_v5_seed_v1":
+                if request.schema_name == "batch_v6_seed_v1":
                     candidates = request.input["candidates"]
                     output = {
                         "assessments": [
@@ -411,7 +411,7 @@ def test_seeded_batch_and_long_review_use_same_registered_seed(tmp_path):
                 if d["kind"] == "CARD_BATCH"
             )
             assert len(cards) == 3
-            assert all(c["short_review"]["prompt_version"] == "batch.v5.seed.v1" for c in cards)
+            assert all(c["short_review"]["prompt_version"] == "batch.v6.seed.v1" for c in cards)
             longs = [
                 d["payload"] for d in h.control.deliveries.values() if d["kind"] == "LONG_REVIEW"
             ]

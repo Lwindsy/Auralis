@@ -80,7 +80,7 @@ class Fixtures:
                 },
                 usage=Usage(100, 100, 0),
             )
-        if request.schema_name.startswith("batch_v5"):
+        if request.schema_name.startswith("batch_v6"):
             candidates = payload["candidates"]
             if faults.get("invalid_once") and "batch" not in self.repairs:
                 self.repairs.add("batch")
