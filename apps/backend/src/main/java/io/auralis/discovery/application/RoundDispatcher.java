@@ -142,7 +142,27 @@ public final class RoundDispatcher {
     }
 
     private void send(DispatchQueue.Job job) {
-        if (queue.markSending(job))
+        if (!queue.markSending(job)) return;
+        try {
             queue.observe(job, python.start(job.execution(), job.payload()));
+        } catch (PythonClient.Unavailable unavailable) {
+            // The PUT may have committed. Check that exact admission before entering maintenance;
+            // otherwise valid callbacks can be rejected during the next polling interval.
+            var payload = json(job.payload());
+            var admission =
+                    json(
+                            python.admission(
+                                    job.execution(),
+                                    job.pythonBoot(),
+                                    payload.path("payload_digest").asText(),
+                                    job.deadline().toString()));
+            if (!job.execution().equals(admission.path("execution_id").asText())
+                    || !job.pythonBoot().equals(admission.path("boot_id").asText())
+                    || !payload.path("payload_digest").equals(admission.path("payload_digest"))
+                    || !java.util.Set.of("ACTIVE", "TERMINAL")
+                            .contains(admission.path("status").asText())
+                    || admission.path("execution").isNull()) throw unavailable;
+            queue.observe(job, admission.path("execution").toString());
+        }
     }
 }
