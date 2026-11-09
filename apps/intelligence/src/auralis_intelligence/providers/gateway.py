@@ -1,6 +1,10 @@
 """Stage-facing gateways; every paid operation runs through Execution.invoke."""
 
 import json
+from dataclasses import asdict
+from datetime import datetime, timezone
+from hashlib import sha256
+from pathlib import Path
 from typing import Any
 
 from auralis_intelligence.agents import CallDenied, CallResult, Execution
@@ -10,9 +14,36 @@ from .types import ModelAdapter, ModelBinding, ModelRequest
 
 
 class ModelGateway:
-    def __init__(self, adapter: ModelAdapter, bindings: dict[str, ModelBinding]) -> None:
+    def __init__(
+        self,
+        adapter: ModelAdapter,
+        bindings: dict[str, ModelBinding],
+        *,
+        trial_trace_directory: Path | None = None,
+    ) -> None:
         self.adapter = adapter
         self.bindings = dict(bindings)
+        self.trial_trace_directory = trial_trace_directory
+        if trial_trace_directory is not None:
+            trial_trace_directory.mkdir(parents=True, exist_ok=True)
+
+    def _trace(self, execution, plan, event, **fields):
+        if self.trial_trace_directory is None:
+            return
+        record = {
+            "format": "auralis-model-trial.v1",
+            "event": event,
+            "recorded_at": datetime.now(timezone.utc).isoformat(),
+            "session_id": execution.start["session_id"],
+            "round_id": execution.start["round_id"],
+            "run_id": execution.start["run_id"],
+            "execution_id": execution.id,
+            "invocation_id": plan["invocation_id"],
+            **fields,
+        }
+        name = sha256(plan["invocation_id"].encode()).hexdigest() + ".jsonl"
+        with (self.trial_trace_directory / name).open("a", encoding="utf-8") as stream:
+            stream.write(json.dumps(record, ensure_ascii=False) + "\n")
 
     def binding(self, execution: Execution, role: str) -> ModelBinding:
         expected = execution.start["model_bindings"][role]
@@ -74,9 +105,34 @@ class ModelGateway:
             if purpose == "WRITE_LONG"
             else "short_review_tech_timeout_ms",
         }[role]
-        return await execution.invoke(
+        self._trace(
+            execution,
             plan,
-            lambda: self.adapter.complete(binding, request),
-            timeout_seconds=(timeout_ms or timing[timeout_key]) / 1000,
-            priority=priority,
+            "prepared",
+            prompt_version=prompt_version,
+            model_binding=binding.wire(),
+            purpose=purpose,
+            candidate_id=candidate_id,
+            read_ids=list(read_ids),
+            request=material,
         )
+        try:
+            result = await execution.invoke(
+                plan,
+                lambda: self.adapter.complete(binding, request),
+                timeout_seconds=(timeout_ms or timing[timeout_key]) / 1000,
+                priority=priority,
+            )
+        except BaseException as error:
+            self._trace(execution, plan, "aborted", error_class=type(error).__name__)
+            raise
+        self._trace(
+            execution,
+            plan,
+            "result",
+            outcome=result.outcome,
+            finish=result.finish,
+            output=result.output,
+            usage=asdict(result.usage),
+        )
+        return result

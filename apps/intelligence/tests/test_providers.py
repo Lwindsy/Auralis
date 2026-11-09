@@ -243,17 +243,22 @@ def web_execution():
     return Execution(request, control), control
 
 
-def test_gateway_uses_bound_model_authorization_and_retains_invocation_id():
+@pytest.mark.parametrize("failed", [False, True])
+def test_gateway_uses_bound_model_authorization_and_retains_invocation_id(tmp_path, failed):
     async def run():
         execution, control = web_execution()
 
         async def handler(request):
-            return httpx.Response(200, json=response())
+            return (
+                httpx.Response(503, json={"error": {"message": "synthetic-key"}})
+                if failed
+                else httpx.Response(200, json=response())
+            )
 
         async with OpenAIResponsesAdapter(
             "synthetic-key", transport=httpx.MockTransport(handler), test_transport=True
         ) as adapter:
-            gateway = ModelGateway(adapter, {BINDING.ref: BINDING})
+            gateway = ModelGateway(adapter, {BINDING.ref: BINDING}, trial_trace_directory=tmp_path)
             result = await gateway.generate(
                 execution,
                 role="screen",
@@ -264,7 +269,20 @@ def test_gateway_uses_bound_model_authorization_and_retains_invocation_id():
                 prompt_version="screen.v1",
             )
         assert result.invocation_id in control.invocations
-        assert control.invocations[result.invocation_id]["settled"]
+        if not failed:
+            assert control.invocations[result.invocation_id]["settled"]
+        else:
+            assert result.output is None
+        files = list(tmp_path.glob("*.jsonl"))
+        assert len(files) == 1
+        text = files[0].read_text(encoding="utf-8")
+        assert "synthetic-key" not in text and "Authorization" not in text
+        rows = [json.loads(line) for line in text.splitlines()]
+        assert [row["event"] for row in rows] == ["prepared", "result"]
+        assert rows[0]["request"]["input"] == REQUEST.input
+        assert rows[1]["output"] == result.output
+        assert rows[1]["outcome"] == result.outcome
+        assert rows[0]["invocation_id"] == result.invocation_id
         await execution.cleanup()
 
     asyncio.run(run())
