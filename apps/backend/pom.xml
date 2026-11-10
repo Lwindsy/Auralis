@@ -19,7 +19,7 @@
     <dependency><groupId>org.junit.jupiter</groupId><artifactId>junit-jupiter</artifactId><version>5.13.4</version><scope>test</scope></dependency>
   </dependencies>
   <build>
-    <resources><resource><directory>../intelligence/src/auralis_intelligence/contracts</directory><includes><include>agent-v1.schema.json</include></includes></resource><resource><directory>src/main/resources</directory><excludes><exclude>**/*.md</exclude></excludes></resource></resources>
+    <resources><resource><directory>../intelligence/src/auralis_intelligence/contracts</directory><includes><include>agent-v1.schema.json</include><include>genre-taxonomy-v1.schema.json</include></includes></resource><resource><directory>src/main/resources</directory><excludes><exclude>**/*.md</exclude></excludes></resource></resources>
     <testResources><testResource><directory>src/test/resources</directory><excludes><exclude>**/*.md</exclude></excludes></testResource></testResources>
     <plugins><plugin><groupId>org.springframework.boot</groupId><artifactId>spring-boot-maven-plugin</artifactId><configuration><mainClass>io.auralis.bootstrap.OnlineApplication</mainClass><classifier>online</classifier></configuration></plugin>
     <plugin>

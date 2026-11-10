@@ -258,7 +258,14 @@ class Host:
 
     def preflight(self):
         c = self.config
-        for key in ("java", "python", "jar", "agent_config", "recommendation_config"):
+        for key in (
+            "java",
+            "python",
+            "jar",
+            "agent_config",
+            "recommendation_config",
+            "genre_taxonomy",
+        ):
             self.file(key)
         require(self.search_index().is_dir(), "MISSING_SEARCH_INDEX")
         require(re.fullmatch("[a-f0-9]{64}", c["search_manifest_sha256"]), "SEARCH_DIGEST_REQUIRED")
@@ -283,6 +290,11 @@ class Host:
         )
         self.stopped()
         agent = read_json(self.file("agent_config"))
+        require(
+            (Path(self.file("agent_config")).parent / agent["genre_taxonomy"]).resolve()
+            == Path(self.file("genre_taxonomy")).resolve(),
+            "GENRE_TAXONOMY_MISMATCH",
+        )
         for key in ("reference", "recall_snapshot", "model_bindings", "audience_snapshot"):
             p = (Path(self.file("agent_config")).parent / agent[key]).resolve()
             require(p.exists(), "MISSING_AGENT_ARTIFACT")
@@ -371,6 +383,7 @@ class Host:
             AURALIS_MANAGED_STDIN="true",
             AURALIS_DISPATCH_ENABLED="true",
             AURALIS_RECOMMENDATION_CONFIG=self.file("recommendation_config"),
+            AURALIS_GENRE_TAXONOMY=self.file("genre_taxonomy"),
             AURALIS_CATALOG_SEARCH_INDEX=str(self.search_index()),
             AURALIS_CATALOG_SEARCH_MANIFEST_SHA256=c["search_manifest_sha256"],
             SERVER_PORT=str(c["java_port"]),

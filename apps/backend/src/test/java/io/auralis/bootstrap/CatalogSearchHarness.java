@@ -76,6 +76,17 @@ public final class CatalogSearchHarness implements AutoCloseable {
         p.put("auralis.session-cleanup-enabled", false);
         p.put("AURALIS_CATALOG_SEARCH_INDEX", index.toString());
         p.put("AURALIS_CATALOG_SEARCH_MANIFEST_SHA256", manifest);
+        p.put(
+                "AURALIS_GENRE_TAXONOMY",
+                System.getenv()
+                        .getOrDefault(
+                                "AURALIS_GENRE_TAXONOMY",
+                                io.auralis.catalog.TaxonomyFixtures.write(
+                                                new JdbcTemplate(
+                                                        new org.springframework.jdbc.datasource
+                                                                .DriverManagerDataSource(
+                                                                url, "postgres", password)))
+                                        .toString()));
         app.setDefaultProperties(p);
         context = (ServletWebServerApplicationContext) app.run("--server.port=0");
         base = "http://127.0.0.1:" + context.getWebServer().getPort();
@@ -134,13 +145,15 @@ public final class CatalogSearchHarness implements AutoCloseable {
         @Bean
         @Primary
         PostgresCatalogQuery realCatalogQuery() throws Exception {
-            return new PostgresCatalogQuery(source());
+            return new PostgresCatalogQuery(
+                    source(), new GenreTaxonomy(System.getenv("AURALIS_GENRE_TAXONOMY")));
         }
 
         @Bean
         @Primary
         PostgresGenreQuery realGenreQuery() throws Exception {
-            return new PostgresGenreQuery(source(), realCatalogQuery());
+            return new PostgresGenreQuery(
+                    realCatalogQuery(), new GenreTaxonomy(System.getenv("AURALIS_GENRE_TAXONOMY")));
         }
 
         @Bean

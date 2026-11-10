@@ -71,6 +71,9 @@ def serve(args):
         if config.get("trial_trace_directory")
         else None,
     )
+    from auralis_intelligence.genre_taxonomy import check_artifacts
+
+    check_artifacts(relative("genre_taxonomy"), relative("reference"), relative("recall_snapshot"))
     reference = ReferenceCatalog.load(relative("reference"))
     from auralis_intelligence.album_reviews.batch import (
         BatchResearchStage,

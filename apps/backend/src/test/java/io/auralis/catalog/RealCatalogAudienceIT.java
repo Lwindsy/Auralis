@@ -95,7 +95,10 @@ class RealCatalogAudienceIT {
         var counts = audience.audience(dataset, binding, ids);
         long audienceMs = (System.nanoTime() - started) / 1_000_000;
         started = System.nanoTime();
-        var albums = new PostgresCatalogQuery(source).albums(dataset, ids);
+        var albums =
+                new PostgresCatalogQuery(
+                                source, new GenreTaxonomy(System.getenv("AURALIS_GENRE_TAXONOMY")))
+                        .albums(dataset, ids);
         long catalogMs = (System.nanoTime() - started) / 1_000_000;
         assertEquals(new HashSet<>(ids), counts.keySet());
         assertEquals(counts.keySet(), albums.keySet());

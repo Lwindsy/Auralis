@@ -121,6 +121,9 @@ abstract class PublicationFixture {
                 "be011-test-subject-secret-abcdefghijklmnopqrstuvwxyz0123456789");
         properties.put("auralis.allow-insecure-cookie", true);
         properties.put("auralis.session-cleanup-enabled", false);
+        properties.put(
+                "AURALIS_GENRE_TAXONOMY",
+                io.auralis.catalog.TaxonomyFixtures.write(admin).toString());
         application.setDefaultProperties(properties);
         app =
                 application.run(

@@ -96,10 +96,39 @@ class CatalogAudienceIT {
         binding =
                 new AudienceQuery.Binding(
                         "core:" + MANIFEST, "0", 50, receipt.path("digest").asText());
-        catalog = new PostgresCatalogQuery(jdbc);
-        genres = new PostgresGenreQuery(jdbc, catalog);
+        var taxonomy = TaxonomyFixtures.load(jdbc);
+        catalog = new PostgresCatalogQuery(jdbc, taxonomy);
+        genres = new PostgresGenreQuery(catalog, taxonomy);
         audience = new PostgresAudienceQuery(jdbc, new PostgresAudienceStore(jdbc));
         validation = new CandidateValidation(catalog, audience, genres);
+    }
+
+    @Test
+    void authoritativeTaxonomyFiltersAlbumsAndReplacesDatabaseParents() throws Exception {
+        var document = JSON.readTree(TaxonomyFixtures.write(jdbc).toFile());
+        var rows = (com.fasterxml.jackson.databind.node.ArrayNode) document.path("genres");
+        // Keep the child, remove its old MB parent and attach it to a source-only RYM parent.
+        var child = rows.get(1).deepCopy();
+        ((com.fasterxml.jackson.databind.node.ObjectNode) child)
+                .putArray("parents")
+                .add("rym:trusted");
+        rows.removeAll();
+        rows.add(child);
+        var root = rows.addObject().put("id", "rym:trusted").put("name", "Trusted parent");
+        root.putArray("parents");
+        root.putArray("aliases");
+        var taxonomy = new GenreTaxonomy(document);
+        var filteredCatalog = new PostgresCatalogQuery(jdbc, taxonomy);
+        var filteredGenres = new PostgresGenreQuery(filteredCatalog, taxonomy);
+        assertEquals(
+                Set.of("rym:trusted", id(102).toString()),
+                filteredGenres.descendants(1, Set.of("rym:trusted")));
+        assertEquals("rym:trusted", filteredGenres.search(1, null, null, 0, 50).getFirst().id());
+        assertTrue(filteredGenres.nodes(1, Set.of(id(101).toString())).isEmpty());
+        // A taxonomy that excludes the album's only raw genre must return an empty list.
+        rows.remove(0);
+        var emptyGenresCatalog = new PostgresCatalogQuery(jdbc, new GenreTaxonomy(document));
+        assertTrue(emptyGenresCatalog.albums(1, List.of(id(3))).get(id(3)).genres().isEmpty());
     }
 
     @Test

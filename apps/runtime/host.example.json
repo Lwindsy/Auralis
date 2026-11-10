@@ -12,5 +12,6 @@
   "recommendation_config": "recommendation.json",
   "search_index": "SET_EXPLICIT_APPROVED_SEARCH_INDEX_DIRECTORY",
   "curated_content_directory": null,
-  "search_manifest_sha256": "SET_EXPLICIT_APPROVED_SEARCH_MANIFEST_SHA256"
+  "search_manifest_sha256": "SET_EXPLICIT_APPROVED_SEARCH_MANIFEST_SHA256",
+  "genre_taxonomy": "taxonomy.json"
 }

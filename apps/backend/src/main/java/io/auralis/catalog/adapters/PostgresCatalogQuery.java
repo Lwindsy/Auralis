@@ -9,9 +9,11 @@ import org.springframework.stereotype.Repository;
 @Repository
 public class PostgresCatalogQuery implements CatalogQuery {
     private final JdbcTemplate jdbc;
+    private final GenreTaxonomy taxonomy;
 
-    public PostgresCatalogQuery(JdbcTemplate jdbc) {
+    public PostgresCatalogQuery(JdbcTemplate jdbc, GenreTaxonomy taxonomy) {
         this.jdbc = jdbc;
+        this.taxonomy = taxonomy;
     }
 
     public void requireActive(long dataset) {
@@ -20,6 +22,13 @@ public class PostgresCatalogQuery implements CatalogQuery {
                         "SELECT EXISTS(SELECT 1 FROM ingestion.active_dataset WHERE dataset_id=?)",
                         Boolean.class,
                         dataset))) throw new PersistenceRejected("CATALOG_VERSION_MISMATCH");
+        if (!taxonomy.manifest()
+                .equals(
+                        jdbc.queryForObject(
+                                "SELECT manifest_sha256 FROM ingestion.dataset WHERE id=?",
+                                String.class,
+                                dataset)))
+            throw new PersistenceRejected("TAXONOMY_CATALOG_MISMATCH");
     }
 
     @Override
@@ -54,10 +63,13 @@ public class PostgresCatalogQuery implements CatalogQuery {
                         if (text != null)
                             for (var g :
                                     io.auralis.catalog.application.CatalogJson.JSON.readTree(text))
-                                genreList.add(
-                                        new Genre(
-                                                g.path("genre_id").asText(),
-                                                g.path("name").asText()));
+                                if (taxonomy.nodes().containsKey(g.path("genre_id").asText()))
+                                    genreList.add(
+                                            new Genre(
+                                                    g.path("genre_id").asText(),
+                                                    taxonomy.nodes()
+                                                            .get(g.path("genre_id").asText())
+                                                            .name()));
                     } catch (java.io.IOException e) {
                         throw new IllegalStateException("INVALID_CATALOG_GENRES", e);
                     }

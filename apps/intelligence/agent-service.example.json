@@ -32,5 +32,6 @@
       "gpt-6.1-terra": "astra_sol_terra",
       "gpt-6-luna": "luna"
     }
-  }
+  },
+  "genre_taxonomy": "taxonomy.json"
 }

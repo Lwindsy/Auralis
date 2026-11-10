@@ -144,6 +144,9 @@ abstract class ProductApiFixture extends PublicationFixture {
         props.put("auralis.dispatch-enabled", true);
         props.put("auralis.recommendation-config", configFile.toString());
         props.put("server.port", 0);
+        props.put(
+                "AURALIS_GENRE_TAXONOMY",
+                io.auralis.catalog.TaxonomyFixtures.write(admin).toString());
         application.setDefaultProperties(props);
         app =
                 application.run(
