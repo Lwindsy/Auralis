@@ -11,6 +11,12 @@ import { useEffect, useRef } from "react";
  * albums drops a ripple at the sleeve. The exploration mode reshapes the land: 熟悉 pulls
  * it into tight rings around the centre, 拓展 lets it unfold, 惊喜 raises long ridges that
  * run off the edge of the screen.
+ *
+ * The pointer is a hand passing through the lines. Under the map lies an elastic membrane
+ * (a damped spring at every grid point, coupled to its neighbours): a fast sweep pushes
+ * the ground up ahead of the hand and down behind it, the disturbance spreads a little and
+ * the springs keep pulling everything back to rest. A slow hand barely stirs it; stop and
+ * the lines settle back where they were.
  */
 
 interface Ripple {
@@ -65,6 +71,14 @@ const LEVELS = 15;
 const CELL = 26;
 const FPS = 30;
 
+/* Membrane: spring back to rest, coupling to neighbours, friction. */
+const SPRING = 7;
+const COUPLING = 16;
+const FRICTION = 2.6;
+/** Hand radius in px and the speed (px/s) at which it disturbs at full strength. */
+const HAND = 150;
+const FULL_SPEED = 1600;
+
 const reduced = () =>
   typeof window !== "undefined" &&
   window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
@@ -107,13 +121,91 @@ export function Contours() {
     let cols = 0;
     let rows = 0;
     let values = new Float32Array(0);
+    let lift = new Float32Array(0);
+    let speed = new Float32Array(0);
+    let spare = new Float32Array(0);
     const resize = () => {
       width = window.innerWidth;
       height = window.innerHeight;
       cols = Math.ceil(width / CELL) + 1;
       rows = Math.ceil(height / CELL) + 1;
-      values = new Float32Array((cols + 1) * (rows + 1));
+      const size = (cols + 1) * (rows + 1);
+      values = new Float32Array(size);
+      lift = new Float32Array(size);
+      speed = new Float32Array(size);
+      spare = new Float32Array(size);
       svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+    };
+
+    // The hand: last position and a smoothed velocity in px/s.
+    const hand = { x: -1, y: -1, vx: 0, vy: 0, t: 0, active: false };
+    const onMove = (event: PointerEvent) => {
+      const now = performance.now();
+      if (hand.active) {
+        const dt = Math.max(8, now - hand.t) / 1000;
+        const vx = (event.clientX - hand.x) / dt;
+        const vy = (event.clientY - hand.y) / dt;
+        hand.vx += (vx - hand.vx) * 0.5;
+        hand.vy += (vy - hand.vy) * 0.5;
+      }
+      hand.x = event.clientX;
+      hand.y = event.clientY;
+      hand.t = now;
+      hand.active = true;
+    };
+    const onLeave = () => {
+      hand.active = false;
+      hand.vx = 0;
+      hand.vy = 0;
+    };
+
+    /** Advance the membrane by `dt` seconds and let the hand push it. */
+    const stir = (dt: number, now: number) => {
+      const w = cols + 1;
+      // The hand's push fades if the pointer has not moved for a moment.
+      const idle = now - hand.t;
+      if (idle > 60) {
+        const fade = Math.exp(-dt * 10);
+        hand.vx *= fade;
+        hand.vy *= fade;
+      }
+      const v = Math.hypot(hand.vx, hand.vy);
+      const strength = Math.min(1, v / FULL_SPEED) ** 1.4;
+      if (hand.active && strength > 0.01) {
+        const r = Math.ceil(HAND / CELL) + 1;
+        const ci = Math.round(hand.x / CELL);
+        const cj = Math.round(hand.y / CELL);
+        const ux = hand.vx / v;
+        const uy = hand.vy / v;
+        for (let j = Math.max(0, cj - r); j <= Math.min(rows, cj + r); j++)
+          for (let i = Math.max(0, ci - r); i <= Math.min(cols, ci + r); i++) {
+            const dx = i * CELL - hand.x;
+            const dy = j * CELL - hand.y;
+            const fall = Math.exp(-(dx * dx + dy * dy) / (HAND * HAND * 0.5));
+            // Ahead of the hand the ground rises, behind it it sinks: a sweep, not a poke.
+            const along = (dx * ux + dy * uy) / HAND;
+            speed[j * w + i]! += 26 * strength * fall * (0.35 + along) * dt;
+          }
+      }
+      for (let j = 0; j <= rows; j++)
+        for (let i = 0; i <= cols; i++) {
+          const k = j * w + i;
+          const here = lift[k]!;
+          const around =
+            ((i > 0 ? lift[k - 1]! : here) +
+              (i < cols ? lift[k + 1]! : here) +
+              (j > 0 ? lift[k - w]! : here) +
+              (j < rows ? lift[k + w]! : here)) /
+              4 -
+            here;
+          let s = speed[k]!;
+          s += (COUPLING * around - SPRING * here - FRICTION * s) * dt;
+          speed[k] = s;
+          spare[k] = here + s * dt;
+        }
+      const swap = lift;
+      lift = spare;
+      spare = swap;
     };
     resize();
     const hills = seedHills();
@@ -162,7 +254,8 @@ export function Contours() {
             const d = Math.hypot(x - w.x, y - w.y) - w.radius;
             v += 0.32 * w.strength * w.fade * Math.exp(-(d * d) / 5200);
           }
-          values[j * (cols + 1) + i] = v;
+          const k = j * (cols + 1) + i;
+          values[k] = v + lift[k]!;
         }
       }
     };
@@ -268,6 +361,13 @@ export function Contours() {
         });
       }
       field.ripples = field.ripples.filter((r) => now - r.start < 4200);
+      // Fixed small steps keep the membrane stable whatever the frame rate.
+      let left = dt;
+      while (left > 0) {
+        const step = Math.min(left, 1 / 60);
+        stir(step, now);
+        left -= step;
+      }
       if (now - lastDraw >= 1000 / FPS) {
         lastDraw = now;
         sample(clock, now);
@@ -284,11 +384,15 @@ export function Contours() {
       document.hidden ? cancelAnimationFrame(frame) : start();
     document.addEventListener("visibilitychange", visibility);
     window.addEventListener("resize", resize);
+    window.addEventListener("pointermove", onMove, { passive: true });
+    document.documentElement.addEventListener("pointerleave", onLeave);
     start();
     return () => {
       cancelAnimationFrame(frame);
       document.removeEventListener("visibilitychange", visibility);
       window.removeEventListener("resize", resize);
+      window.removeEventListener("pointermove", onMove);
+      document.documentElement.removeEventListener("pointerleave", onLeave);
     };
   }, []);
 
