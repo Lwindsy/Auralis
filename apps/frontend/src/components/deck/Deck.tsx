@@ -48,7 +48,6 @@ const TRANSIENT = new Set([
   "EXECUTOR_BUSY",
   "REVISION_CONFLICT",
   "IDEMPOTENCY_CONFLICT",
-  "NETWORK_UNCERTAIN",
   "UNEXPECTED_STATUS",
 ]);
 const sleep = (ms: number) => new Promise((done) => setTimeout(done, ms));
@@ -168,7 +167,8 @@ export function Deck({
 
   // 听过了 is shown at once and written in order. Writes wait while the server is still
   // filling a slot (it refuses card actions then) and quietly try again on refusals that
-  // only mean "not yet"; only a real failure takes the mark back.
+  // only mean "not yet"; only a real failure takes the mark back. A lost response is left
+  // to the person (retry with the original key, or re-read the state) as before.
   const queue = useRef<string[]>([]);
   const flushing = useRef(false);
   const [queued, setQueued] = useState<ReadonlySet<string>>(() => new Set());
@@ -198,9 +198,9 @@ export function Deck({
           continue;
         }
         if (controller.pending) {
-          // A lost response: the same write is retried with its original key.
-          await sleep(600);
-          if (!(await controller.retry()) && ++attempts > 6) break;
+          // A lost response is the person's call (retry it, or re-read the state);
+          // nothing new is written until it is settled.
+          await changed(1500);
           continue;
         }
         const candidateId = queue.current[0]!;
@@ -221,11 +221,12 @@ export function Deck({
           attempts = 0;
           continue;
         }
+        if (controller.pending) continue;
         const error = controller.error;
         const code = error instanceof ApiError ? error.message : "";
-        if ((TRANSIENT.has(code) || controller.pending) && attempts < 8) {
+        if (TRANSIENT.has(code) && attempts < 8) {
           attempts++;
-          if (!controller.pending) controller.clearError();
+          controller.clearError();
           await sleep(500 * attempts);
           await controller.refresh();
           continue;
