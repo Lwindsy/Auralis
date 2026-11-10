@@ -652,12 +652,16 @@
   gap: 10px;
 }
 
+.genres__frame {
+  flex: 1;
+}
+
 .genres__list {
   flex: 1;
   min-height: 0;
   overflow: auto;
   overscroll-behavior: contain;
-  padding-right: 2px;
+  padding-right: 10px;
 }
 
 .genres__message {
@@ -1028,6 +1032,14 @@
   font-size: 15px;
 }
 
+.shelf-frame {
+  flex: 1;
+}
+
+.chips-frame {
+  flex: none;
+}
+
 /* A wall of sleeves, four across, scrolling downwards. */
 .shelf {
   flex: 1;
@@ -1036,7 +1048,7 @@
   grid-template-columns: repeat(4, minmax(0, 1fr));
   align-content: start;
   gap: 26px 20px;
-  padding: 22px 6px 40px 4px;
+  padding: 22px 16px 40px 4px;
   overflow-y: auto;
   overscroll-behavior: contain;
   mask-image: linear-gradient(

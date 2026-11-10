@@ -7,6 +7,7 @@ import {
   FAILURE_LABELS,
   type LongReviewController,
 } from "../../state/review.ts";
+import { QuietScroll } from "../QuietScroll.tsx";
 import { MiniWave } from "./MiniWave.tsx";
 import { Playback } from "./Playback.tsx";
 
@@ -104,24 +105,28 @@ export function Reviews({
           />
         </div>
         <div
-          className="reviews__pane reviews__pane--long quiet-scroll"
+          className="reviews__pane reviews__pane--long"
           ref={longPane}
           aria-live="polite"
           aria-hidden={!expanded || undefined}
         >
-          {paragraphs.map((text, index) => (
-            <Playback
-              key={index}
-              text={text}
-              autoplay={expanded && playing >= index}
-              startDelay={index === 0 ? 520 : TRACK_GAP}
-              pace={LONG_PACE}
-              label={String(index + 1).padStart(2, "0")}
-              onEnd={() =>
-                setPlaying((current) => Math.max(current, index + 1))
-              }
-            />
-          ))}
+          <QuietScroll>
+            <div className="reviews__scroll quiet-scroll">
+              {paragraphs.map((text, index) => (
+                <Playback
+                  key={index}
+                  text={text}
+                  autoplay={expanded && playing >= index}
+                  startDelay={index === 0 ? 520 : TRACK_GAP}
+                  pace={LONG_PACE}
+                  label={String(index + 1).padStart(2, "0")}
+                  onEnd={() =>
+                    setPlaying((current) => Math.max(current, index + 1))
+                  }
+                />
+              ))}
+            </div>
+          </QuietScroll>
         </div>
       </div>
       <div className="reviews__bar">

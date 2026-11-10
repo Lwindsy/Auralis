@@ -15,6 +15,7 @@ import { genreName } from "../../lib/text.ts";
 import { useDebounced } from "../../state/hooks.ts";
 import { labels } from "../../state/labels.ts";
 import { Icon } from "../Icon.tsx";
+import { QuietScroll } from "../QuietScroll.tsx";
 import { SearchField } from "./SearchField.tsx";
 import { usePaged } from "./usePaged.ts";
 
@@ -145,30 +146,32 @@ export function GenrePanel({
         }}
         onSubmit={() => setImmediate(query.trim())}
       />
-      <div
-        className="genres__list quiet-scroll"
-        aria-live="polite"
-        aria-busy={pages.status === "loading"}
-        onScroll={() => setHover(null)}
-      >
-        {effective ? (
-          <GenreList
-            api={api}
-            pages={pages}
-            handlers={handlers}
-            hover={hoverHandlers}
-            parent={null}
-            empty="没有匹配的风格。"
-          />
-        ) : (
-          <Families
-            api={api}
-            pages={pages}
-            handlers={handlers}
-            hover={hoverHandlers}
-          />
-        )}
-      </div>
+      <QuietScroll className="genres__frame">
+        <div
+          className="genres__list quiet-scroll"
+          aria-live="polite"
+          aria-busy={pages.status === "loading"}
+          onScroll={() => setHover(null)}
+        >
+          {effective ? (
+            <GenreList
+              api={api}
+              pages={pages}
+              handlers={handlers}
+              hover={hoverHandlers}
+              parent={null}
+              empty="没有匹配的风格。"
+            />
+          ) : (
+            <Families
+              api={api}
+              pages={pages}
+              handlers={handlers}
+              hover={hoverHandlers}
+            />
+          )}
+        </div>
+      </QuietScroll>
       {hover ? <HoverCard hover={hover} key={hover.node.genre_id} /> : null}
     </div>
   );

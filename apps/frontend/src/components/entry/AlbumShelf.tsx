@@ -13,6 +13,7 @@ import { MAX_ALBUMS } from "../../state/input.ts";
 import { labels } from "../../state/labels.ts";
 import { Cover } from "../Cover.tsx";
 import { Icon } from "../Icon.tsx";
+import { QuietScroll } from "../QuietScroll.tsx";
 import { SearchField } from "./SearchField.tsx";
 import { usePaged } from "./usePaged.ts";
 
@@ -124,64 +125,70 @@ export function AlbumShelf({
         ) : !pages.items.length ? (
           <p className="albums__message">没有匹配结果。</p>
         ) : (
-          <ul
-            ref={shelf}
-            className="shelf quiet-scroll"
-            role="list"
-            aria-label="专辑搜索结果"
-          >
-            {pages.items.map((album, index) => {
-              const id = album.mb_release_group_id;
-              const { title, artist_credit, first_release_year, release_type } =
-                album.identity;
-              const name = `${title} — ${artist_credit}`;
-              const added = selected.has(id);
-              return (
-                <li
-                  key={id}
-                  className="sleeve"
-                  data-added={added || undefined}
-                  style={{ "--i": index % 20 } as CSSProperties}
-                >
-                  <button
-                    type="button"
-                    className="sleeve__button"
-                    aria-label={added ? `已添加${name}` : `添加${name}`}
-                    aria-pressed={added}
-                    disabled={locked || added || full}
-                    onClick={() => onAdd(album)}
-                  >
-                    <span className="sleeve__art">
-                      <Cover
-                        seed={albumSeed(title, artist_credit)}
-                        title={title}
-                      />
-                      <span className="sleeve__stamp" aria-hidden="true">
-                        <Icon name={added ? "check" : "plus"} size={16} />
-                      </span>
-                    </span>
-                    <span className="sleeve__title">{title}</span>
-                    <span className="sleeve__artist">{artist_credit}</span>
-                    <span className="sleeve__year mono">
-                      {first_release_year ?? "年份未知"}
-                      {release_type ? ` · ${release_type}` : ""}
-                    </span>
-                  </button>
-                </li>
-              );
-            })}
-            {next !== null
-              ? Array.from({ length: 4 }, (_, i) => (
+          <QuietScroll className="shelf-frame">
+            <ul
+              ref={shelf}
+              className="shelf quiet-scroll"
+              role="list"
+              aria-label="专辑搜索结果"
+            >
+              {pages.items.map((album, index) => {
+                const id = album.mb_release_group_id;
+                const {
+                  title,
+                  artist_credit,
+                  first_release_year,
+                  release_type,
+                } = album.identity;
+                const name = `${title} — ${artist_credit}`;
+                const added = selected.has(id);
+                return (
                   <li
-                    key={`more-${i}`}
-                    ref={i === 0 ? sentinel : undefined}
-                    className="sleeve sleeve--ghost"
-                    aria-hidden="true"
-                    style={{ "--i": i } as CSSProperties}
-                  />
-                ))
-              : null}
-          </ul>
+                    key={id}
+                    className="sleeve"
+                    data-added={added || undefined}
+                    style={{ "--i": index % 20 } as CSSProperties}
+                  >
+                    <button
+                      type="button"
+                      className="sleeve__button"
+                      aria-label={added ? `已添加${name}` : `添加${name}`}
+                      aria-pressed={added}
+                      disabled={locked || added || full}
+                      onClick={() => onAdd(album)}
+                    >
+                      <span className="sleeve__art">
+                        <Cover
+                          seed={albumSeed(title, artist_credit)}
+                          title={title}
+                        />
+                        <span className="sleeve__stamp" aria-hidden="true">
+                          <Icon name={added ? "check" : "plus"} size={16} />
+                        </span>
+                      </span>
+                      <span className="sleeve__title">{title}</span>
+                      <span className="sleeve__artist">{artist_credit}</span>
+                      <span className="sleeve__year mono">
+                        {first_release_year ?? "年份未知"}
+                        {release_type ? ` · ${release_type}` : ""}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+              {next !== null
+                ? Array.from({ length: 4 }, (_, i) => (
+                    <li
+                      key={`more-${i}`}
+                      ref={i === 0 ? sentinel : undefined}
+                      className="sleeve sleeve--ghost"
+                      aria-hidden="true"
+                      style={{ "--i": i } as CSSProperties}
+                    />
+                  ))
+                : null}
+            </ul>
+          </QuietScroll>
         )}
       </div>
     </div>

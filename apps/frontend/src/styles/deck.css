@@ -438,14 +438,17 @@
     visibility 0s linear 0s;
 }
 
-.reviews__pane--long {
+.reviews__scroll {
   display: grid;
   align-content: start;
   gap: 22px;
   max-height: min(48vh, 520px);
-  padding-right: 10px;
+  padding-right: 14px;
   overflow-y: auto;
   overscroll-behavior: contain;
+}
+
+.reviews__pane--long {
   opacity: 0;
   visibility: hidden;
   transform: translateY(22px);
