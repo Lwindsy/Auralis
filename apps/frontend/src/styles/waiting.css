@@ -1,0 +1,166 @@
+/* The wait: a drum that turns while the request is worked on and winds down to a stop
+   when the albums are ready. Its parts keep the room's ink; only one ring is accent. */
+
+.waiting {
+  place-self: center;
+  display: grid;
+  justify-items: center;
+  gap: clamp(22px, 4vh, 40px);
+  padding: 80px 20px;
+  animation: waiting-in 1000ms var(--ease-out-expo) both;
+}
+
+@keyframes waiting-in {
+  from {
+    opacity: 0;
+    transform: scale(0.86) rotate(-8deg);
+    filter: blur(10px);
+  }
+}
+
+.drum {
+  width: min(58vmin, 440px);
+  height: auto;
+  overflow: visible;
+  color: var(--page-ink);
+}
+
+.drum__ticks line {
+  stroke: currentColor;
+  stroke-width: 1.1;
+  stroke-linecap: round;
+  opacity: 0.32;
+}
+
+.drum__dots {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.6;
+  stroke-linecap: round;
+  stroke-dasharray: 0 7.5;
+  opacity: 0.45;
+}
+
+.drum__accent {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-dasharray: 80 16 3 16 40 22 3 22;
+  animation: accent-draw 1600ms var(--ease-out-expo) 200ms both;
+}
+
+@keyframes accent-draw {
+  from {
+    stroke-dasharray: 0 360;
+  }
+}
+
+.drum__loop {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linejoin: round;
+}
+
+.drum__echo {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1;
+  opacity: 0.28;
+}
+
+.drum__core {
+  fill: color-mix(in srgb, var(--accent) 70%, var(--page-room));
+}
+
+.drum__spindle {
+  fill: var(--page-room);
+}
+
+.drum__ticks,
+.drum__dots,
+.drum__loop,
+.drum__echo,
+.drum__core {
+  /* SVG default origin is (0, 0) in user space, which is the drum's centre. */
+  animation: ring-in 1300ms var(--ease-out-expo) both;
+}
+
+.drum__dots {
+  animation-delay: 120ms;
+}
+.drum__echo,
+.drum__loop {
+  animation-delay: 240ms;
+}
+.drum__core {
+  animation-delay: 360ms;
+}
+
+@keyframes ring-in {
+  from {
+    opacity: 0;
+    scale: 0.6;
+  }
+}
+
+/* The last moment: one soft pulse, then everything recedes. */
+.drum[data-state="settled"] .drum__core {
+  animation: core-pulse 650ms var(--ease-spring) both;
+}
+
+.drum[data-state="settled"] .drum__loop,
+.drum[data-state="settled"] .drum__echo {
+  animation: loop-pulse 650ms var(--ease-spring) both;
+}
+
+@keyframes core-pulse {
+  40% {
+    scale: 1.35;
+  }
+  to {
+    scale: 1;
+  }
+}
+
+@keyframes loop-pulse {
+  40% {
+    scale: 1.04;
+  }
+  to {
+    scale: 0.98;
+  }
+}
+
+.waiting__text {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+}
+
+.waiting__title {
+  font-size: clamp(30px, 3.6vw, 48px);
+  font-weight: 200;
+  letter-spacing: 0.24em;
+  margin-right: -0.24em;
+}
+
+.waiting__title span {
+  display: inline-block;
+  animation: letter-in 900ms var(--ease-out-expo) both;
+}
+
+@keyframes letter-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.6em);
+    filter: blur(6px);
+  }
+}
+
+.waiting__detail {
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  color: var(--ink-60);
+}

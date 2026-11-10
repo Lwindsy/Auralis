@@ -124,6 +124,12 @@ const GENRES = {
     { genre_id: "jazz", name: "Jazz", parent_ids: [], has_children: true },
     { genre_id: "metal", name: "Metal", parent_ids: [], has_children: false },
     {
+      genre_id: "trip-hop",
+      name: "Trip Hop",
+      parent_ids: [],
+      has_children: false,
+    },
+    {
       genre_id: "electronic",
       name: "Electronic",
       parent_ids: [],
@@ -166,6 +172,9 @@ export class FixtureBackend {
   reviewState: LongReviewStatus = "GENERATING";
   reviewReads = 0;
   pendingSupply = false;
+  /** Server-side single undo record, mirroring the Java card_undo row. */
+  undo: { slotId: string; card: ProductCard; heardAdded: boolean } | null =
+    null;
 
   constructor(state: ProductState = idle()) {
     this.state = state;
@@ -281,6 +290,7 @@ export class FixtureBackend {
       } else {
         if (path === "/v1/discovery-sessions") {
           validate("DiscoverySubmission", body);
+          this.undo = null;
           this.state = {
             ...ready(),
             status: "RUNNING",
@@ -293,13 +303,48 @@ export class FixtureBackend {
           const slot = this.state.slots.find(
             (entry) => entry.slot_id === path.split("/").at(-2),
           )!;
+          this.undo = {
+            slotId: slot.slot_id,
+            card: structuredClone(slot.card!),
+            heardAdded:
+              body.action === "HEARD" &&
+              !this.heard.has(slot.card!.candidate_id),
+          };
           if (body.action === "HEARD") this.heard.add(slot.card!.candidate_id);
           slot.card = null;
           slot.status = "SUPPLYING";
           this.pendingSupply = true;
           this.state.supply_state = "SUPPLYING";
           this.state.revision++;
+        } else if (path.endsWith("/undo-last-card")) {
+          const undo = this.undo;
+          if (!undo)
+            return send(
+              "ProductError",
+              {
+                code: "RESOURCE_UNAVAILABLE",
+                request_id: "fixture",
+                message_key: "RESOURCE_UNAVAILABLE",
+                retryable: false,
+                idempotency_consumed: false,
+                current_revision: null,
+                retry_disposition: "STOP",
+              },
+              400,
+            );
+          const slot = this.state.slots.find(
+            (entry) => entry.slot_id === undo.slotId,
+          )!;
+          slot.card = undo.card;
+          slot.status = "READY";
+          if (undo.heardAdded) this.heard.delete(undo.card.candidate_id);
+          // A late replacement must not overwrite the restored card.
+          this.pendingSupply = false;
+          this.state.supply_state = "SUFFICIENT";
+          this.undo = null;
+          this.state.revision++;
         } else if (path.endsWith("/next-batch") || path.endsWith("/rescreen")) {
+          this.undo = null;
           this.state.slots = this.state.slots.map((slot) => ({
             ...slot,
             card: card(this.next++),

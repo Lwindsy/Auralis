@@ -35,3 +35,19 @@ export const needsPolling = (state: ProductState | null): boolean =>
         slot.status === "SUPPLYING" ||
         ACTIVE_REVIEW.includes(slot.card?.long_review_state ?? ""),
     ));
+
+/**
+ * A round that ran out of candidates while slots are still empty. After a user-requested
+ * supply the server may start the next round on its own, so the page keeps reading for a
+ * short while instead of declaring the slot lost.
+ */
+export const awaitingContinuation = (state: ProductState | null): boolean =>
+  !!state &&
+  state.supply_state === "R_EXHAUSTED" &&
+  state.slots.some((slot) => slot.status === "EMPTY");
+
+/** Background work that will change the visible group without another click. */
+export const supplying = (state: ProductState): boolean =>
+  ["RUNNING", "WAITING"].includes(state.status) ||
+  state.supply_state === "SUPPLYING" ||
+  state.slots.some((slot) => slot.status === "SUPPLYING");

@@ -47,6 +47,7 @@ const copy: Record<string, string | null> = {
   FORBIDDEN: "会话已失效，请刷新页面重新开始。",
   UNAUTHENTICATED: "会话已失效，请刷新页面重新开始。",
   EXPIRED: "上次发现已过期，请重新连接后开始。",
+  UNDO_UNAVAILABLE: "这一步已经不能撤回了。",
 };
 
 export const GENERIC_FAILURE = "这次操作未能完成，请刷新状态后重试。";

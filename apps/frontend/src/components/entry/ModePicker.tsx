@@ -1,8 +1,10 @@
+import type { CSSProperties } from "react";
 import { MODE_COPY } from "../../api/messages.ts";
 import type { Mode } from "../../api/types.ts";
 
 const MODES: Mode[] = ["familiar", "explore", "surprise"];
 
+/** Three positions and one thumb that glides between them. */
 export function ModePicker({
   value,
   onChange,
@@ -13,7 +15,13 @@ export function ModePicker({
   disabled: boolean;
 }) {
   return (
-    <div className="modes" role="radiogroup" aria-label="探索方式">
+    <div
+      className="modes"
+      role="radiogroup"
+      aria-label="探索方式"
+      style={{ "--mode": MODES.indexOf(value) } as CSSProperties}
+    >
+      <span className="modes__thumb" aria-hidden="true" />
       {MODES.map((mode) => (
         <label
           key={mode}
@@ -30,7 +38,7 @@ export function ModePicker({
             aria-label={MODE_COPY[mode].label}
             onChange={() => onChange(mode)}
           />
-          <span className="mode__label">{MODE_COPY[mode].label}</span>
+          <span>{MODE_COPY[mode].label}</span>
         </label>
       ))}
     </div>
