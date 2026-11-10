@@ -6,7 +6,8 @@ import {
   roomFor,
   type Room,
 } from "../../lib/color.ts";
-import { albumSeed, coverArt, safeImage } from "../../lib/cover.ts";
+import { albumSeed, coverArt } from "../../lib/cover.ts";
+import { useCover } from "../../state/covers.ts";
 
 /**
  * The room colour for the album on show. Placeholder sleeves are measured from their own
@@ -21,14 +22,15 @@ export function useRoom(card: ProductCard | null): Room | null {
     const art = coverArt(albumSeed(title, artist));
     return roomFor(placeholderSwatches(art.base, art.accent, art.markShare));
   }, [card, title, artist]);
-  const url = safeImage(card?.cover_url);
+  const cover = useCover(card?.cover_url);
+  const url = cover?.url;
   const [sampled, setSampled] = useState<{ url: string; room: Room } | null>(
     null,
   );
   useEffect(() => {
-    if (!url) return;
+    if (!url || !cover) return;
     let live = true;
-    imageSwatches(url)
+    imageSwatches(cover.image)
       .then((swatches) => {
         if (live && swatches.length)
           setSampled({ url, room: roomFor(swatches) });
@@ -39,6 +41,6 @@ export function useRoom(card: ProductCard | null): Room | null {
     return () => {
       live = false;
     };
-  }, [url]);
+  }, [url, cover]);
   return url && sampled?.url === url ? sampled.room : estimate;
 }

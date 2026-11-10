@@ -190,14 +190,18 @@ export function placeholderSwatches(
  * seeded deterministically from the most different pixels). Pixels near the middle count
  * a little more, as the eye rests there. Rejects if the image cannot be read (no CORS).
  */
-export function imageSwatches(url: string): Promise<Swatch[]> {
+export function imageSwatches(
+  source: string | HTMLImageElement,
+): Promise<Swatch[]> {
   return new Promise((resolve, reject) => {
-    const image = new Image();
-    image.crossOrigin = "anonymous";
-    image.referrerPolicy = "no-referrer";
-    image.decoding = "async";
-    image.onerror = () => reject(new Error("COVER_UNREADABLE"));
-    image.onload = () => {
+    const image = typeof source === "string" ? new Image() : source;
+    if (typeof source === "string") {
+      image.crossOrigin = "anonymous";
+      image.referrerPolicy = "no-referrer";
+      image.decoding = "async";
+      image.onerror = () => reject(new Error("COVER_UNREADABLE"));
+    }
+    const sample = () => {
       try {
         const size = 40;
         const canvas = document.createElement("canvas");
@@ -223,7 +227,10 @@ export function imageSwatches(url: string): Promise<Swatch[]> {
         reject(error instanceof Error ? error : new Error("COVER_UNREADABLE"));
       }
     };
-    image.src = url;
+    if (typeof source === "string") {
+      image.onload = sample;
+      image.src = source;
+    } else sample();
   });
 }
 

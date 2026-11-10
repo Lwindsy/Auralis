@@ -7,6 +7,7 @@ import {
 } from "react";
 import type { Api } from "../../api/client.ts";
 import type { AlbumSearchResult, CatalogAlbum } from "../../api/types.ts";
+import { coverUrl } from "../../state/covers.ts";
 import { albumSeed } from "../../lib/cover.ts";
 import { useDebounced } from "../../state/hooks.ts";
 import { MAX_ALBUMS } from "../../state/input.ts";
@@ -161,6 +162,8 @@ export function AlbumShelf({
                         <Cover
                           seed={albumSeed(title, artist_credit)}
                           title={title}
+                          albumId={id}
+                          url={album.cover_url ?? coverUrl(id, 250)}
                         />
                         <span className="sleeve__stamp" aria-hidden="true">
                           <Icon name={added ? "check" : "plus"} size={16} />

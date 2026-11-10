@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { albumSeed, hash } from "../../lib/cover.ts";
 import { Cover } from "../Cover.tsx";
+import { useCover } from "../../state/covers.ts";
 
 const SLICES = 30;
 /** The assembly ends after this long (incoming albums start a little later). */
@@ -28,6 +29,7 @@ export function SlicedCover({
   url: string | null;
 }) {
   const seed = albumSeed(title, artist);
+  const image = useCover(url);
   const base = hash(seed);
   const level = (i: number, k: number) => {
     const v = hash(`${base}:${i}:${k}`) / 0xffffffff;
@@ -60,7 +62,7 @@ export function SlicedCover({
     >
       {/* The seamless cover settles over the strips once they have closed up. */}
       <div className="sliced__whole" aria-hidden="true">
-        <Cover seed={seed} title={title} url={url} />
+        <Cover seed={seed} title={title} resolved={image} />
       </div>
       {Array.from({ length: SLICES }, (_, i) => (
         <div
@@ -79,7 +81,7 @@ export function SlicedCover({
         >
           <div className="slice__inner">
             <div className="slice__art">
-              <Cover seed={seed} title={title} url={url} />
+              <Cover seed={seed} title={title} resolved={image} />
             </div>
           </div>
         </div>

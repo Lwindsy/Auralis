@@ -138,5 +138,14 @@
       "429": "ProductError",
       "503": "ProductError"
     }
+  },
+  "GET /v1/catalog/albums/{mbid}/cover": {
+    "request": null,
+    "responses": {
+      "200": null,
+      "400": null,
+      "404": null,
+      "503": null
+    }
   }
 }

@@ -6381,7 +6381,7 @@
           "anyOf": [
             {
               "type": "string",
-              "format": "uri"
+              "format": "uri-reference"
             },
             {
               "type": "null"
@@ -7336,6 +7336,10 @@
         },
         "in_core_catalog": {
           "type": "boolean"
+        },
+        "cover_url": {
+          "type": "string",
+          "format": "uri-reference"
         }
       },
       "required": [

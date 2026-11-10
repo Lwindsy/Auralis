@@ -34,10 +34,15 @@ public final class HttpBoundary extends OncePerRequestFilter {
     protected void doFilterInternal(
             HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws IOException, ServletException {
-        response.setHeader("Cache-Control", "no-store");
+        String path = request.getRequestURI();
+        boolean artwork =
+                Set.of("GET", "HEAD").contains(request.getMethod())
+                        && path.matches("/v1/catalog/albums/[0-9a-fA-F-]{36}/cover");
+        // Artwork sets its own status-specific cache policy. Authentication failures
+        // still go through HttpErrors, which explicitly returns no-store.
+        if (!artwork) response.setHeader("Cache-Control", "no-store");
         response.setHeader("X-Content-Type-Options", "nosniff");
         response.setHeader("X-Frame-Options", "DENY");
-        String path = request.getRequestURI();
         String checkedPath = path.startsWith("/internal/") ? path.replaceAll("(?i)%3a", ":") : path;
         if (checkedPath.contains("%")
                 || path.contains(";")
