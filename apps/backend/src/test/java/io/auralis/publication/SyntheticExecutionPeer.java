@@ -29,7 +29,7 @@ final class SyntheticExecutionPeer implements AutoCloseable {
     final AtomicBoolean basicNext = new AtomicBoolean();
     final AtomicBoolean failLongNext = new AtomicBoolean();
     final AtomicBoolean exhaustSupplyNext = new AtomicBoolean();
-    volatile boolean hold, holdReports;
+    volatile boolean hold, holdReports, holdLongs;
     volatile long longDelayMs = 600;
     volatile int recallLimit = Integer.MAX_VALUE;
     volatile String controlBase;
@@ -684,7 +684,8 @@ final class SyntheticExecutionPeer implements AutoCloseable {
                     }
                     j.phase = "BACKGROUND";
                     long until = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(longDelayMs);
-                    while (System.nanoTime() < until && !j.cancelled) Thread.sleep(10);
+                    while ((System.nanoTime() < until || holdLongs) && !j.cancelled)
+                        Thread.sleep(10);
                     for (String id : fresh) longReview(j, id);
                     report(j, null);
                 }
@@ -716,7 +717,7 @@ final class SyntheticExecutionPeer implements AutoCloseable {
                 var result = deliver(j, "CARD_BATCH", firstBatch, j.start.path("run_id").asText());
                 j.phase = "BACKGROUND";
                 long until = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(longDelayMs);
-                while (System.nanoTime() < until && !j.cancelled) Thread.sleep(10);
+                while ((System.nanoTime() < until || holdLongs) && !j.cancelled) Thread.sleep(10);
                 for (var id : result.path("published_candidate_ids")) longReview(j, id.asText());
                 report(j, null);
             }

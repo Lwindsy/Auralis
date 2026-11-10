@@ -30,7 +30,8 @@ class ProductApiIT extends ProductApiFixture {
                             .put("expected_revision", b.state.path("revision").asLong());
             String endpoint = "/v1/discovery-sessions/" + b.session() + "/undo-last-card";
             var undone = b.request("POST", endpoint, body, "undo-once");
-            assertEquals(200, undone.status(), undone.body().toString());
+            // Restoring the card does not cancel an already queued supply intent.
+            assertTrue(Set.of(200, 202).contains(undone.status()), undone.body().toString());
             assertEquals(
                     original,
                     b.state.path("slots").get(0).path("card").path("candidate_id").asText());

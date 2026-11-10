@@ -56,6 +56,13 @@ const shown = (page: Page) => room(page).getByRole("article");
 const SETTLE = { timeout: 20000 };
 
 async function toFinale(page: Page) {
+  await expect.poll(async () => (await control()).active).toBe(0);
+  const live = await state(page.context());
+  const ready = live.slots.filter((slot) => slot.status === "READY").length;
+  const retained = await page.locator(".pips li[data-heard=true]").count();
+  await expect(page.getByRole("button", { name: /^第 \d+ 张$/ })).toHaveCount(
+    ready + retained,
+  );
   const next = page.getByRole("button", { name: "下一张", exact: true });
   while (await next.isEnabled()) await next.click();
   await expect(page.getByRole("group", { name: "接下来" })).toBeVisible();
@@ -68,6 +75,7 @@ async function textOnEntry(page: Page) {
 
 const defaults = {
   hold: false,
+  hold_long: false,
   basic: false,
   fail_long: false,
   long_delay_ms: 600,
@@ -110,7 +118,9 @@ test("real Java recommendations keep input, record 听过了 and restore after r
   await expect(
     page.getByRole("article", { name: title, exact: true }),
   ).toBeVisible();
-  expect((await control({ session_id: initial.session_id })).heard).toBe(1);
+  await expect
+    .poll(async () => (await control({ session_id: initial.session_id })).heard)
+    .toBe(1);
 
   await toFinale(page);
   await page.getByRole("button", { name: /再给我来一些/ }).click();
@@ -155,11 +165,12 @@ test("long review writes in place, interrupted work regenerates only on click", 
   page,
   context,
 }) => {
-  await control({ long_delay_ms: 3000, fail_long: true });
+  await control({ hold_long: true, long_delay_ms: 0, fail_long: true });
   await submit(page);
   await expect(shown(page)).toHaveCount(1, SETTLE);
   await shown(page).getByRole("button", { name: "读长评" }).click();
   await expect(shown(page).getByText("长评写作中")).toBeVisible();
+  await control({ hold_long: false });
   await expect(shown(page).getByText(/生成中断/)).toBeVisible({
     timeout: 10000,
   });
