@@ -84,6 +84,8 @@ describe("long review controller", () => {
     expect(controller.isOpen).toBe(true);
     const next = ready();
     next.slots[0]!.card = card(9);
+    controller.reconcile(next, new Set(["candidate-1"]));
+    expect(controller.isOpen).toBe(true);
     controller.reconcile(next);
     expect(controller.isOpen).toBe(false);
     controller.dispose();

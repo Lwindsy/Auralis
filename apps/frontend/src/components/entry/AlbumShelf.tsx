@@ -17,9 +17,10 @@ import { SearchField } from "./SearchField.tsx";
 import { usePaged } from "./usePaged.ts";
 
 /**
- * Album search as a shelf of sleeves that scrolls sideways (mouse wheel too). Sleeves lift
- * and catch light under the pointer; adding one stamps it with a check. More results load
- * when the shelf nears its end.
+ * Album search as a crate of sleeves: a grid four across that scrolls downwards, like a
+ * streaming library. Each sleeve shows the title, the artist and the year in separate
+ * lines, all in full. Sleeves lift and catch light under the pointer; adding one stamps it
+ * with a check. The next page loads before the end of the list comes into view.
  */
 export function AlbumShelf({
   api,
@@ -68,7 +69,7 @@ export function AlbumShelf({
         if (entries.some((entry) => entry.isIntersecting) && !loadingMore)
           loadMore();
       },
-      { root: shelf.current, rootMargin: "0px 240px 0px 0px" },
+      { root: shelf.current, rootMargin: "0px 0px 480px 0px" },
     );
     observer.observe(target);
     return () => observer.disconnect();
@@ -97,7 +98,7 @@ export function AlbumShelf({
         ) : null}
         {!effective ? (
           <p className="albums__message albums__message--hint">
-            输入艺人或专辑名，结果会排成一列唱片。
+            输入艺人或专辑名，结果会排成一墙唱片。
           </p>
         ) : pages.status === "loading" || pages.status === "idle" ? (
           <ul
@@ -105,7 +106,7 @@ export function AlbumShelf({
             aria-label="正在查询…"
             role="status"
           >
-            {Array.from({ length: 5 }, (_, i) => (
+            {Array.from({ length: 8 }, (_, i) => (
               <li
                 key={i}
                 className="sleeve sleeve--ghost"
@@ -125,14 +126,9 @@ export function AlbumShelf({
         ) : (
           <ul
             ref={shelf}
-            className="shelf"
+            className="shelf quiet-scroll"
             role="list"
             aria-label="专辑搜索结果"
-            onWheel={(event) => {
-              const list = event.currentTarget;
-              if (Math.abs(event.deltaY) > Math.abs(event.deltaX))
-                list.scrollLeft += event.deltaY;
-            }}
           >
             {pages.items.map((album, index) => {
               const id = album.mb_release_group_id;
@@ -145,7 +141,7 @@ export function AlbumShelf({
                   key={id}
                   className="sleeve"
                   data-added={added || undefined}
-                  style={{ "--i": Math.min(index, 8) } as CSSProperties}
+                  style={{ "--i": index % 20 } as CSSProperties}
                 >
                   <button
                     type="button"
@@ -165,27 +161,26 @@ export function AlbumShelf({
                       </span>
                     </span>
                     <span className="sleeve__title">{title}</span>
-                    <span className="sleeve__meta">
-                      {artist_credit}
-                      <span className="mono">
-                        {" "}
-                        {first_release_year ?? "—"}
-                        {release_type ? ` · ${release_type}` : ""}
-                      </span>
+                    <span className="sleeve__artist">{artist_credit}</span>
+                    <span className="sleeve__year mono">
+                      {first_release_year ?? "年份未知"}
+                      {release_type ? ` · ${release_type}` : ""}
                     </span>
                   </button>
                 </li>
               );
             })}
-            {next !== null ? (
-              <li
-                ref={sentinel}
-                className="sleeve sleeve--more"
-                aria-hidden="true"
-              >
-                <span className="sleeve__art" />
-              </li>
-            ) : null}
+            {next !== null
+              ? Array.from({ length: 4 }, (_, i) => (
+                  <li
+                    key={`more-${i}`}
+                    ref={i === 0 ? sentinel : undefined}
+                    className="sleeve sleeve--ghost"
+                    aria-hidden="true"
+                    style={{ "--i": i } as CSSProperties}
+                  />
+                ))
+              : null}
           </ul>
         )}
       </div>

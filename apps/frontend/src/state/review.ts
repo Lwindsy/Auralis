@@ -93,14 +93,24 @@ export class LongReviewController {
     }
   }
 
-  /** Closes the panel when its session or card no longer exists in the current state. */
-  reconcile(state: ProductState | null) {
+  /**
+   * Closes the panel when its session or card no longer exists in the current state.
+   * `retained` lists cards the page still shows although they left their slot (albums
+   * marked 听过了 stay in the room, and their long review stays readable).
+   */
+  reconcile(
+    state: ProductState | null,
+    retained: ReadonlySet<string> = new Set(),
+  ) {
     if (!this.isOpen || !this.card) return;
     const card = this.card;
     if (
       !state ||
       this.session !== state.session_id ||
-      !state.slots.some((slot) => slot.card?.candidate_id === card.candidate_id)
+      (!retained.has(card.candidate_id) &&
+        !state.slots.some(
+          (slot) => slot.card?.candidate_id === card.candidate_id,
+        ))
     )
       this.close();
   }

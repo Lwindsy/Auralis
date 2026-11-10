@@ -90,8 +90,9 @@ export function App({ api, controller, review, fixture }: AppProps) {
     !controller.busy &&
     answered(state);
 
+  // In the room the deck reconciles the long review itself (it knows the albums it keeps).
   useEffect(() => {
-    review.reconcile(state);
+    if (stage !== "deck") review.reconcile(state);
   });
 
   const deckRoom = stage === "deck" ? room : NIGHT;

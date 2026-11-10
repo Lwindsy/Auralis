@@ -50,12 +50,18 @@ function Burst({ kind }: { kind: ReactionKind }) {
 /**
  * One feedback button. Choosing it plays a short burst matched to the feeling, then the
  * button settles into a dimmed "chosen" state; choosing it again takes it back.
+ *
+ * After any choice the reactions rest for a moment (`resting`): a thin ring draws itself
+ * around the chosen icon while further presses are ignored, so a record cannot be flipped
+ * back and forth faster than it can be noted down.
  */
 export function Reaction({
   kind,
   label,
   done,
   disabled,
+  resting,
+  settling,
   title,
   onToggle,
 }: {
@@ -63,6 +69,10 @@ export function Reaction({
   label: string;
   done: boolean;
   disabled?: boolean;
+  /** All reactions are briefly resting after a choice; presses are ignored. */
+  resting?: boolean;
+  /** This is the button that was just pressed: its ring runs. */
+  settling?: boolean;
   title?: string;
   onToggle: () => void;
 }) {
@@ -73,17 +83,26 @@ export function Reaction({
       className="react"
       data-kind={kind}
       data-done={done || undefined}
+      data-resting={resting || undefined}
+      data-settling={settling || undefined}
       aria-pressed={done}
+      aria-disabled={resting || undefined}
       disabled={disabled}
       title={title}
       onClick={() => {
+        if (resting) return;
         if (!done) setBurst((value) => value + 1);
         onToggle();
       }}
     >
-      <svg className="react__icon" viewBox="0 0 24 24" aria-hidden="true">
-        {ICON[kind]}
-      </svg>
+      <span className="react__glyph">
+        <svg className="react__icon" viewBox="0 0 24 24" aria-hidden="true">
+          {ICON[kind]}
+        </svg>
+        <svg className="react__ring" viewBox="0 0 32 32" aria-hidden="true">
+          <circle cx="16" cy="16" r="15" pathLength="1" />
+        </svg>
+      </span>
       <span className="react__label">{label}</span>
       {burst ? <Burst key={burst} kind={kind} /> : null}
     </button>

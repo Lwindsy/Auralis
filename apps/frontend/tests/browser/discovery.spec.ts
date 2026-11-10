@@ -64,8 +64,7 @@ test("actual fixture HTTP restores via HttpOnly cookie without storing input in 
   await page.goto("/");
   await expect(page.getByText("契约样例模式")).toBeVisible();
   await type(page, "中文原文 only on server");
-  await page.getByRole("button", { name: "更多设置" }).click();
-  await page.getByLabel("最低听众数（可选）").fill("500");
+  await page.getByLabel("传播度").fill("100");
   await start(page);
   await expect(album(page, "样例专辑 1")).toBeVisible({ timeout: 10000 });
   const cookies = await context.cookies();
@@ -78,7 +77,7 @@ test("actual fixture HTTP restores via HttpOnly cookie without storing input in 
   await reopened.goto("/");
   await expect(album(reopened, "样例专辑 1")).toBeVisible();
   await reopened.getByRole("link", { name: "Auralis 首页" }).click();
-  await expect(reopened.getByLabel("最低听众数（可选）")).toHaveValue("500");
+  await expect(reopened.getByLabel("传播度")).toHaveValue("100");
   await openDoor(reopened, /^说说想听什么/);
   await expect(reopened.getByLabel("这次想听的音乐")).toHaveValue(
     "中文原文 only on server",

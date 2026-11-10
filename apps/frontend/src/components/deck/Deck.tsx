@@ -5,9 +5,9 @@ import {
   type CSSProperties,
   type ReactNode,
 } from "react";
+import { ApiError } from "../../api/client.ts";
 import { message } from "../../api/messages.ts";
 import type { ProductState } from "../../api/types.ts";
-import { albumSeed, coverArt } from "../../lib/cover.ts";
 import type { DiscoveryController } from "../../state/controller.ts";
 import {
   freshDeck,
@@ -17,6 +17,7 @@ import {
 } from "../../state/deck.ts";
 import { useStore } from "../../state/hooks.ts";
 import { supplying } from "../../state/input.ts";
+import { labels } from "../../state/labels.ts";
 import type { LongReviewController } from "../../state/review.ts";
 import { ripple } from "../motion/Contours.tsx";
 import { Reviews } from "./LongReview.tsx";
@@ -24,6 +25,7 @@ import { Reaction } from "./Reaction.tsx";
 import { GenreWave } from "./GenreWave.tsx";
 import { MiniWave } from "./MiniWave.tsx";
 import { SlicedCover } from "./SlicedCover.tsx";
+import { useRoom } from "./useRoom.ts";
 
 export type Feeling = "like" | "meh";
 
@@ -38,7 +40,18 @@ export interface DeckProps {
   onMore: () => void;
 }
 
-const NIGHT = { base: "#0d1220", ink: "#efe9df" };
+const NIGHT = { room: "#0d1220", ink: "#efe9df" };
+/** After a reaction, all three rest this long before taking another press. */
+const REST_MS = 1100;
+/** Refusals that only mean "not now" (a supply or another write is still running). */
+const TRANSIENT = new Set([
+  "EXECUTOR_BUSY",
+  "REVISION_CONFLICT",
+  "IDEMPOTENCY_CONFLICT",
+  "NETWORK_UNCERTAIN",
+  "UNEXPECTED_STATUS",
+]);
+const sleep = (ms: number) => new Promise((done) => setTimeout(done, ms));
 
 function emptyCopy(state: ProductState) {
   if (state.supply_state === "FINAL_EXHAUSTED") return "这次的候选都听完了";
@@ -89,17 +102,37 @@ export function Deck({
   const position = Math.min(index, last);
   const current = entries[position] ?? null;
 
-  const art = current
-    ? coverArt(
-        albumSeed(
-          current.card.identity.title,
-          current.card.identity.artist_credit,
-        ),
-      )
-    : null;
+  const room = useRoom(current?.card ?? null) ?? NIGHT;
   useEffect(() => {
-    onPaint(art?.base ?? NIGHT.base, art?.ink ?? NIGHT.ink);
-  }, [art?.base, art?.ink, onPaint]);
+    onPaint(room.room, room.ink);
+  }, [room.room, room.ink, onPaint]);
+
+  // Catalogue genre names seen on cards help the start page name picks after a reload.
+  useEffect(() => {
+    labels.rememberGenres(
+      entries.flatMap((entry) => entry.card.identity.primary_genres),
+    );
+  }, [entries]);
+
+  // A long review stays open for albums still in the room, 听过了 ones included.
+  useEffect(() => {
+    review.reconcile(state, new Set(entries.map((entry) => entry.candidateId)));
+  });
+
+  // Reactions rest briefly after each press.
+  const [settling, setSettling] = useState<{
+    candidateId: string;
+    kind: string;
+  } | null>(null);
+  const restTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  );
+  useEffect(() => () => clearTimeout(restTimer.current), []);
+  const rest = (candidateId: string, kind: string) => {
+    setSettling({ candidateId, kind });
+    clearTimeout(restTimer.current);
+    restTimer.current = setTimeout(() => setSettling(null), REST_MS);
+  };
 
   const go = (target: number) => {
     const bounded = Math.max(0, Math.min(last, target));
@@ -126,40 +159,119 @@ export function Deck({
     return () => window.removeEventListener("keydown", onKey);
   });
 
+  const mark = (candidateId: string, value: boolean) =>
+    setEntries((list) =>
+      list.map((item) =>
+        item.candidateId === candidateId ? { ...item, heard: value } : item,
+      ),
+    );
+
+  // 听过了 is shown at once and written in order. Writes wait while the server is still
+  // filling a slot (it refuses card actions then) and quietly try again on refusals that
+  // only mean "not yet"; only a real failure takes the mark back.
+  const queue = useRef<string[]>([]);
+  const flushing = useRef(false);
+  const [queued, setQueued] = useState<ReadonlySet<string>>(() => new Set());
+  const syncQueued = () => setQueued(new Set(queue.current));
+  const changed = (ms: number) =>
+    new Promise<void>((done) => {
+      const timer = setTimeout(() => {
+        stop();
+        done();
+      }, ms);
+      const stop = controller.subscribe(() => {
+        clearTimeout(timer);
+        stop();
+        done();
+      });
+    });
+  const flush = async () => {
+    if (flushing.current) return;
+    flushing.current = true;
+    let attempts = 0;
+    try {
+      while (queue.current.length) {
+        const live = controller.state;
+        if (!live) break;
+        if (controller.busy || supplying(live)) {
+          await changed(1500);
+          continue;
+        }
+        if (controller.pending) {
+          // A lost response: the same write is retried with its original key.
+          await sleep(600);
+          if (!(await controller.retry()) && ++attempts > 6) break;
+          continue;
+        }
+        const candidateId = queue.current[0]!;
+        const slot = live.slots.find(
+          (item) =>
+            item.status === "READY" && item.card?.candidate_id === candidateId,
+        );
+        if (!slot) {
+          // No longer in a slot: there is nothing left to tell the server.
+          queue.current.shift();
+          syncQueued();
+          continue;
+        }
+        const done = await controller.action("card", slot.slot_id, "HEARD");
+        if (done) {
+          queue.current.shift();
+          syncQueued();
+          attempts = 0;
+          continue;
+        }
+        const error = controller.error;
+        const code = error instanceof ApiError ? error.message : "";
+        if ((TRANSIENT.has(code) || controller.pending) && attempts < 8) {
+          attempts++;
+          if (!controller.pending) controller.clearError();
+          await sleep(500 * attempts);
+          await controller.refresh();
+          continue;
+        }
+        queue.current.shift();
+        syncQueued();
+        mark(candidateId, false);
+        attempts = 0;
+      }
+    } finally {
+      flushing.current = false;
+    }
+  };
+
   const heard = async (entry: DeckEntry) => {
+    rest(entry.candidateId, "heard");
     if (entry.heard) {
+      // Still waiting to be written: just take it back here.
+      if (queue.current.includes(entry.candidateId)) {
+        queue.current = queue.current.filter((id) => id !== entry.candidateId);
+        syncQueued();
+        mark(entry.candidateId, false);
+        return;
+      }
       const undo = controller.undoable;
       if (undo?.candidateId !== entry.candidateId) return;
-      if (await controller.undo())
-        setEntries((list) =>
-          list.map((item) =>
-            item.candidateId === entry.candidateId
-              ? { ...item, heard: false }
-              : item,
-          ),
-        );
+      while (controller.locked || flushing.current) await changed(1500);
+      if (await controller.undo()) mark(entry.candidateId, false);
       return;
     }
-    const mark = (value: boolean) =>
-      setEntries((list) =>
-        list.map((item) =>
-          item.candidateId === entry.candidateId
-            ? { ...item, heard: value }
-            : item,
-        ),
-      );
-    mark(true);
+    mark(entry.candidateId, true);
     ripple(0.6, window.innerWidth * 0.7, window.innerHeight * 0.7);
-    const done = await controller.action("card", entry.slotId, "HEARD");
-    if (!done && !controller.pending) mark(false);
+    queue.current = [...queue.current, entry.candidateId];
+    syncQueued();
+    void flush();
   };
 
   const spread = (entry: DeckEntry, leaving?: string): ReactNode => {
     const { title, artist_credit, first_release_year } = entry.card.identity;
     const feeling = feelings.get(entry.candidateId) ?? null;
-    const available = !entry.heard;
+    const waiting = queued.has(entry.candidateId);
     const undoable =
-      entry.heard && controller.undoable?.candidateId === entry.candidateId;
+      entry.heard &&
+      (waiting || controller.undoable?.candidateId === entry.candidateId);
+    const resting = settling?.candidateId === entry.candidateId;
+    const settles = (kind: string) => resting && settling?.kind === kind;
     return (
       <article
         key={`${entry.candidateId}${leaving ? ":ghost" : ""}`}
@@ -195,7 +307,6 @@ export function Deck({
           <Reviews
             card={entry.card}
             review={review}
-            available={available}
             delay={leaving ? 0 : 1250}
           />
           <div className="reacts" role="group" aria-label="你的感受">
@@ -203,7 +314,10 @@ export function Deck({
               kind="like"
               label="我喜欢！"
               done={feeling === "like"}
+              resting={resting}
+              settling={settles("like")}
               onToggle={() => {
+                rest(entry.candidateId, "like");
                 if (feeling !== "like")
                   ripple(
                     1.3,
@@ -217,7 +331,10 @@ export function Deck({
               kind="meh"
               label="一般般"
               done={feeling === "meh"}
+              resting={resting}
+              settling={settles("meh")}
               onToggle={() => {
+                rest(entry.candidateId, "meh");
                 if (feeling !== "meh")
                   ripple(
                     0.3,
@@ -231,7 +348,9 @@ export function Deck({
               kind="heard"
               label="听过了"
               done={entry.heard}
-              disabled={controller.locked || (entry.heard && !undoable)}
+              resting={resting}
+              settling={settles("heard")}
+              disabled={entry.heard && !undoable}
               title={
                 entry.heard
                   ? undoable

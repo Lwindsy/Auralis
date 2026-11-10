@@ -12,6 +12,10 @@ import { useEffect, useRef } from "react";
  * it into tight rings around the centre, 拓展 lets it unfold, 惊喜 raises long ridges that
  * run off the edge of the screen.
  *
+ * Drawn on a canvas every frame: crossings are chained into whole lines and traced with
+ * quadratic curves through their midpoints, so the map stays smooth and runs at the
+ * display's own rate (it drops to every other frame only if a frame gets expensive).
+ *
  * The pointer is a hand passing through the lines. Under the map lies an elastic membrane
  * (a damped spring at every grid point, coupled to its neighbours): a fast sweep pushes
  * the ground up ahead of the hand and down behind it, the disturbance spreads a little and
@@ -69,7 +73,6 @@ export function setFlow(level: number) {
 
 const LEVELS = 15;
 const CELL = 26;
-const FPS = 30;
 
 /* Membrane: spring back to rest, coupling to neighbours, friction. */
 const SPRING = 7;
@@ -111,22 +114,35 @@ function seedHills(): Hill[] {
 }
 
 export function Contours() {
-  const ref = useRef<SVGSVGElement>(null);
+  const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
-    const svg = ref.current;
-    if (!svg) return;
-    const paths = [...svg.querySelectorAll<SVGPathElement>("path")];
+    const canvas = ref.current;
+    const context = canvas?.getContext("2d");
+    if (!canvas || !context) return;
+    const ctx = context;
     let width = 0;
     let height = 0;
     let cols = 0;
     let rows = 0;
+    let ratio = 1;
     let values = new Float32Array(0);
     let lift = new Float32Array(0);
     let speed = new Float32Array(0);
     let spare = new Float32Array(0);
+    // Marching-squares bookkeeping: two neighbours per grid edge, a visit stamp, and the
+    // edges touched by the current level.
+    let near1 = new Int32Array(0);
+    let near2 = new Int32Array(0);
+    let stamp = new Int32Array(0);
+    let touched = new Int32Array(0);
+    let chain = new Int32Array(0);
+    let visit = 0;
     const resize = () => {
       width = window.innerWidth;
       height = window.innerHeight;
+      ratio = Math.min(2, window.devicePixelRatio || 1);
+      canvas.width = Math.round(width * ratio);
+      canvas.height = Math.round(height * ratio);
       cols = Math.ceil(width / CELL) + 1;
       rows = Math.ceil(height / CELL) + 1;
       const size = (cols + 1) * (rows + 1);
@@ -134,7 +150,12 @@ export function Contours() {
       lift = new Float32Array(size);
       speed = new Float32Array(size);
       spare = new Float32Array(size);
-      svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+      near1 = new Int32Array(size * 2);
+      near2 = new Int32Array(size * 2);
+      stamp = new Int32Array(size * 2);
+      touched = new Int32Array(size * 2);
+      chain = new Int32Array(size * 2 + 1);
+      visit = 0;
     };
 
     // The hand: last position and a smoothed velocity in px/s.
@@ -235,8 +256,12 @@ export function Contours() {
         radius: ((now - r.start) / 1000) * 520,
         fade: Math.exp(-(now - r.start) / 1400),
       }));
+      const fx = 0.0032 / spread;
+      const fy = 0.0041 / spread;
+      const swell = 0.18 * relief;
       for (let j = 0; j <= rows; j++) {
         const y = j * CELL;
+        const across = Math.cos(y * fy - clock * 0.08);
         for (let i = 0; i <= cols; i++) {
           const x = i * CELL;
           let v = 0;
@@ -245,11 +270,7 @@ export function Contours() {
             const dy = y - c.y;
             v += c.h * Math.exp(-(dx * dx + dy * dy) / c.s2);
           }
-          v +=
-            0.18 *
-            relief *
-            Math.sin(x * (0.0032 / spread) + clock * 0.11 + swellPhase) *
-            Math.cos(y * (0.0041 / spread) - clock * 0.08);
+          v += swell * Math.sin(x * fx + clock * 0.11 + swellPhase) * across;
           for (const w of waves) {
             const d = Math.hypot(x - w.x, y - w.y) - w.radius;
             v += 0.32 * w.strength * w.fade * Math.exp(-(d * d) / 5200);
@@ -260,87 +281,207 @@ export function Contours() {
       }
     };
 
-    const trace = () => {
-      const w = cols + 1;
-      for (let l = 0; l < LEVELS; l++) {
-        const level = -0.75 + (l * 1.9) / (LEVELS - 1);
-        let d = "";
-        for (let j = 0; j < rows; j++) {
-          for (let i = 0; i < cols; i++) {
-            const a = values[j * w + i]!;
-            const b = values[j * w + i + 1]!;
-            const c = values[(j + 1) * w + i + 1]!;
-            const e = values[(j + 1) * w + i]!;
-            const index =
-              (a > level ? 8 : 0) |
-              (b > level ? 4 : 0) |
-              (c > level ? 2 : 0) |
-              (e > level ? 1 : 0);
-            if (index === 0 || index === 15) continue;
-            const x = i * CELL;
-            const y = j * CELL;
-            const lerp = (p: number, q: number) =>
-              (level - p) / (q - p || 1e-6);
-            const top = () => `${(x + lerp(a, b) * CELL).toFixed(1)} ${y}`;
-            const right = () =>
-              `${x + CELL} ${(y + lerp(b, c) * CELL).toFixed(1)}`;
-            const bottom = () =>
-              `${(x + lerp(e, c) * CELL).toFixed(1)} ${y + CELL}`;
-            const left = () => `${x} ${(y + lerp(a, e) * CELL).toFixed(1)}`;
-            const seg = (p: string, q: string) => {
-              d += `M${p}L${q}`;
-            };
-            switch (index) {
-              case 1:
-              case 14:
-                seg(left(), bottom());
-                break;
-              case 2:
-              case 13:
-                seg(bottom(), right());
-                break;
-              case 3:
-              case 12:
-                seg(left(), right());
-                break;
-              case 4:
-              case 11:
-                seg(top(), right());
-                break;
-              case 5:
-                seg(left(), top());
-                seg(bottom(), right());
-                break;
-              case 6:
-              case 9:
-                seg(top(), bottom());
-                break;
-              case 7:
-              case 8:
-                seg(left(), top());
-                break;
-              case 10:
-                seg(left(), bottom());
-                seg(top(), right());
-                break;
-            }
+    // Where a level crosses a grid edge. Even ids are horizontal edges, odd ids vertical.
+    const W = () => cols + 1;
+    let level = 0;
+    const pointX = (edge: number) => {
+      const k = edge >> 1;
+      const i = k % W();
+      if (edge & 1) return i * CELL;
+      const a = values[k]!;
+      const b = values[k + 1]!;
+      return (i + (level - a) / (b - a || 1e-6)) * CELL;
+    };
+    const pointY = (edge: number) => {
+      const k = edge >> 1;
+      const j = (k / W()) | 0;
+      if (!(edge & 1)) return j * CELL;
+      const a = values[k]!;
+      const b = values[k + W()]!;
+      return (j + (level - a) / (b - a || 1e-6)) * CELL;
+    };
+
+    let count = 0;
+    const attach = (from: number, to: number) => {
+      if (stamp[from] !== visit) {
+        stamp[from] = visit;
+        near1[from] = to;
+        near2[from] = -1;
+        touched[count++] = from;
+      } else near2[from] = to;
+    };
+    const link = (p: number, q: number) => {
+      attach(p, q);
+      attach(q, p);
+    };
+
+    /** Traces one level: segments are chained into lines and drawn as smooth curves. */
+    const traceLevel = () => {
+      const w = W();
+      visit += 2; // stamp = visit marks "linked", visit + 1 marks "drawn"
+      count = 0;
+      for (let j = 0; j < rows; j++) {
+        for (let i = 0; i < cols; i++) {
+          const k = j * w + i;
+          const a = values[k]!;
+          const b = values[k + 1]!;
+          const c = values[k + w + 1]!;
+          const e = values[k + w]!;
+          const index =
+            (a > level ? 8 : 0) |
+            (b > level ? 4 : 0) |
+            (c > level ? 2 : 0) |
+            (e > level ? 1 : 0);
+          if (index === 0 || index === 15) continue;
+          const top = k * 2;
+          const bottom = (k + w) * 2;
+          const left = k * 2 + 1;
+          const right = (k + 1) * 2 + 1;
+          switch (index) {
+            case 1:
+            case 14:
+              link(left, bottom);
+              break;
+            case 2:
+            case 13:
+              link(bottom, right);
+              break;
+            case 3:
+            case 12:
+              link(left, right);
+              break;
+            case 4:
+            case 11:
+              link(top, right);
+              break;
+            case 5:
+              link(left, top);
+              link(bottom, right);
+              break;
+            case 6:
+            case 9:
+              link(top, bottom);
+              break;
+            case 7:
+            case 8:
+              link(left, top);
+              break;
+            case 10:
+              link(left, bottom);
+              link(top, right);
+              break;
           }
         }
-        paths[l]?.setAttribute("d", d);
       }
+      const drawn = visit + 1;
+      const walk = (start: number) => {
+        let length = 0;
+        let previous = -1;
+        let current = start;
+        let closed = false;
+        while (current !== -1) {
+          chain[length++] = current;
+          stamp[current] = drawn;
+          const a = near1[current]!;
+          const b = near2[current]!;
+          const next = a !== previous ? a : b;
+          previous = current;
+          if (next === -1) break;
+          if (stamp[next] === drawn) {
+            closed = next === start && length > 2;
+            break;
+          }
+          current = next;
+        }
+        if (length < 2) return;
+        const x = (n: number) => pointX(chain[n]!);
+        const y = (n: number) => pointY(chain[n]!);
+        if (closed) {
+          let px = x(0);
+          let py = y(0);
+          let qx = x(1);
+          let qy = y(1);
+          ctx.moveTo((px + qx) / 2, (py + qy) / 2);
+          for (let n = 1; n <= length; n++) {
+            px = qx;
+            py = qy;
+            const m = (n + 1) % length;
+            qx = x(m);
+            qy = y(m);
+            ctx.quadraticCurveTo(px, py, (px + qx) / 2, (py + qy) / 2);
+          }
+          ctx.closePath();
+          return;
+        }
+        ctx.moveTo(x(0), y(0));
+        for (let n = 1; n < length - 1; n++) {
+          const px = x(n);
+          const py = y(n);
+          ctx.quadraticCurveTo(
+            px,
+            py,
+            (px + x(n + 1)) / 2,
+            (py + y(n + 1)) / 2,
+          );
+        }
+        ctx.lineTo(x(length - 1), y(length - 1));
+      };
+      // Open lines start at an end (a single neighbour); what is left are closed loops.
+      for (let n = 0; n < count; n++) {
+        const edge = touched[n]!;
+        if (stamp[edge] !== drawn && near2[edge] === -1) walk(edge);
+      }
+      for (let n = 0; n < count; n++) {
+        const edge = touched[n]!;
+        if (stamp[edge] !== drawn) walk(edge);
+      }
+    };
+
+    let ink = "";
+    let inkAge = 0;
+    const draw = () => {
+      if (inkAge-- <= 0) {
+        ink = getComputedStyle(canvas).color;
+        inkAge = 4;
+      }
+      ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+      ctx.clearRect(0, 0, width, height);
+      ctx.strokeStyle = ink;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      for (const index of [false, true]) {
+        ctx.beginPath();
+        for (let l = 0; l < LEVELS; l++) {
+          if ((l % 5 === 2) !== index) continue;
+          level = -0.75 + (l * 1.9) / (LEVELS - 1);
+          traceLevel();
+        }
+        ctx.globalAlpha = index ? 0.24 : 0.11;
+        ctx.lineWidth = index ? 1.5 : 0.9;
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
     };
 
     let clock = 20;
     if (reduced()) {
       sample(clock, performance.now());
-      trace();
-      return;
+      draw();
+      const still = () => {
+        resize();
+        sample(clock, performance.now());
+        draw();
+      };
+      window.addEventListener("resize", still);
+      return () => window.removeEventListener("resize", still);
     }
     let frame = 0;
     let last = performance.now();
-    let lastDraw = 0;
+    let skip = false;
+    let cost = 0;
     let gustAt = performance.now() + between(4000, 9000);
     const loop = (now: number) => {
+      frame = requestAnimationFrame(loop);
       const dt = Math.min(0.1, (now - last) / 1000);
       last = now;
       field.flow += (field.target - field.flow) * (1 - Math.exp(-dt * 1.2));
@@ -368,12 +509,16 @@ export function Contours() {
         stir(step, now);
         left -= step;
       }
-      if (now - lastDraw >= 1000 / FPS) {
-        lastDraw = now;
-        sample(clock, now);
-        trace();
+      // Draw every frame; only if drawing gets expensive fall back to every other one.
+      if (skip && cost > 7) {
+        skip = false;
+        return;
       }
-      frame = requestAnimationFrame(loop);
+      skip = true;
+      const begin = performance.now();
+      sample(clock, now);
+      draw();
+      cost = cost * 0.9 + (performance.now() - begin) * 0.1;
     };
     const start = () => {
       cancelAnimationFrame(frame);
@@ -396,24 +541,5 @@ export function Contours() {
     };
   }, []);
 
-  return (
-    <svg
-      ref={ref}
-      className="contours"
-      aria-hidden="true"
-      focusable="false"
-      preserveAspectRatio="none"
-    >
-      {Array.from({ length: LEVELS }, (_, i) => (
-        <path
-          key={i}
-          className={
-            i % 5 === 2
-              ? "contours__line contours__line--index"
-              : "contours__line"
-          }
-        />
-      ))}
-    </svg>
-  );
+  return <canvas ref={ref} className="contours" aria-hidden="true" />;
 }

@@ -85,17 +85,33 @@ body {
   animation: fade 2400ms ease 200ms both;
 }
 
-.contours__line {
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 0.9;
-  stroke-linecap: round;
-  opacity: 0.11;
+/* Scroll areas: the track is invisible; the thumb surfaces only while the pointer is over
+   the list (or it has keyboard focus inside). */
+.quiet-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+  scrollbar-gutter: stable;
 }
 
-.contours__line--index {
-  stroke-width: 1.5;
-  opacity: 0.24;
+.quiet-scroll:hover,
+.quiet-scroll:focus-within {
+  scrollbar-color: var(--ink-20) transparent;
+}
+
+@supports not (scrollbar-color: auto) {
+  .quiet-scroll::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+    background: transparent;
+  }
+  .quiet-scroll::-webkit-scrollbar-thumb {
+    border-radius: 8px;
+    background: transparent;
+  }
+  .quiet-scroll:hover::-webkit-scrollbar-thumb,
+  .quiet-scroll:focus-within::-webkit-scrollbar-thumb {
+    background: var(--ink-20);
+  }
 }
 
 .stage {

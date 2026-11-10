@@ -12,7 +12,11 @@ import type {
   GenreNode,
   Strength,
 } from "../../api/types.ts";
-import { draftFrom, type EntryDraft } from "../../state/draft.ts";
+import {
+  draftFrom,
+  reachToListeners,
+  type EntryDraft,
+} from "../../state/draft.ts";
 import {
   MAX_ALBUMS,
   MAX_TEXT,
@@ -33,6 +37,7 @@ import { GenrePanel, type GenreHandlers } from "./GenrePanel.tsx";
 import { Glyph } from "./Glyph.tsx";
 import { setTerrain } from "../motion/Contours.tsx";
 import { ModeWords } from "./ModeWords.tsx";
+import { Reach } from "./Reach.tsx";
 
 export type Door = "text" | "genres" | "albums";
 const DOORS: Door[] = ["text", "genres", "albums"];
@@ -48,14 +53,6 @@ const EXAMPLES = [
   "适合深夜开车的电子乐，别太吵",
   "像《In Rainbows》那样温暖、带点忧郁",
 ];
-
-const audienceError = (text: string) => {
-  if (text === "") return null;
-  const value = Number(text);
-  return Number.isInteger(value) && value >= 1 && value <= 2147483647
-    ? null
-    : "请输入 1 以上的整数，或留空。";
-};
 
 export interface EntryProps {
   api: Api;
@@ -97,6 +94,10 @@ export function Entry({
       api,
       draft.liked_albums.map((item) => item.mb_release_group_id),
     );
+    void labels.resolveGenres(api, [
+      ...draft.liked_genres.map((item) => item.genre_id),
+      ...draft.disliked_genre_ids,
+    ]);
     // Only names of the starting selection need resolving; new picks carry their labels.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [api]);
@@ -117,9 +118,8 @@ export function Entry({
 
   const length = codepoints(draft.request_text);
   const tooLong = length > MAX_TEXT;
-  const audienceProblem = audienceError(form.audience);
   const ready = hasInput(draft);
-  const canSubmit = ready && !tooLong && !audienceProblem;
+  const canSubmit = ready && !tooLong;
 
   const liked = useMemo(
     () => new Set(draft.liked_genres.map((item) => item.genre_id)),
@@ -250,8 +250,7 @@ export function Entry({
   const submit = () => {
     if (locked || !canSubmit) return;
     const input = structuredClone(draft);
-    if (form.audience === "") delete input.audience_min_listeners;
-    else input.audience_min_listeners = Number(form.audience);
+    input.audience_min_listeners = reachToListeners(form.reach);
     onSubmit(input);
   };
 
@@ -468,11 +467,13 @@ export function Entry({
               next.mode = mode;
             })
           }
-          audience={form.audience}
-          audienceProblem={audienceProblem}
-          onAudience={(value) =>
+        />
+        <Reach
+          value={form.reach}
+          disabled={locked}
+          onChange={(value) =>
             change((next) => {
-              next.audience = value;
+              next.reach = value;
             })
           }
         />

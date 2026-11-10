@@ -1,4 +1,3 @@
-import { useState, type CSSProperties } from "react";
 import { MODE_COPY } from "../../api/messages.ts";
 import type { Mode } from "../../api/types.ts";
 
@@ -12,34 +11,21 @@ export const MODE_LINE: Record<Mode, string> = {
 };
 
 /**
- * Three words and a sliding line. The real feedback is the landscape behind the page,
- * which tightens into rings, unfolds or rises into long ridges with the choice. The
- * optional listener threshold folds out beside it.
+ * Three words; the chosen one stands out. The real feedback is the landscape behind the
+ * page, which tightens into rings, unfolds or rises into long ridges with the choice.
  */
 export function ModeWords({
   value,
   onChange,
   disabled,
-  audience,
-  audienceProblem,
-  onAudience,
 }: {
   value: Mode;
   onChange: (mode: Mode) => void;
   disabled: boolean;
-  audience: string;
-  audienceProblem: string | null;
-  onAudience: (value: string) => void;
 }) {
-  const [more, setMore] = useState(() => audience !== "");
   return (
     <div className="modes">
-      <div
-        className="modes__row"
-        role="radiogroup"
-        aria-label="探索方式"
-        style={{ "--mode": MODES.indexOf(value) } as CSSProperties}
-      >
+      <div className="modes__row" role="radiogroup" aria-label="探索方式">
         {MODES.map((mode) => (
           <label
             key={mode}
@@ -58,39 +44,10 @@ export function ModeWords({
             <span>{MODE_COPY[mode].label}</span>
           </label>
         ))}
-        <span className="modes__line" aria-hidden="true" />
       </div>
       <p className="modes__say" key={value} aria-live="polite">
         {MODE_LINE[value]}
       </p>
-      <div className="modes__more">
-        <button
-          type="button"
-          className="modes__toggle"
-          aria-expanded={more}
-          onClick={() => setMore((open) => !open)}
-        >
-          {audience ? `听众 ≥ ${audience}` : "更多设置"}
-        </button>
-        {more ? (
-          <label className="modes__field">
-            <span>最低听众数（可选）</span>
-            <input
-              type="number"
-              inputMode="numeric"
-              min={1}
-              step={1}
-              placeholder="默认"
-              value={audience}
-              aria-invalid={!!audienceProblem || undefined}
-              onChange={(event) => onAudience(event.target.value.trim())}
-            />
-          </label>
-        ) : null}
-        {audienceProblem ? (
-          <span className="modes__error">{audienceProblem}</span>
-        ) : null}
-      </div>
     </div>
   );
 }

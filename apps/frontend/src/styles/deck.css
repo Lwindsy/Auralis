@@ -100,13 +100,14 @@
 
 /* Scene --------------------------------------------------------------------- */
 
+/* Top-aligned, so the words stay put while the review area grows or shrinks. */
 .cut {
   --s: min(56vh, 32vw, 480px);
   grid-area: 1 / 1;
   display: grid;
   grid-template-columns: auto minmax(280px, 420px);
   gap: clamp(36px, 5vw, 88px);
-  align-items: center;
+  align-items: start;
 }
 
 .cut__sleeve {
@@ -131,6 +132,13 @@
   transform-origin: 50% 50%;
   animation: slice-in 1500ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
   animation-delay: calc(var(--i) * 16ms);
+}
+
+.slice__inner {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  transform-origin: 50% 50%;
 }
 
 .slice__art {
@@ -198,15 +206,16 @@
   }
 }
 
-/* One ripple runs across the strips under the pointer (the whole cover steps aside). */
-.cut .sliced:hover .slice {
+/* One ripple runs across the strips when the pointer arrives (the whole cover steps aside
+   meanwhile). It lives on the inner layer, so it never restarts the assembly. */
+.sliced[data-rippling] .slice__inner {
   animation: slice-ripple 900ms ease-in-out both;
   animation-delay: calc(var(--i) * 14ms);
 }
 
-.cut .sliced:hover .sliced__whole {
-  animation: none;
-  opacity: 0;
+/* !important outranks the finished fade-in without restarting it afterwards. */
+.sliced[data-rippling] .sliced__whole {
+  opacity: 0 !important;
 }
 
 @keyframes slice-ripple {
@@ -216,6 +225,10 @@
   }
   70% {
     transform: scaleY(1.03);
+    clip-path: inset(0 0);
+  }
+  100% {
+    transform: none;
     clip-path: inset(0 0);
   }
 }
@@ -284,7 +297,7 @@
 
 .wave__field {
   position: relative;
-  padding-bottom: 26px;
+  padding: 22px 0 24px;
   cursor: crosshair;
 }
 
@@ -315,28 +328,34 @@
   stroke: var(--ink-20);
 }
 
+/* Names take turns under and over the wave; script places them along it. */
 .wave__tags {
   position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 20px;
+  inset: 0;
   pointer-events: none;
 }
 
 .wave__tag {
   position: absolute;
-  top: 0;
-  transform: translateX(-50%);
+  left: 0;
   font-size: 12px;
+  line-height: 18px;
   letter-spacing: 0.06em;
   white-space: nowrap;
-  text-transform: capitalize;
   color: var(--ink-60);
+  transform-origin: 50% 50%;
+  will-change: transform;
   transition:
     color 300ms ease,
-    font-size 500ms var(--ease-out-expo),
     opacity 300ms ease;
+}
+
+.wave__tag[data-row="bottom"] {
+  bottom: 0;
+}
+
+.wave__tag[data-row="top"] {
+  top: 0;
 }
 
 .wave[data-active] .wave__tag {
@@ -346,7 +365,6 @@
 .wave .wave__tag[data-on] {
   opacity: 1;
   color: var(--accent);
-  font-size: 14px;
 }
 
 .wave__keys {
@@ -365,11 +383,16 @@
   color: color-mix(in srgb, var(--page-ink) 82%, var(--page-room));
 }
 
+.typed {
+  opacity: 0;
+  animation: type-in 280ms ease forwards;
+  animation-delay: var(--t);
+}
+
 .wave__note strong {
   margin-right: 10px;
   font-weight: 500;
   color: var(--page-ink);
-  text-transform: capitalize;
   animation: body-in 400ms var(--ease-out-expo) both;
 }
 
@@ -381,7 +404,8 @@
   gap: 18px;
   min-height: 0;
   max-height: calc(100dvh - 180px);
-  align-self: center;
+  align-self: start;
+  padding-top: clamp(0px, 2vh, 24px);
 }
 
 .basic-note {
@@ -391,46 +415,65 @@
 }
 
 .reviews {
-  flex: 1;
-  min-height: 0;
   display: grid;
-  grid-template-rows: minmax(0, 1fr) minmax(0, 0fr) auto;
-  transition: grid-template-rows 900ms var(--ease-out-expo);
-}
-
-.reviews[data-expanded] {
-  grid-template-rows: minmax(0, 0fr) minmax(0, 1fr) auto;
-}
-
-.reviews__short,
-.reviews__long {
   min-height: 0;
-  overflow: hidden;
 }
 
-.reviews__short > div {
+/* Two panes stacked in one stage; only the stage's height moves. */
+.reviews__stage {
+  position: relative;
+  min-height: 3em;
+  transition: height 680ms var(--ease-out-expo);
+}
+
+.reviews__pane {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  contain: layout paint;
   transition:
-    opacity 420ms ease,
-    transform 700ms var(--ease-out-expo),
-    filter 420ms ease;
+    opacity 380ms ease,
+    transform 680ms var(--ease-out-expo),
+    visibility 0s linear 0s;
 }
 
-.reviews[data-expanded] .reviews__short > div {
-  opacity: 0;
-  transform: translateY(-14px);
-  filter: blur(4px);
-}
-
-.reviews__long > div {
-  height: 100%;
-  overflow: auto;
-  overscroll-behavior: contain;
-  scrollbar-width: thin;
-  scrollbar-color: var(--ink-20) transparent;
-  padding-right: 10px;
+.reviews__pane--long {
   display: grid;
   align-content: start;
   gap: 22px;
+  max-height: min(48vh, 520px);
+  padding-right: 10px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(22px);
+  transition:
+    opacity 380ms ease,
+    transform 680ms var(--ease-out-expo),
+    visibility 0s linear 680ms;
+}
+
+.reviews[data-expanded] .reviews__pane--short {
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-18px);
+  pointer-events: none;
+  transition:
+    opacity 260ms ease,
+    transform 680ms var(--ease-out-expo),
+    visibility 0s linear 680ms;
+}
+
+.reviews[data-expanded] .reviews__pane--long {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+  transition:
+    opacity 520ms ease 160ms,
+    transform 760ms var(--ease-out-expo) 120ms,
+    visibility 0s linear 0s;
 }
 
 /* Tracks: writing played like music ------------------------------------------ */
@@ -457,8 +500,13 @@
 .track__line {
   position: relative;
   flex: 1;
-  height: 14px;
-  cursor: pointer;
+  height: 22px;
+  cursor: grab;
+  touch-action: none;
+}
+
+.track[data-scrubbing] .track__line {
+  cursor: grabbing;
 }
 
 .track__line::before {
@@ -471,6 +519,12 @@
   background: var(--ink-20);
 }
 
+.track__line:focus-visible {
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Fill and playhead follow --q (0–1), set from script on the track. */
 .track__fill {
   position: absolute;
   left: 0;
@@ -480,57 +534,41 @@
   margin-top: -0.25px;
   background: var(--page-ink);
   transform-origin: left;
-  animation:
-    track-fill var(--span) linear var(--start) both,
-    track-rest 900ms ease calc(var(--start) + var(--span)) forwards;
-}
-
-@keyframes track-fill {
-  from {
-    transform: scaleX(0);
-  }
-}
-
-@keyframes track-rest {
-  to {
-    opacity: 0.35;
-  }
+  transform: scaleX(var(--q, 0));
+  transition: opacity 900ms ease;
 }
 
 .track__head-dot {
   position: absolute;
   top: 50%;
-  left: 0;
+  left: calc(var(--q, 0) * 100%);
   width: 9px;
   height: 9px;
   margin: -4.5px 0 0 -4.5px;
   border-radius: 50%;
   background: var(--accent);
   box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 22%, transparent);
-  animation:
-    track-head var(--span) linear var(--start) both,
-    track-park 600ms ease calc(var(--start) + var(--span)) forwards;
+  transition:
+    transform 420ms var(--ease-spring),
+    opacity 600ms ease,
+    box-shadow 420ms var(--ease-out-expo);
 }
 
-@keyframes track-head {
-  from {
-    left: 0%;
-  }
-  to {
-    left: 100%;
-  }
+.track[data-state="done"] .track__fill {
+  opacity: 0.35;
 }
 
-@keyframes track-park {
-  to {
-    left: 100%;
-    transform: scale(0.5);
-    opacity: 0.5;
-  }
+.track[data-state="done"] .track__head-dot {
+  transform: scale(0.5);
+  opacity: 0.5;
 }
 
-.track__line:hover .track__head-dot {
+.track__line:hover .track__head-dot,
+.track[data-scrubbing] .track__head-dot,
+.track__line:focus-visible .track__head-dot {
+  transform: scale(1.35);
   opacity: 1;
+  box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent) 26%, transparent);
 }
 
 .track__time {
@@ -550,10 +588,30 @@
   line-height: 1.85;
 }
 
+/* Characters are transparent until the playhead reaches them; the newest one arrives in
+   the accent colour and settles. Going back hides them again at once. */
 .type {
   opacity: 0;
-  animation: type-in 280ms ease forwards;
-  animation-delay: var(--t);
+}
+
+.type.on {
+  opacity: 1;
+  animation: type-arrive 420ms ease-out;
+}
+
+@keyframes type-arrive {
+  from {
+    opacity: 0;
+    color: var(--accent);
+  }
+  18% {
+    opacity: 1;
+    color: var(--accent);
+  }
+}
+
+.track[data-scrubbing] .type.on {
+  animation: none;
 }
 
 .cite {
@@ -693,6 +751,63 @@
 
 .react:disabled {
   cursor: default;
+}
+
+.react__glyph {
+  position: relative;
+  display: grid;
+  place-items: center;
+}
+
+/* The resting ring: drawn once around the icon that was just pressed. */
+.react__ring {
+  position: absolute;
+  inset: -1px;
+  width: 32px;
+  height: 32px;
+  overflow: visible;
+  pointer-events: none;
+  transform: rotate(-90deg);
+}
+
+.react__ring circle {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.2;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  opacity: 0;
+}
+
+.react[data-settling] .react__ring circle {
+  animation: rest-ring 1100ms linear both;
+}
+
+@keyframes rest-ring {
+  0% {
+    opacity: 0.9;
+    stroke-dashoffset: 1;
+  }
+  85% {
+    opacity: 0.9;
+    stroke-dashoffset: 0;
+  }
+  100% {
+    opacity: 0;
+    stroke-dashoffset: 0;
+  }
+}
+
+.react[data-resting] {
+  cursor: progress;
+}
+
+.react[data-resting]:not([data-settling]) {
+  opacity: 0.55;
+}
+
+.react[data-resting]:hover {
+  transform: none;
 }
 
 .react__icon {

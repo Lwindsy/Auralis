@@ -11,6 +11,7 @@ import { createPortal } from "react-dom";
 import type { Api } from "../../api/client.ts";
 import type { GenreNode, GenreSearchResult } from "../../api/types.ts";
 import { genreNote } from "../../content/genreNotes.ts";
+import { genreName } from "../../lib/text.ts";
 import { useDebounced } from "../../state/hooks.ts";
 import { labels } from "../../state/labels.ts";
 import { Icon } from "../Icon.tsx";
@@ -61,6 +62,15 @@ function useGenrePages(
 
 type Pages = ReturnType<typeof useGenrePages>;
 
+/** Lists are shown whole: further pages load on their own until the list is complete. */
+function useLoadAll(pages: Pages) {
+  const { status, next, loadingMore, error, loadMore } = pages;
+  useEffect(() => {
+    if (status === "ready" && next !== null && !loadingMore && !error)
+      loadMore();
+  }, [status, next, loadingMore, error, loadMore]);
+}
+
 interface Anchor {
   left: number;
   right: number;
@@ -80,18 +90,19 @@ type HoverHandlers = {
 };
 
 function relation(node: GenreNode, parent: GenreNode | null) {
-  if (parent) return `「${parent.name}」的子风格`;
+  if (parent) return `「${genreName(parent.name)}」的子风格`;
   const parents = node.parent_ids
     .map((id) => labels.genre(id)?.name)
-    .filter(Boolean);
+    .filter((name): name is string => !!name)
+    .map(genreName);
   if (parents.length) return `属于「${parents.join("」「")}」`;
   return node.has_children ? "风格家族 · 点开看子风格" : "独立风格";
 }
 
 /**
  * Genre browser: families first, stand-alone genres gathered in Unique. Hovering a name
- * opens a small card with a short note; opening a family lets its sub-genres grow out of
- * the parent along a drawn branch, in a list that scrolls on its own.
+ * opens a small card with a short note; opening a family lets all of its sub-genres grow
+ * out of the parent along a drawn branch, in place (the outer list is the only scroll).
  */
 export function GenrePanel({
   api,
@@ -105,17 +116,7 @@ export function GenrePanel({
   const debounced = useDebounced(query.trim(), 220);
   const effective = immediate ?? debounced;
   const pages = useGenrePages(api, `q:${effective}`, effective, null);
-  const { status, next, loadingMore, error, loadMore } = pages;
-  useEffect(() => {
-    if (
-      !effective &&
-      status === "ready" &&
-      next !== null &&
-      !loadingMore &&
-      !error
-    )
-      loadMore();
-  }, [effective, status, next, loadingMore, error, loadMore]);
+  useLoadAll(pages);
 
   const [hover, setHover] = useState<Hover | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -145,7 +146,7 @@ export function GenrePanel({
         onSubmit={() => setImmediate(query.trim())}
       />
       <div
-        className="genres__list"
+        className="genres__list quiet-scroll"
         aria-live="polite"
         aria-busy={pages.status === "loading"}
         onScroll={() => setHover(null)}
@@ -214,7 +215,7 @@ function HoverCard({ hover }: { hover: Hover }) {
         <svg className="genre-card__outline" aria-hidden="true">
           <rect x="0.5" y="0.5" pathLength="1" />
         </svg>
-        <p className="genre-card__name">{hover.node.name}</p>
+        <p className="genre-card__name">{genreName(hover.node.name)}</p>
         {note ? (
           <p className="genre-card__note" aria-label={note}>
             {[...note].map((char, i) => (
@@ -389,15 +390,22 @@ function GenreList({
           />
         ))}
       </ul>
-      {pages.next !== null ? (
-        <button
-          type="button"
-          className="genres__more"
-          onClick={pages.loadMore}
-          disabled={pages.loadingMore}
-        >
-          {pages.loadingMore ? "正在加载…" : "更多"}
-        </button>
+      {pages.next !== null && pages.error ? (
+        <p className="genres__message" role="alert">
+          {pages.error}{" "}
+          <button
+            type="button"
+            className="text-link"
+            onClick={pages.loadMore}
+            disabled={pages.loadingMore}
+          >
+            继续加载
+          </button>
+        </p>
+      ) : pages.next !== null ? (
+        <p className="genres__more" role="status">
+          正在载入…
+        </p>
       ) : null}
     </>
   );
@@ -477,7 +485,7 @@ function GenreRow({
             if (handlers.onPick(node) && node.has_children) setExpanded(true);
           }}
         >
-          <span className="tree__label">{node.name}</span>
+          <span className="tree__label">{genreName(node.name)}</span>
         </button>
         <div className="tree__actions">
           <button
@@ -523,6 +531,7 @@ function Children({
   hover: HoverHandlers;
 }) {
   const pages = useGenrePages(api, `p:${parent.genre_id}`, "", parent.genre_id);
+  useLoadAll(pages);
   return (
     <div className="branch" data-ready={pages.status === "ready" || undefined}>
       <GenreList
