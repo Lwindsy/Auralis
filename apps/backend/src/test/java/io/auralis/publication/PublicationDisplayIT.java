@@ -22,6 +22,24 @@ import org.springframework.boot.*;
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @EnabledIfEnvironmentVariable(named = "AURALIS_TEST_POSTGRES_URL", matches = ".+")
 class PublicationDisplayIT extends PublicationFixture {
+    @Test
+    void completedPhysicalWorkCannotLeaveSupplySpinnerRunning() throws Exception {
+        var f = flow(1);
+        publish(f, 1);
+        String round = f.context().execution().evidence().round();
+        jdbc.update(
+                "UPDATE discovery.publication_round SET supply_state='SUPPLYING' WHERE round_id=?",
+                round);
+        assertEquals(
+                "SUPPLYING",
+                JSON.readTree(publication.state(latest(f), round)).path("supply_state").asText());
+        release();
+        var state = JSON.readTree(publication.state(latest(f), round));
+        assertEquals("PAUSED", state.path("supply_state").asText());
+        assertEquals("PARTIAL", state.path("status").asText());
+        assertFalse(state.path("slots").isEmpty());
+    }
+
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(ints = {10, 100, 101, 500})
     void publicationUsesTheAuthorizedThresholdIncludingItsBoundary(int minimum) throws Exception {

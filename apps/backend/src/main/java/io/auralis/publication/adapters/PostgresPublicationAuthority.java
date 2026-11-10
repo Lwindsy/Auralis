@@ -544,6 +544,11 @@ public class PostgresPublicationAuthority implements PublicationAuthority {
         boolean interrupted =
                 Set.of("CANCELLED", "INTERRUPTED", "EXPIRED", "SUPERSEDED", "FAILED")
                         .contains(admission.status());
+        // A successful card batch can precede background completion. Only reconcile a
+        // stranded supply indicator once the successful run's physical work ended.
+        if (admission.status().equals("SUCCEEDED")
+                && "SUPPLYING".equals(info.get("supply_state"))
+                && !discovery.physicalWork(s, (String) info.get("run_id"))) interrupted = true;
         if (admission.status().equals("WAITING")) status = "WAITING";
         else if (Set.of("WAITING", "RUNNING").contains(status))
             status =

@@ -53,11 +53,11 @@ jobs:
         run: python -m pytest -c apps/intelligence/pyproject.toml apps/intelligence/tests -q
       - name: Java 格式检查与构建
         run: mvn -B -f apps/backend/pom.xml -DskipTests package
-      - name: 数据库锁竞争回归
+      - name: 数据库生命周期回归
         env:
           AURALIS_TEST_POSTGRES_URL: jdbc:postgresql://127.0.0.1:5432/auralis_core_verify
           AURALIS_TEST_POSTGRES_ADMIN_PASSWORD: auralis-synthetic-ci
-        run: mvn -B -f apps/backend/pom.xml '-Dit.test=AdmissionQueueIT#busyExecutionObservationDefersWithoutMaintenanceOrResend' failsafe:integration-test failsafe:verify
+        run: mvn -B -f apps/backend/pom.xml '-Dit.test=AdmissionQueueIT#busyExecutionObservationDefersWithoutMaintenanceOrResend,PublicationDisplayIT#completedPhysicalWorkCannotLeaveSupplySpinnerRunning' failsafe:integration-test failsafe:verify
       - name: 前端检查与构建
         run: |
           npm --prefix apps/frontend ci --no-audit --no-fund
