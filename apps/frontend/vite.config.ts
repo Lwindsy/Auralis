@@ -10,6 +10,25 @@ export default defineConfig(({ mode }) => {
     plugins: [react(), auralisBackend({ fixture: mode === "fixture" })],
     server: { host: "127.0.0.1", port, strictPort: true },
     preview: { host: "127.0.0.1", port, strictPort: true },
-    build: { target: "es2022", sourcemap: false },
+    build: {
+      target: "es2022",
+      sourcemap: false,
+      rolldownOptions: {
+        output: {
+          // Three long-lived pieces instead of one: React, the generated contract
+          // validators, and the app itself. Each changes on its own schedule, so a
+          // release that only touches the app keeps the other two cached.
+          codeSplitting: {
+            groups: [
+              {
+                name: "react",
+                test: /node_modules[\\/](react|react-dom|scheduler)[\\/]/,
+              },
+              { name: "contract", test: /src[\\/]generated[\\/]/ },
+            ],
+          },
+        },
+      },
+    },
   };
 });

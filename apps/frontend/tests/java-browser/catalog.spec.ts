@@ -17,9 +17,12 @@ test("real Java bootstrap, genres, full catalog selection and read-only recovery
     await (await bootstrap).json(),
   ) as BootstrapState;
   await page.getByRole("button", { name: /^风格/ }).click();
-  await expect(
-    page.getByRole("button", { name: "喜欢Rock", exact: true }),
-  ).toBeVisible();
+  // A root genre without sub-genres is listed under the display-only Unique group.
+  const rock = page.getByRole("button", { name: "喜欢Rock", exact: true });
+  const unique = page.getByRole("button", { name: "展开Unique", exact: true });
+  await expect(rock.or(unique).first()).toBeVisible();
+  if (!(await rock.isVisible())) await unique.click();
+  await expect(rock).toBeVisible();
   await page.getByRole("button", { name: "喜欢Rock", exact: true }).click();
   await page.getByRole("button", { name: "Rock特别喜欢", exact: true }).click();
   await page.getByRole("button", { name: "Rock本次重点", exact: true }).click();

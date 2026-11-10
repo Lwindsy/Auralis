@@ -64,7 +64,13 @@ def serve(args):
     configured_roles = json.loads(relative("model_bindings").read_text(encoding="utf-8"))
     if "long_write" not in configured_roles:
         raise ValueError("LONG_WRITE_MODEL_BINDING_REQUIRED")
-    model = ModelGateway(adapter, configured_bindings)
+    model = ModelGateway(
+        adapter,
+        configured_bindings,
+        trial_trace_directory=relative("trial_trace_directory")
+        if config.get("trial_trace_directory")
+        else None,
+    )
     reference = ReferenceCatalog.load(relative("reference"))
     from auralis_intelligence.album_reviews.batch import (
         BatchResearchStage,

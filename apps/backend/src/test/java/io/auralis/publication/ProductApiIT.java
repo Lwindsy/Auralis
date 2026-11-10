@@ -11,6 +11,90 @@ import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @EnabledIfEnvironmentVariable(named = "AURALIS_TEST_POSTGRES_URL", matches = ".+")
 class ProductApiIT extends ProductApiFixture {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"HEARD", "REPLACE"})
+    void undoRestoresLastCardAndFeedbackAndSurvivesLateSupply(String action) throws Exception {
+        var b = browser();
+        b.submit(userInput(""), "undo-initial");
+        b.awaitState(state -> state.path("status").asText().equals("SUCCEEDED"));
+        for (var job : peer.jobs.values()) job.done.get(10, java.util.concurrent.TimeUnit.SECONDS);
+        b.refresh();
+        String original = b.state.path("slots").get(0).path("card").path("candidate_id").asText();
+        peer.hold = true;
+        try {
+            var changed = b.action("cards/slot-0001/actions", action, "undo-change");
+            assertTrue(Set.of(200, 202).contains(changed.status()), changed.body().toString());
+            b.refresh();
+            var body =
+                    JSON.createObjectNode()
+                            .put("expected_revision", b.state.path("revision").asLong());
+            String endpoint = "/v1/discovery-sessions/" + b.session() + "/undo-last-card";
+            var undone = b.request("POST", endpoint, body, "undo-once");
+            // Restoring the card does not cancel an already queued supply intent.
+            assertTrue(Set.of(200, 202).contains(undone.status()), undone.body().toString());
+            assertEquals(
+                    original,
+                    b.state.path("slots").get(0).path("card").path("candidate_id").asText());
+            assertEquals(
+                    0,
+                    jdbc.queryForObject(
+                            "SELECT count(*) FROM discovery.heard_album WHERE subject_id=(SELECT subject_id FROM discovery.session WHERE id=?)",
+                            Integer.class,
+                            b.session()));
+            var replay = b.request("POST", endpoint, body, "undo-once");
+            assertEquals(undone.body(), replay.body());
+            assertEquals(400, b.action("undo-last-card", null, "undo-again").status());
+        } finally {
+            peer.hold = false;
+        }
+        for (var job : peer.jobs.values()) job.done.get(10, java.util.concurrent.TimeUnit.SECONDS);
+        b.refresh();
+        assertEquals(
+                original, b.state.path("slots").get(0).path("card").path("candidate_id").asText());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(ints = {1, 5})
+    void exhaustedContinuationContinuesThePendingBatchIntoANewRound(int sequence) throws Exception {
+        var b = browser();
+        b.submit(userInput(""), "drained-initial");
+        b.awaitState(s -> s.path("status").asText().equals("SUCCEEDED"));
+        String originalRound = b.state.path("round_id").asText();
+        for (var job : peer.jobs.values()) job.done.get(10, java.util.concurrent.TimeUnit.SECONDS);
+        jdbc.update(
+                "UPDATE discovery.publication_round SET supply_state='SUFFICIENT' WHERE round_id=?",
+                originalRound);
+        jdbc.update(
+                "UPDATE discovery.recommendation_round SET round_seq=? WHERE id=?",
+                sequence,
+                originalRound);
+        peer.exhaustSupplyNext.set(true);
+        b.refresh();
+        var response = b.action("next-batch", null, "drained-batch");
+        assertEquals(202, response.status(), response.body().toString());
+        if (sequence == 5) {
+            b.awaitState(s -> s.path("supply_state").asText().equals("FINAL_EXHAUSTED"));
+            assertEquals("NO_MATCH", b.state.path("status").asText());
+            assertEquals(originalRound, b.state.path("round_id").asText());
+            assertTrue(
+                    java.util.stream.StreamSupport.stream(
+                                    b.state.path("slots").spliterator(), false)
+                            .allMatch(slot -> slot.path("status").asText().equals("EMPTY")));
+            assertTrue(peer.failures.isEmpty(), peer.failures.toString());
+            return;
+        }
+        b.awaitState(
+                s ->
+                        !s.path("round_id").asText().equals(originalRound)
+                                && s.path("status").asText().equals("SUCCEEDED"));
+        assertEquals(
+                2,
+                java.util.stream.StreamSupport.stream(b.state.path("slots").spliterator(), false)
+                        .filter(slot -> slot.path("status").asText().equals("READY"))
+                        .count());
+        assertTrue(peer.failures.isEmpty(), peer.failures.toString());
+    }
+
     @Test
     void explicitThresholdAlsoFiltersTheOtherwiseExemptCuratedPool() throws Exception {
         var b = browser();

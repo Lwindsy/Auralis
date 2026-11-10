@@ -52,6 +52,8 @@ export interface CoverArt {
   base: string;
   accent: string;
   ink: string;
+  /** Roughly how much of the sleeve the mark covers (0–1); the field takes the rest. */
+  markShare: number;
 }
 
 export function coverArt(seed: string): CoverArt {
@@ -62,27 +64,34 @@ export function coverArt(seed: string): CoverArt {
   const a = 38 + ((h >>> 12) % 30); // vertical position, %
   const b = 18 + ((h >>> 18) % 46); // horizontal position, %
   let background: string;
+  let markShare: number;
   switch (style) {
     case "circle":
       background = `radial-gradient(circle at ${b + 14}% ${a + 6}%, ${mark} 0 31%, transparent 31.3%), ${field}`;
+      markShare = 0.16;
       break;
     case "split":
       background = `linear-gradient(${(h >>> 4) % 2 ? 120 : 60}deg, ${field} 0 ${a + 8}%, ${mark} ${a + 8}% 100%)`;
+      markShare = 1 - (a + 8) / 100;
       break;
     case "stripes":
       background = `repeating-linear-gradient(0deg, ${field} 0 9%, ${mark} 9% 10.5%), ${field}`;
+      markShare = 0.14;
       break;
     case "block":
       background = `linear-gradient(${mark}, ${mark}) ${b}% 100% / 44% ${a + 10}% no-repeat, ${field}`;
+      markShare = (0.44 * (a + 10)) / 100;
       break;
     case "ring":
       background = `radial-gradient(circle at 62% 58%, transparent 0 22%, ${mark} 22.3% 34%, transparent 34.3%), ${field}`;
+      markShare = 0.15;
       break;
     case "rule":
       background = `linear-gradient(${mark}, ${mark}) 0 ${a + 12}% / 100% 3.5% no-repeat, ${field}`;
+      markShare = 0.035;
       break;
   }
-  return { style, background, base: field, accent: mark, ink };
+  return { style, background, base: field, accent: mark, ink, markShare };
 }
 
 export function initials(title: string): string {

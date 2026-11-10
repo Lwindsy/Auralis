@@ -31,6 +31,7 @@ public interface PublicationAuthority {
 
     String state(Scope scope, String round);
 
+    /** SUPPLY resumes empty slots internally; public card commands remain HEARD/REPLACE/BATCH. */
     String operate(
             Scope scope,
             String round,
@@ -38,6 +39,10 @@ public interface PublicationAuthority {
             String operation,
             String slot,
             Supply supply);
+
+    String undoLastCard(Scope scope, String round);
+
+    void discardUndo(Scope scope);
 
     String longReview(Scope scope, String round, String candidate);
 

@@ -37,6 +37,8 @@ public final class ProductBrowserHarness extends ProductApiFixture {
                             var request = JSON.readTree(exchange.getRequestBody().readNBytes(4096));
                             if (request.has("hold"))
                                 harness.peer.hold = request.path("hold").asBoolean();
+                            if (request.has("hold_long"))
+                                harness.peer.holdLongs = request.path("hold_long").asBoolean();
                             if (request.has("recall_limit"))
                                 harness.peer.recallLimit = request.path("recall_limit").asInt();
                             if (request.has("basic"))

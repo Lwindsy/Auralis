@@ -34,9 +34,12 @@ def test_generic_route_never_swallows_specific_constraints():
 
 
 @pytest.mark.parametrize("minimum", [10, 50, 500])
-@pytest.mark.parametrize("background,insufficient", [(False, 0), (True, 0), (False, 2), (False, 4)])
+@pytest.mark.parametrize(
+    "background,insufficient,cold",
+    [(False, 0, False), (True, 0, False), (False, 2, False), (False, 4, False), (True, 0, True)],
+)
 def test_batch_one_call_and_audience_verified_at_publication(
-    tmp_path, background, insufficient, minimum
+    tmp_path, background, insufficient, cold, minimum
 ):
     async def run():
         harness = DemoHarness(root=tmp_path, scenario="genre", r=5, k=5, n=3)
@@ -64,8 +67,41 @@ def test_batch_one_call_and_audience_verified_at_publication(
                     {"url": f"https://{host}.example/{identifier}"} for host in ["one", "two"]
                 ]
             )
+            if cold:
+
+                class ColdWindow:
+                    cold = True
+                    failed_ids = set()
+
+                    def __init__(self):
+                        self.prepared = set()
+
+                    async def prepare(self, execution, candidates, tools):
+                        self.prepared = {c["release_group_id"] for c in candidates}
+
+                    def sources(self, identifier):
+                        return (
+                            [
+                                {"url": f"https://{host}.example/{identifier}"}
+                                for host in ["one", "two"]
+                            ]
+                            if identifier in self.prepared
+                            else []
+                        )
+
+                    def take_reads(self, identifier):
+                        return None
+
+                    async def discard_unselected(self, selected):
+                        pass
+
+                evidence = ColdWindow()
             batch = BatchResearchStage(
-                harness.model, harness.tools, evidence, genre_names={"jazz": "爵士"}
+                harness.model,
+                harness.tools,
+                evidence,
+                genre_names={"jazz": "爵士"},
+                candidate_limit=3 if cold else 8,
             )
             writer = BatchWriteStage(harness.model, harness.tools, batch=batch)
             selector = BatchSelectStage(harness.model, batch=batch)
@@ -80,12 +116,14 @@ def test_batch_one_call_and_audience_verified_at_publication(
 
             def reply(binding, request):
                 seen.append(request.schema_name)
-                if request.schema_name != "batch_v3":
+                if request.schema_name != "batch_v6":
                     return _reply(binding, request)
                 from auralis_intelligence.agents import CallResult, Usage
 
                 text = "这张专辑在合成测试资料中呈现克制的编配，钢琴与轻缓鼓点之间留有清晰空间，旋律以渐进的方式展开而不过度依赖厚重音墙[R1]。另一份资料强调人声与吉他的亲近感；如果这次想在深夜安静地听，可以留意这种舒缓而细致的安排，这里只验证程序流程而不代表真实试听评价[R2]。"
                 candidates = request.input["candidates"]
+                assert all("primary_genres" not in c["album"] for c in candidates)
+                assert all("catalog_genre_hints" in c for c in candidates)
                 return CallResult(
                     {
                         "assessments": [
@@ -115,7 +153,15 @@ def test_batch_one_call_and_audience_verified_at_publication(
                 await harness.supervisor.wait(execution.id)
                 entry = harness.control.executions[execution.id]
                 first_ids = set(entry["display"]["shown_candidate_ids"])
-                assert seen == ["batch_v3"]
+                assert seen == ["batch_v6"]
+                if cold:
+                    deferred = [
+                        screening
+                        for (round_id, identifier), screening in harness.control.screenings.items()
+                        if identifier not in first_ids and identifier != "album-1"
+                    ]
+                    assert len(deferred) == 1
+                    assert deferred[0]["disposition"] == "DEFERRED"
                 request = harness.control.continuation(
                     execution.id,
                     new_execution_id="fast-continue",
@@ -148,7 +194,14 @@ def test_batch_one_call_and_audience_verified_at_publication(
                     d["kind"] == "LONG_REVIEW" for d in harness.control.deliveries.values()
                 )
             assert execution.status == "CLOSED", execution.error_code
-            assert seen == (["batch_v3", "batch_v3"] if background else ["batch_v3"])
+            if background:
+                supply_states = [
+                    d["payload"]["state"]
+                    for d in harness.control.deliveries.values()
+                    if d["kind"] == "SUPPLY_STATUS"
+                ]
+                assert supply_states[-1] == "R_EXHAUSTED"
+            assert seen == (["batch_v6", "batch_v6"] if background else ["batch_v6"])
             assert any(
                 call["plan"]["purpose"] == "SELECT" for call in harness.control.invocations.values()
             )
@@ -168,6 +221,12 @@ def test_batch_one_call_and_audience_verified_at_publication(
                     == insufficient
                 )
                 assert len(seen) == 1
+                rejected = [
+                    screening
+                    for screening in harness.control.screenings.values()
+                    if screening["reason_code"] == "NO_MUSIC_DESCRIPTION"
+                ]
+                assert len(rejected) == insufficient
             assert all(c["admission"]["audience"]["listeners"] >= minimum for c in first["cards"])
             assert "album-1" not in {c["candidate_id"] for c in first["cards"]}
             if insufficient == 4:
@@ -259,3 +318,28 @@ def test_prepared_evidence_digest_age_and_original_observation(tmp_path):
     )
     save()
     assert PreparedEvidence(path).sources("a") == []
+
+
+def test_research_window_covers_requested_directions_before_artist_only_fill():
+    batch = BatchResearchStage(None, None, SimpleNamespace(), candidate_limit=3)
+    candidates = [
+        {
+            "release_group_id": str(i),
+            "identity": {"artist_credit": f"Artist {i}", "primary_genres": [{"genre_id": genre}]},
+        }
+        for i, genre in enumerate(["hyperpop", "hyperpop", "hyperpop", "post-rock", "trip-hop"])
+    ]
+    preferences = {"tags": [{"id": genre} for genre in ["hyperpop", "post-rock", "trip-hop"]]}
+    assert [c["release_group_id"] for c in batch._research_window(candidates, preferences)] == [
+        "0",
+        "3",
+        "4",
+    ]
+    assert [c["release_group_id"] for c in batch._research_window(candidates, {"tags": []})] == [
+        "0",
+        "1",
+        "2",
+    ]
+    # Missing coverage never invents candidates or enlarges the research budget.
+    preferences["tags"].append({"id": "missing"})
+    assert len(batch._research_window(candidates, preferences)) == 3

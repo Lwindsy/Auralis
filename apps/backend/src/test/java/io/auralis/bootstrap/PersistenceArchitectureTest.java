@@ -44,6 +44,7 @@ class PersistenceArchitectureTest {
                                         "round_candidate",
                                         "recommendation_card",
                                         "card_slot",
+                                        "card_undo",
                                         "long_review",
                                         "delivery_receipt",
                                         "recovery_projection",

@@ -202,6 +202,40 @@ describe("discovery controller", () => {
     expect(backend.calls.at(-1)!.path).toBe("/v1/bootstrap");
   });
 
+  test("undo restores the last 听过 action once; batches clear the offer", async () => {
+    const { controller, backend } = setup();
+    await controller.connect();
+    await controller.action("card", "slot-2", "HEARD");
+    expect(controller.undoable).toMatchObject({
+      slotId: "slot-2",
+      candidateId: "candidate-2",
+      action: "HEARD",
+    });
+    expect(await controller.undo()).toBe(true);
+    expect(backend.heard.has("candidate-2")).toBe(false);
+    expect(controller.state!.slots[1]!.card!.candidate_id).toBe("candidate-2");
+    expect(controller.undoable).toBeNull();
+    const sent = backend.calls.length;
+    expect(await controller.undo()).toBe(false);
+    expect(backend.calls).toHaveLength(sent);
+
+    await controller.action("card", "slot-1", "HEARD");
+    await controller.refresh();
+    await controller.action("next-batch");
+    expect(controller.undoable).toBeNull();
+  });
+
+  test("a server without an undo record reports it plainly", async () => {
+    const { controller, backend } = setup();
+    await controller.connect();
+    await controller.action("card", "slot-1", "HEARD");
+    backend.undo = null;
+    expect(await controller.undo()).toBe(false);
+    expect(controller.error?.message).toBe("UNDO_UNAVAILABLE");
+    expect(controller.pending).toBeNull();
+    expect(controller.undoable).toBeNull();
+  });
+
   test("subscribers observe every visible change", async () => {
     const { controller } = setup();
     const versions: number[] = [];

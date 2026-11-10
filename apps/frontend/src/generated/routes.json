@@ -127,5 +127,16 @@
       "503": "ProductError",
       "504": "ProductError"
     }
+  },
+  "POST /v1/discovery-sessions/{session_id}/undo-last-card": {
+    "request": "SessionAction",
+    "responses": {
+      "200": "ProductState",
+      "202": "ProductState",
+      "400": "ProductError",
+      "409": "ProductError",
+      "429": "ProductError",
+      "503": "ProductError"
+    }
   }
 }

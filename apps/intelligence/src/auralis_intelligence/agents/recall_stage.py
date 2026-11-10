@@ -1,8 +1,8 @@
-"""Lossless A-V2 adapter; Java still validates candidates and routes no-positive input."""
+"""A-V2 adapter with bounded multi-genre pool coverage; Java validates admission."""
 
 import asyncio
 from copy import deepcopy
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from pathlib import Path
 
 from auralis_intelligence.contracts import (
@@ -103,6 +103,49 @@ class RecallStage:
             return "TIMED_OUT", "recall_timed_out", None
         except (OSError, MemoryError):
             return "UNAVAILABLE", "recall_unavailable", None
+        if not request.seeds and len(request.tags) > 1 and result.returned_count:
+            # Keep the scorer unchanged. Reserve at most one research opportunity per
+            # explicit direction, then fill from the joint ranking without comparing
+            # scores produced by different queries.
+            covered, seen = [], set()
+            priorities = sorted(
+                request.tags, key=lambda tag: (not tag.focused, tag.strength != "special")
+            )
+            for tag in priorities[: request.limit]:
+                constrained = replace(
+                    request,
+                    limit=1,
+                    tags=(tag,),
+                    required_tags=tuple(dict.fromkeys((*request.required_tags, tag.id))),
+                )
+                try:
+                    one = (
+                        self.engine.recall(constrained, min_listeners=self.min_listeners)
+                        if self.min_listeners
+                        else self.engine.recall(constrained)
+                    )
+                except ValueError:
+                    continue  # A genre absent from this snapshot cannot add a candidate.
+                except TimeoutError:
+                    return "TIMED_OUT", "recall_timed_out", None
+                except (OSError, MemoryError):
+                    return "UNAVAILABLE", "recall_unavailable", None
+                for candidate in one.candidates:
+                    if candidate.album_id not in seen:
+                        covered.append(candidate)
+                        seen.add(candidate.album_id)
+            for candidate in result.candidates:
+                if len(covered) >= request.limit:
+                    break
+                if candidate.album_id not in seen:
+                    covered.append(candidate)
+                    seen.add(candidate.album_id)
+            result = replace(
+                result,
+                candidates=tuple(covered),
+                returned_count=len(covered),
+                reason="complete" if len(covered) == request.limit else "insufficient_candidates",
+            )
         if (
             result.dataset_id != self.binding["data_snapshot_id"]
             or result.window != self.binding["window"]
@@ -188,6 +231,11 @@ class RecallStage:
             "truncated": False,
             "candidates": candidates,
             "source_dependencies": list(self.source_dependencies)
+            + (
+                ["composition:multi-genre-coverage.v1"]
+                if not request.seeds and len(request.tags) > 1
+                else []
+            )
             + (
                 ["audience:" + self.engine.audience_binding["snapshot_digest"]]
                 if self.min_listeners

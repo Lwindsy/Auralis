@@ -40,6 +40,8 @@ test-results/
 /.worktrees/
 /evals/.local/
 /apps/intelligence/artifacts/
+/.claude/
+/Claude outputs/
 
 # Private document worktree and metadata; excluded from the code repository.
 /docs/

@@ -14,7 +14,7 @@ from .types import AlbumDossier, ReadRecord, ResearchResult
 from .validation import validate_short
 from .writing import ShortWriteResult, WriteStage
 
-PROMPT = files(__package__).joinpath("batch.v3.txt").read_text(encoding="utf-8")
+PROMPT = files(__package__).joinpath("batch.v6.txt").read_text(encoding="utf-8")
 REFS = array({"type": "string"}, maximum=4)
 SCHEMA = object_schema(
     {
@@ -95,16 +95,59 @@ class BatchResearchStage:
         self.task = execution.spawn(lambda: self._evaluate(execution, work.preferences))
         return await asyncio.shield(self.task)
 
+    def _research_window(self, candidates, preferences):
+        selected, identifiers, artists = [], set(), set()
+        wanted = {tag["id"] for tag in preferences["tags"]}
+        remaining = set(wanted)
+        # Genre labels allocate research opportunities, not factual genre admission.
+        while remaining and len(selected) < self.candidate_limit:
+            best, coverage = None, set()
+            for candidate in candidates:
+                if candidate["release_group_id"] in identifiers:
+                    continue
+                overlap = remaining & {
+                    genre["genre_id"] for genre in candidate["identity"]["primary_genres"]
+                }
+                if len(overlap) > len(coverage):
+                    best, coverage = candidate, overlap
+            if best is None:
+                break
+            selected.append(best)
+            identifiers.add(best["release_group_id"])
+            artists.add(best["identity"]["artist_credit"].casefold())
+            remaining -= coverage
+        for unique_artist in (True, False):
+            for candidate in candidates:
+                if len(selected) == self.candidate_limit:
+                    return selected
+                artist = candidate["identity"]["artist_credit"].casefold()
+                if candidate["release_group_id"] in identifiers or (
+                    unique_artist and artist in artists
+                ):
+                    continue
+                selected.append(candidate)
+                identifiers.add(candidate["release_group_id"])
+                artists.add(artist)
+        return selected
+
     async def _evaluate(self, execution, preferences):
+        self.order = []
         minimum = execution.start["agent_policy"].get("audience_min_listeners")
         if minimum is None:
             raise ContractError("AUDIENCE_POLICY_REQUIRED")
         excluded = (
             execution.work.shown | execution.work.heard if execution.work is not None else set()
         )
+        if execution.work is not None:
+            excluded |= {
+                identifier
+                for identifier, result in execution.work.results.items()
+                if result.screening["disposition"] in {"INELIGIBLE", "BELOW_FLOOR"}
+            }
         candidates = [
             c for c in execution.candidates.values() if c["release_group_id"] not in excluded
         ]
+        searched = set()
         if getattr(self.evidence, "cold", False):
             eligible_sources = [
                 c
@@ -112,20 +155,9 @@ class BatchResearchStage:
                 if matches_policy(c.get("audience"), execution.start["agent_policy"])
                 and c["audience"]["listeners"] >= minimum
             ]
-            searchable, artists = [], set()
-            for candidate in eligible_sources:
-                artist = candidate["identity"]["artist_credit"].casefold()
-                if artist not in artists:
-                    searchable.append(candidate)
-                    artists.add(artist)
-                if len(searchable) == self.candidate_limit:
-                    break
-            if len(searchable) < self.candidate_limit:
-                chosen_ids = {c["release_group_id"] for c in searchable}
-                searchable += [
-                    c for c in eligible_sources if c["release_group_id"] not in chosen_ids
-                ][: self.candidate_limit - len(searchable)]
+            searchable = self._research_window(eligible_sources, preferences)
             await self.evidence.prepare(execution, searchable, self.tools)
+            searched = {c["release_group_id"] for c in searchable}
         results, prepared, audiences = {}, [], {}
         audience_passed = 0
         for candidate in candidates:
@@ -147,6 +179,8 @@ class BatchResearchStage:
             else:
                 audience_passed += 1
                 sources = self.evidence.sources(identifier)
+                if getattr(self.evidence, "cold", False) and identifier not in searched:
+                    reason = "NOT_SELECTED"
                 if sources:
                     reason = "NOT_SELECTED"
                 if sources and len(prepared) < self.candidate_limit:
@@ -215,7 +249,12 @@ class BatchResearchStage:
             "candidates": [
                 {
                     "c": alias,
-                    "album": dossier.identity,
+                    "album": {
+                        key: value
+                        for key, value in dossier.identity.items()
+                        if key != "primary_genres"
+                    },
+                    "catalog_genre_hints": dossier.identity.get("primary_genres", []),
                     "sample_listeners": audiences[dossier.candidate_id]["listeners"],
                     "sources": [
                         {"ref": r.ref, "text": excerpt(r.excerpt, 1800)} for r in dossier.reads
@@ -236,7 +275,7 @@ class BatchResearchStage:
                 system=PROMPT,
                 input=payload,
                 output_schema=SCHEMA,
-                prompt_version="batch.v3",
+                prompt_version="batch.v6",
                 read_ids=read_ids,
             )
             if reply.finish == "COMPLETE":
@@ -275,6 +314,7 @@ class BatchResearchStage:
                 results[dossier.candidate_id] = ResearchStage._failed(
                     candidate, dossier, "INSUFFICIENT_REVIEWS"
                 )
+                results[dossier.candidate_id].screening["reason_code"] = row["reason"]
 
         for row in output["cards"]:
             candidate, dossier = aliases[row["c"]]
@@ -300,9 +340,9 @@ class BatchResearchStage:
                     "status": "OK",
                     "score": score,
                     "invocation_id": reply.invocation_id,
-                    "prompt_version": self.model.version("batch.v3")
+                    "prompt_version": self.model.version("batch.v6")
                     if hasattr(self.model, "version")
-                    else "batch.v3",
+                    else "batch.v6",
                 },
                 "disposition": "RESERVE"
                 if qualified and score >= 3
@@ -329,9 +369,9 @@ class BatchResearchStage:
                     "text": row["text"],
                     "citations": [{"marker": ref, "read_id": lookup[ref]} for ref in row["refs"]],
                     "invocation_id": reply.invocation_id,
-                    "prompt_version": self.model.version("batch.v3")
+                    "prompt_version": self.model.version("batch.v6")
                     if hasattr(self.model, "version")
-                    else "batch.v3",
+                    else "batch.v6",
                 },
             )
         execution.counters["qualified"] += sum(

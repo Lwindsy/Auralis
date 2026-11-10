@@ -6,15 +6,15 @@ Auralis aims to help you discover albums through genre preferences, favorite alb
 
 ## Availability
 
-The Java recommendation APIs and production Python pipeline are connected and verified with isolated PostgreSQL and synthetic model/page adapters. Browser recommendation interactions have also been tested against Java. Real-provider quality, cost, capacity and complete website acceptance remain pending; there is no complete website release yet.
+The Java recommendation APIs and production Python pipeline are connected and verified with isolated PostgreSQL and synthetic model/page adapters. Browser recommendation interactions have also been tested against Java. Real-provider requests and local capacity have also been measured. Overall recommendation quality and complete website acceptance remain pending; the product has not been publicly deployed.
 
 The Java online bootstrap can be built with `mvn -f apps/backend/pom.xml verify` and started with `java -jar apps/backend/target/auralis-core-database-0.1.0-SNAPSHOT-online.jar`. It requires explicit `AURALIS_JDBC_URL`, `AURALIS_DATABASE_USER`, `AURALIS_DATABASE_PASSWORD`, `AURALIS_PRODUCT_ORIGIN`, `AURALIS_PYTHON_URL`, `AURALIS_SERVICE_TOKEN`, `AURALIS_CONTRACT_REVISION` and `AURALIS_SUBJECT_SECRET` environment variables. Use PostgreSQL 18 with the existing migrations applied by the offline CLI and a non-DDL runtime role. The service exposes health probes, anonymous sessions and recommendation APIs. Recommendations additionally require explicit `AURALIS_RECOMMENDATION_CONFIG` and `AURALIS_DISPATCH_ENABLED=true`, with matching approved artifacts, model bindings and budget configuration.
 
-The offline migrator must apply V1–V13 before startup; use protocol revision 0.30 with matching Java and Python builds.
+Apply the full checked-in migration chain before startup (currently V1–V15); use protocol revision 0.32 with matching Java and Python builds.
 
 ## Browser development
 
-Use Node.js 24 or newer. From the repository root:
+Use Node.js 22.12 or newer. From the repository root:
 
 ```powershell
 npm --prefix apps/frontend ci
@@ -22,16 +22,16 @@ npm --prefix apps/frontend run build
 npm --prefix apps/frontend test
 npm --prefix apps/frontend run check
 npm --prefix apps/frontend run test:browser
-npm --prefix apps/frontend run dev -- --fixture
+npm --prefix apps/frontend run dev:fixture
 ```
 
-Open `http://127.0.0.1:4173`. Explicit fixture mode displays a synthetic-data notice and does not call models. For Java, omit `--fixture`, set `AURALIS_JAVA_ORIGIN` to its loopback URL, and set Java's `AURALIS_PRODUCT_ORIGIN` to the frontend URL. Local HTTP also requires the explicit insecure-cookie option above. The development proxy serves only built assets and `/v1/` requests; it is not a production hosting configuration. Search requires Java's verified full catalog index. Recommendation commands are available when the explicit recommendation policy, dispatcher and approved data are configured.
+Open `http://127.0.0.1:4173`. Explicit fixture mode displays a synthetic-data notice and does not call models. For Java, use `npm --prefix apps/frontend run dev`, set `AURALIS_JAVA_ORIGIN` to its loopback URL, and set Java's `AURALIS_PRODUCT_ORIGIN` to the frontend URL. Local HTTP also requires explicit `AURALIS_ALLOW_INSECURE_COOKIE=true`. Vite serves development modules or the built preview and forwards `/v1/` to Java; production hosting must provide its own same-origin API routing. Search requires Java's verified full catalog index. Recommendation commands are available when the explicit recommendation policy, dispatcher and approved data are configured.
 
 Routes and validators are checked in, so normal builds need only the product checkout. `npm --prefix apps/frontend run generate` additionally requires the matching private OpenAPI workspace and regenerates from the shared schema; generated files must not be edited manually. Browser tests use installed Chrome and a dedicated port 4187. For real Java catalog browser tests, set `AURALIS_JAVA_ORIGIN` and run `npm --prefix apps/frontend run test:java`; Java must allow frontend origin `http://127.0.0.1:4188`.
 
 ## Anonymous sessions
 
-Provide a separate, securely generated URL-safe signing key of at least 43 characters in `AURALIS_SUBJECT_SECRET`. Keep it stable across ordinary restarts and separate from database backups. HTTPS uses Secure/HttpOnly/SameSite=Lax cookies; local loopback HTTP requires the explicit `AURALIS_ALLOW_INSECURE_COOKIE=true` exception. Internal protocol configuration must match the packaged schema (currently 0.30).
+Provide a separate, securely generated URL-safe signing key of at least 43 characters in `AURALIS_SUBJECT_SECRET`. Keep it stable across ordinary restarts and separate from database backups. HTTPS uses Secure/HttpOnly/SameSite=Lax cookies; local loopback HTTP requires the explicit `AURALIS_ALLOW_INSECURE_COOKIE=true` exception. Internal protocol configuration must match the packaged schema (currently 0.32).
 
 `POST /v1/bootstrap` accepts an empty JSON object from the configured same origin and returns a CSRF token and recoverable state. `GET /v1/current-state` and `GET /v1/discovery-sessions/{session_id}` enforce credential ownership and never renew retention. Successful active operations retain the current process for exactly 30 days; expired credentials bootstrap a fresh empty identity. The lifecycle application port supports replacement, heard albums and deletion, and recommendation commands have been integrated with the Python pipeline using synthetic providers in validation.
 
@@ -62,7 +62,7 @@ The optional `--background` mode also runs replenishment and closes with a round
 
 The output reports first-batch composition, publication counts, stage timing and optional safe call records. Synthetic timing and zero-price fixtures do not measure real model quality, speed or cost. The other input scenarios are `album`, `text` and `no-positive`; the last hands control back to Java's curated-list branch.
 
-For the loopback HTTP service, provide explicit local paths and credential environment-variable names using [agent-service.example.json](apps/intelligence/agent-service.example.json) and reviewed [model bindings](apps/intelligence/provider-bindings.example.json), then run `python -m auralis_intelligence.agents serve --config <config.json>`. A matching Java control service is required. The sample bindings keep live calls disabled.
+For the loopback HTTP service, provide explicit local paths and credential environment-variable names using [agent-service.example.json](apps/intelligence/agent-service.example.json) and reviewed [model bindings](apps/intelligence/autonomous-bindings.example.json), then run `python -m auralis_intelligence.agents serve --config <config.json>`. A matching Java control service is required. The sample bindings keep live calls disabled.
 
 ## Recall development
 
@@ -79,25 +79,26 @@ python -m auralis_intelligence.recall --snapshot apps/intelligence/tests/fixture
 
 Use Python 3.10+ and the dependencies in [pyproject.toml](apps/intelligence/pyproject.toml).
 Pass a caller-authorized local snapshot explicitly. The adapter emits candidate IDs and
-snapshot binding for integration. The Python execution service includes this stage; Java product integration is pending.
+snapshot binding for integration. The Python execution service includes this stage; Java product integration is connected; full website acceptance remains pending.
 
 This branch also supports the C-V0 comparison. Use `load_c_v0` from the same
 Python port, or add `--c-v0-model <model.npz>` to the local command with the
 matching snapshot. The trained artifact is supplied locally. A-V2 remains the default.
 
-## Planned experience
+## Current browser flow
 
-- Provide genre preferences, favorite albums, or natural-language requests without logging in or saving a persistent personal taste profile.
-- Choose familiar, expand, or surprise exploration, then view album artwork, artist, main genres, release year and a short review. Detailed reviews open on request.
-- Mark an album as heard, or request a new album with the separate replacement button. Replace the whole group or edit the prefilled request in place. A replenishing empty slot fills automatically when ready.
-- Receive the available number of results. With no results or an error, return to your prefilled input using the provided button.
+- Enter text, genre preferences or favorite albums through three expandable panels; choose familiar, explore or surprise mode. The reach slider maps to 1–500 distinct sample listeners, with 50 as the initial value.
+- Submit, see the actual queue/wait state, then browse one album at a time. Open the long review in place; its reading progress can be scrubbed like a track, without playing audio.
+- “Like” and “Meh” are local page reactions; they do not write a backend preference. “Heard” writes the server state while retaining the album in the current page; the latest single-card action can be undone.
+- At the end of a group, request more or return to prefilled input. Returning home alone does not submit a new request. Unsubmitted drafts stay in page memory, not browser storage.
+- The page uses a pointer-responsive contour landscape and cover-derived room colours. Real cover lookup is not connected yet; placeholder covers remain in use.
 
 ## Full catalog search
 
-Java catalog endpoints search an explicitly versioned, complete MusicBrainz release-group snapshot using a local read-only Lucene index, including album names, artist credits and aliases. The retrieval subset is not used as the full directory. Configure `AURALIS_CATALOG_SEARCH_INDEX` and `AURALIS_CATALOG_SEARCH_MANIFEST_SHA256` with a verified offline index and its candidate-manifest digest. Missing configuration returns 503 for catalog requests; an invalid index prevents startup.
+Java catalog endpoints search an explicitly versioned, complete MusicBrainz release-group snapshot using a local read-only Lucene index, including album names, artist credits and aliases. Public search results exclude Single releases, refill pages after filtering and use admitted audience counts to promote commonly heard albums without excluding unknown counts. The retrieval subset is not used as the full directory. Configure `AURALIS_CATALOG_SEARCH_INDEX` and `AURALIS_CATALOG_SEARCH_MANIFEST_SHA256` with a verified offline index and its candidate-manifest digest. Missing configuration returns 503 for catalog requests; an invalid index prevents startup.
 
-After anonymous bootstrap, read `/v1/catalog/albums?query=...`, `/v1/catalog/albums/{mb_release_group_id}` and `/v1/genres`. GET requests never renew retention; unknown IDs and empty search results are distinct. External albums remain selectable, while only verified supported information enters retrieval; covers remain placeholders. The offline `io.auralis.catalog.adapters.CatalogIndexBuild` importer requires a complete candidate directory, a new output directory and the expected manifest digest. Update paths and digests during maintenance and restart; restore the previous complete index if validation fails. There is no online download or remote fallback. Catalog and recommendation APIs are implemented; real-provider validation and complete website acceptance remain pending.
+After anonymous bootstrap, read `/v1/catalog/albums?query=...`, `/v1/catalog/albums/{mb_release_group_id}` and `/v1/catalog/genres`. GET requests never renew retention; unknown IDs and empty search results are distinct. External albums remain selectable, while only verified supported information enters retrieval; covers remain placeholders. The offline `io.auralis.catalog.adapters.CatalogIndexBuild` importer requires a complete candidate directory, a new output directory and the expected manifest digest. Update paths and digests during maintenance and restart; restore the previous complete index if validation fails. There is no online download or remote fallback. Catalog and recommendation APIs are implemented; broader recommendation-quality validation and complete website acceptance remain pending.
 
 ### Prepared curated recommendations
 
-No-positive input uses a fixed ordered pool of ten albums with separately stored short and long reviews. Configure `AURALIS_CURATED_CONTENT_DIRECTORY` for Java, or `curated_content_directory` in the Windows host configuration. The pool bypasses recall, online review generation and audience thresholds, while preserving catalogue identity, current restrictions and deduplication. Content is local and is not distributed with Git. Import a prepared `auralis-curated-v1.json` into a new directory with `io.auralis.discovery.adapters.CuratedContentFiles <input.json> <new-directory>` on the backend runtime classpath.
+No-positive input uses a fixed ordered pool of ten albums with separately stored short and long reviews. Configure `AURALIS_CURATED_CONTENT_DIRECTORY` for Java, or `curated_content_directory` in the Windows host configuration. The pool bypasses recall, online review generation and the default audience threshold when no threshold is explicitly requested, while preserving catalogue identity, current restrictions and deduplication. Content is local and is not distributed with Git. Import a prepared `auralis-curated-v1.json` into a new directory with `io.auralis.discovery.adapters.CuratedContentFiles <input.json> <new-directory>` on the backend runtime classpath.
