@@ -83,7 +83,7 @@ class CatalogDirectoryTest {
 
     @Test
     void duplicateRowsCollapseAndVersionChangeRejectsMixedData() {
-        when(remote.search("album", 0, 20))
+        when(remote.search("album", 0, 50))
                 .thenReturn(new CatalogSearchPort.Page(List.of(external, external), null));
         assertEquals(1, directory.search("album", 0, 20).path("items").size());
         when(version.current()).thenReturn(1L, 2L);
@@ -100,8 +100,75 @@ class CatalogDirectoryTest {
         assertThrows(CatalogFailure.class, () -> directory.search("x", 0, 51));
         verifyNoInteractions(remote);
         String valid = "🎵".repeat(200);
-        when(remote.search(valid, 0, 20)).thenReturn(new CatalogSearchPort.Page(List.of(), null));
+        when(remote.search(valid, 0, 50)).thenReturn(new CatalogSearchPort.Page(List.of(), null));
         assertTrue(directory.search(valid, 0, 20).path("items").isEmpty());
+    }
+
+    @Test
+    void singlesAreGatedAfterCoreResolutionAndPaginationRefillsAcrossIndexPages() {
+        var rows = new ArrayList<CatalogSearchPort.Album>();
+        for (int i = 0; i < 54; i++)
+            rows.add(
+                    new CatalogSearchPort.Album(
+                            new UUID(0, i + 1),
+                            "Release " + i,
+                            "Artist",
+                            null,
+                            i < 50 ? "Single" : i == 51 ? "EP" : "Album",
+                            List.of(),
+                            0));
+        // The core catalog can identify a Single even when the search snapshot says Album.
+        when(local.albums(anyLong(), anyList()))
+                .thenAnswer(
+                        call -> {
+                            List<UUID> ids = call.getArgument(1);
+                            UUID id = rows.get(52).id();
+                            return ids.contains(id)
+                                    ? Map.of(
+                                            id,
+                                            new CatalogQuery.Album(
+                                                    id,
+                                                    "Core Single",
+                                                    "Artist",
+                                                    null,
+                                                    "Single",
+                                                    List.of(),
+                                                    List.of()))
+                                    : Map.of();
+                        });
+        when(remote.search(eq("Artist"), anyInt(), eq(50)))
+                .thenAnswer(
+                        call -> {
+                            int offset = call.getArgument(1);
+                            int end = Math.min(offset + 50, rows.size());
+                            return new CatalogSearchPort.Page(
+                                    rows.subList(offset, end), end < rows.size() ? end : null);
+                        });
+        var first = directory.search("Artist", 0, 2);
+        assertEquals(2, first.path("items").size());
+        assertEquals(
+                rows.get(50).id().toString(), first.at("/items/0/mb_release_group_id").asText());
+        assertEquals("EP", first.at("/items/1/identity/release_type").asText());
+        assertEquals(53, first.path("next_offset").asInt());
+        var second = directory.search("Artist", first.path("next_offset").asInt(), 2);
+        assertEquals(1, second.path("items").size());
+        assertEquals(
+                rows.get(53).id().toString(), second.at("/items/0/mb_release_group_id").asText());
+        assertTrue(second.path("next_offset").isNull());
+    }
+
+    @Test
+    void singleOnlySearchIsEmptyEvenForAnExactTitleAndUnknownTypesRemainVisible() {
+        var single =
+                new CatalogSearchPort.Album(album, "Exact", "Artist", null, "single", List.of(), 0);
+        when(remote.search("Exact", 0, 50))
+                .thenReturn(new CatalogSearchPort.Page(List.of(single), null));
+        var empty = directory.search("Exact", 0, 20);
+        assertTrue(empty.path("items").isEmpty());
+        assertTrue(empty.path("next_offset").isNull());
+        when(remote.search("unknown", 0, 50))
+                .thenReturn(new CatalogSearchPort.Page(List.of(external), null));
+        assertEquals(1, directory.search("unknown", 0, 20).path("items").size());
     }
 
     @Test

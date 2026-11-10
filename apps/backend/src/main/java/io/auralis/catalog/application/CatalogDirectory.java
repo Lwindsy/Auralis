@@ -35,26 +35,43 @@ public final class CatalogDirectory {
     public JsonNode search(String query, int offset, int limit) {
         page(query, offset, limit, true);
         long version = versions.current();
-        var found = remote.search(query, offset, limit);
-        var local =
-                catalog.albums(
-                        version, found.albums().stream().map(CatalogSearchPort.Album::id).toList());
         var result = JSON.createObjectNode();
         var items = result.putArray("items");
         var seen = new HashSet<UUID>();
-        var genreIds = new HashSet<String>();
-        for (var candidate : found.albums())
-            if (!local.containsKey(candidate.id()))
-                for (var g : candidate.genres()) genreIds.add(g.genreId());
-        var admitted = genres.nodes(version, genreIds);
-        for (var album : found.albums()) {
-            var core = local.get(album.id());
-            UUID canonical = core == null ? album.id() : core.id();
-            if (seen.add(canonical)) items.add(album(album, core, admitted));
+        int cursor = offset;
+        Integer next = null;
+        search:
+        while (true) {
+            var found = remote.search(query, cursor, 50);
+            var local =
+                    catalog.albums(
+                            version,
+                            found.albums().stream().map(CatalogSearchPort.Album::id).toList());
+            var genreIds = new HashSet<String>();
+            for (var candidate : found.albums())
+                if (!local.containsKey(candidate.id()))
+                    for (var g : candidate.genres()) genreIds.add(g.genreId());
+            var admitted = genres.nodes(version, genreIds);
+            for (int i = 0; i < found.albums().size(); i++) {
+                var candidate = found.albums().get(i);
+                var core = local.get(candidate.id());
+                if ("Single".equalsIgnoreCase(candidate.type())
+                        || (core != null && "Single".equalsIgnoreCase(core.primaryType())))
+                    continue;
+                UUID canonical = core == null ? candidate.id() : core.id();
+                if (!seen.add(canonical)) continue;
+                if (items.size() == limit) {
+                    next = cursor + i <= 10000 ? cursor + i : null;
+                    break search;
+                }
+                items.add(album(candidate, core, admitted));
+            }
+            if (found.nextOffset() == null) break;
+            cursor = found.nextOffset();
         }
         result.put("offset", offset).put("limit", limit);
-        if (found.nextOffset() == null) result.putNull("next_offset");
-        else result.put("next_offset", found.nextOffset());
+        if (next == null) result.putNull("next_offset");
+        else result.put("next_offset", next);
         sameVersion(version);
         return checked("AlbumSearchResult", result);
     }
