@@ -61,19 +61,21 @@ function useGenrePages(
 
 type Pages = ReturnType<typeof useGenrePages>;
 
+interface Anchor {
+  left: number;
+  right: number;
+  top: number;
+  bottom: number;
+}
+
 interface Hover {
   node: GenreNode;
   parent: GenreNode | null;
-  x: number;
-  y: number;
+  anchor: Anchor;
 }
 
 type HoverHandlers = {
-  show: (
-    node: GenreNode,
-    parent: GenreNode | null,
-    at: { x: number; y: number },
-  ) => void;
+  show: (node: GenreNode, parent: GenreNode | null, anchor: Anchor) => void;
   hide: () => void;
 };
 
@@ -119,9 +121,9 @@ export function GenrePanel({
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => () => clearTimeout(timer.current), []);
   const hoverHandlers: HoverHandlers = {
-    show: (node, parent, at) => {
+    show: (node, parent, anchor) => {
       clearTimeout(timer.current);
-      timer.current = setTimeout(() => setHover({ node, parent, ...at }), 260);
+      timer.current = setTimeout(() => setHover({ node, parent, anchor }), 240);
     },
     hide: () => {
       clearTimeout(timer.current);
@@ -171,24 +173,69 @@ export function GenrePanel({
   );
 }
 
+/**
+ * The note grows out of the genre's own name: a hairline is drawn from the end of the
+ * name, the card wipes open from that side, its outline traces itself, and the text
+ * appears character by character as if being typeset. Placed beside the row (or under
+ * it near the edge of the screen), never at the cursor.
+ */
 function HoverCard({ hover }: { hover: Hover }) {
   const note = genreNote(hover.node.name);
-  const width = 272;
-  const left = Math.min(hover.x + 18, window.innerWidth - width - 16);
-  const top = Math.min(hover.y + 14, window.innerHeight - 180);
+  const width = 288;
+  const { anchor } = hover;
+  const mid = (anchor.top + anchor.bottom) / 2;
+  const side = anchor.right + 44 + width < window.innerWidth - 16;
+  const left = side ? anchor.right + 40 : Math.max(16, anchor.left - 8);
+  const top = side
+    ? Math.max(16, Math.min(mid - 40, window.innerHeight - 220))
+    : anchor.bottom + 14;
   // Portalled: the doors use backdrop blur, which would trap a fixed element inside.
   return createPortal(
-    <div
-      className="genre-card"
-      role="tooltip"
-      style={{ left, top, width } as CSSProperties}
-    >
-      <p className="genre-card__name">{hover.node.name}</p>
-      {note ? <p className="genre-card__note">{note}</p> : null}
-      <p className="genre-card__relation mono">
-        {relation(hover.node, hover.parent)}
-      </p>
-    </div>,
+    <>
+      {side ? (
+        <svg
+          className="genre-link"
+          style={
+            { left: anchor.right + 6, top: mid - 1, width: 34 } as CSSProperties
+          }
+          viewBox="0 0 34 2"
+          aria-hidden="true"
+        >
+          <line x1="0" y1="1" x2="34" y2="1" pathLength="1" />
+          <circle cx="1" cy="1" r="1" />
+        </svg>
+      ) : null}
+      <div
+        className="genre-card"
+        role="tooltip"
+        data-side={side ? "right" : "below"}
+        style={{ left, top, width } as CSSProperties}
+      >
+        <svg className="genre-card__outline" aria-hidden="true">
+          <rect x="0.5" y="0.5" pathLength="1" />
+        </svg>
+        <p className="genre-card__name">{hover.node.name}</p>
+        {note ? (
+          <p className="genre-card__note" aria-label={note}>
+            {[...note].map((char, i) => (
+              <span
+                key={i}
+                aria-hidden="true"
+                style={{ "--c": i } as CSSProperties}
+              >
+                {char}
+              </span>
+            ))}
+          </p>
+        ) : null}
+        <p
+          className="genre-card__relation mono"
+          style={{ "--c": note ? [...note].length : 0 } as CSSProperties}
+        >
+          {relation(hover.node, hover.parent)}
+        </p>
+      </div>
+    </>,
     document.body,
   );
 }
@@ -375,14 +422,23 @@ function GenreRow({
   const liked = handlers.liked.has(node.genre_id);
   const disliked = handlers.disliked.has(node.genre_id);
   // Notes follow a mouse or the keyboard; a finger tap selects without a card in the way.
+  const anchorOf = (button: HTMLElement): Anchor => {
+    const label = button.querySelector(".tree__label") ?? button;
+    const rect = label.getBoundingClientRect();
+    return {
+      left: rect.left,
+      right: rect.right,
+      top: rect.top,
+      bottom: rect.bottom,
+    };
+  };
   const onEnter = (event: ReactPointerEvent<HTMLElement>) => {
     if (event.pointerType === "touch") return;
-    hover.show(node, parent, { x: event.clientX, y: event.clientY });
+    hover.show(node, parent, anchorOf(event.currentTarget));
   };
   const onFocus = (event: ReactFocusEvent<HTMLElement>) => {
     if (!event.currentTarget.matches(":focus-visible")) return;
-    const rect = event.currentTarget.getBoundingClientRect();
-    hover.show(node, parent, { x: rect.left + 40, y: rect.bottom });
+    hover.show(node, parent, anchorOf(event.currentTarget));
   };
   return (
     <li
@@ -421,7 +477,7 @@ function GenreRow({
             if (handlers.onPick(node) && node.has_children) setExpanded(true);
           }}
         >
-          {node.name}
+          <span className="tree__label">{node.name}</span>
         </button>
         <div className="tree__actions">
           <button

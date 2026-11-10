@@ -1,14 +1,15 @@
-/* The listening room: one album at a time between two wide edge controls. The room takes
-   the sleeve's colour; two glass panels hold the album and its words. */
+/* The listening room: one album at a time. The sleeve is a waveform that closes up into
+   the cover; the words stand apart on the right, unboxed: a genre waveform with a lens,
+   then reviews that play like tracks. The room takes the sleeve's colour. */
 
 .deck {
   position: relative;
   min-height: 100dvh;
   display: grid;
-  grid-template-columns: clamp(52px, 8vw, 120px) minmax(0, 1fr) clamp(
+  grid-template-columns: clamp(52px, 7vw, 110px) minmax(0, 1fr) clamp(
       52px,
-      8vw,
-      120px
+      7vw,
+      110px
     );
   align-items: stretch;
 }
@@ -17,7 +18,7 @@
   position: relative;
   display: grid;
   place-items: center;
-  padding: 92px 0 96px;
+  padding: 84px 0 96px;
 }
 
 /* Edges --------------------------------------------------------------------- */
@@ -30,7 +31,7 @@
   align-content: center;
   gap: 14px;
   color: var(--page-ink);
-  opacity: 0.55;
+  opacity: 0.5;
   transition: opacity 400ms ease;
 }
 
@@ -93,251 +94,299 @@
 }
 
 .edge:disabled {
-  opacity: 0.12;
+  opacity: 0.1;
   cursor: default;
 }
 
-/* Spread -------------------------------------------------------------------- */
+/* Scene --------------------------------------------------------------------- */
 
-.spread {
+.cut {
+  --s: min(56vh, 32vw, 480px);
   grid-area: 1 / 1;
-  width: min(1140px, 100%);
   display: grid;
-  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
-  gap: clamp(18px, 2.4vw, 34px);
-  align-items: stretch;
+  grid-template-columns: auto minmax(280px, 420px);
+  gap: clamp(36px, 5vw, 88px);
+  align-items: center;
 }
 
-.panel {
+.cut__sleeve {
+  display: grid;
+  gap: 24px;
+}
+
+/* The sleeve as a voiceprint ------------------------------------------------ */
+
+.sliced {
   position: relative;
-  border-radius: var(--radius);
-  padding: clamp(20px, 2.4vw, 32px);
-  background:
-    radial-gradient(
-      140% 90% at 0% 0%,
-      color-mix(in srgb, var(--page-ink) 9%, transparent),
-      transparent 55%
-    ),
-    color-mix(in srgb, var(--page-room) 78%, transparent);
-  backdrop-filter: blur(22px) saturate(1.25);
-  -webkit-backdrop-filter: blur(22px) saturate(1.25);
-  box-shadow:
-    0 40px 90px -50px rgb(0 0 0 / 0.55),
-    inset 0 1px 0 color-mix(in srgb, var(--page-ink) 10%, transparent);
-}
-
-.panel--sleeve {
-  display: grid;
-  align-content: start;
-  gap: 22px;
-}
-
-.panel--notes {
   display: flex;
-  flex-direction: column;
-  gap: 18px;
-  min-height: 0;
-  max-height: calc(100dvh - 200px);
+  width: var(--s);
+  height: var(--s);
 }
 
-/* Entering and leaving follow the direction of travel. */
-.spread[data-dir="next"] .panel {
-  animation: panel-in-next 900ms var(--ease-out-expo) both;
-}
-
-.spread[data-dir="prev"] .panel {
-  animation: panel-in-prev 900ms var(--ease-out-expo) both;
-}
-
-.spread[data-dir] .panel--notes {
-  animation-delay: 90ms;
-}
-
-@keyframes panel-in-next {
-  from {
-    opacity: 0;
-    transform: translateX(70px) rotateY(-8deg);
-    filter: blur(8px);
-  }
-}
-
-@keyframes panel-in-prev {
-  from {
-    opacity: 0;
-    transform: translateX(-70px) rotateY(8deg);
-    filter: blur(8px);
-  }
-}
-
-.spread[data-leaving] {
-  pointer-events: none;
-}
-
-.spread[data-leaving="next"] .panel {
-  animation: panel-out-next 520ms var(--ease-curtain) both;
-}
-
-.spread[data-leaving="prev"] .panel {
-  animation: panel-out-prev 520ms var(--ease-curtain) both;
-}
-
-.spread[data-leaving] .panel--notes {
-  animation-delay: 40ms;
-}
-
-@keyframes panel-out-next {
-  to {
-    opacity: 0;
-    transform: translateX(-80px) scale(0.96);
-    filter: blur(6px);
-  }
-}
-
-@keyframes panel-out-prev {
-  to {
-    opacity: 0;
-    transform: translateX(80px) scale(0.96);
-    filter: blur(6px);
-  }
-}
-
-.deck__stage {
-  perspective: 1400px;
-}
-
-/* Frame light ------------------------------------------------------------- */
-
-.frame {
-  position: absolute;
-  inset: 0;
-  width: 100%;
+.slice {
+  position: relative;
+  flex: 1 1 0;
   height: 100%;
-  overflow: visible;
-  pointer-events: none;
+  overflow: hidden;
+  transform-origin: 50% 50%;
+  animation: slice-in 1500ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation-delay: calc(var(--i) * 16ms);
 }
 
-.frame rect {
-  width: calc(100% - 1px);
-  height: calc(100% - 1px);
-  rx: var(--radius);
-  fill: none;
-  vector-effect: non-scaling-stroke;
+.slice__art {
+  position: absolute;
+  top: 0;
+  left: calc(var(--i) * -100%);
+  width: var(--s);
+  height: var(--s);
 }
 
-.frame__line {
-  stroke: var(--ink-12);
+.slice__art .cover {
+  width: 100%;
 }
 
-.frame__light {
-  stroke: var(--page-ink);
-  stroke-width: 1.4;
-  stroke-linecap: round;
-  stroke-dasharray: 9 91;
-  stroke-dashoffset: 100;
+.sliced__whole {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
   opacity: 0;
-  animation: frame-run 2200ms var(--ease-out-expo) 300ms both;
+  pointer-events: none;
+  animation: fade 260ms ease 1720ms forwards;
+  transition: opacity 160ms ease;
 }
 
-@keyframes frame-run {
+.sliced__whole .cover {
+  width: 100%;
+}
+
+/* Strips enter a moment later when an album replaces another, so the old one can go. */
+.cut[data-dir] .slice {
+  animation-delay: calc(260ms + var(--i) * 16ms);
+}
+
+.cut[data-dir] .sliced__whole {
+  animation-delay: 1980ms;
+}
+
+/* Bars of a meter that bounce three times and close into the picture. */
+@keyframes slice-in {
   0% {
     opacity: 0;
-    stroke-dashoffset: 100;
+    transform: scaleY(0.02);
+    clip-path: inset(0 26% round 3px);
   }
-  15% {
-    opacity: 0.9;
+  12% {
+    opacity: 1;
   }
-  85% {
-    opacity: 0.6;
+  26% {
+    transform: scaleY(var(--h1));
+  }
+  44% {
+    transform: scaleY(var(--h2));
+  }
+  62% {
+    transform: scaleY(var(--h3));
+    clip-path: inset(0 22% round 3px);
+  }
+  82% {
+    transform: scaleY(1.02);
+    clip-path: inset(0 0 round 0);
   }
   100% {
-    opacity: 0;
-    stroke-dashoffset: 0;
+    transform: scaleY(1);
+    clip-path: inset(0 0 round 0);
   }
 }
 
-.panel--notes .frame__light {
-  animation-delay: 520ms;
+/* One ripple runs across the strips under the pointer (the whole cover steps aside). */
+.cut .sliced:hover .slice {
+  animation: slice-ripple 900ms ease-in-out both;
+  animation-delay: calc(var(--i) * 14ms);
 }
 
-/* Sleeve side ------------------------------------------------------------- */
+.cut .sliced:hover .sliced__whole {
+  animation: none;
+  opacity: 0;
+}
 
-.sleeve-art {
-  width: min(100%, 46vh);
-  justify-self: center;
-  border-radius: 12px;
-  overflow: hidden;
-  /* The room shares the sleeve's colour, so the sleeve needs its own edge and depth. */
+@keyframes slice-ripple {
+  35% {
+    transform: scaleY(calc(0.86 + var(--h1) * 0.14));
+    clip-path: inset(0 12%);
+  }
+  70% {
+    transform: scaleY(1.03);
+    clip-path: inset(0 0);
+  }
+}
+
+.sliced::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
   box-shadow:
     0 0 0 1px color-mix(in srgb, var(--page-ink) 14%, transparent),
-    0 2px 0 rgb(255 255 255 / 0.08) inset,
-    0 50px 70px -36px rgb(0 0 0 / 0.7),
-    0 18px 30px -18px rgb(0 0 0 / 0.45);
-  animation: float 7s ease-in-out 1s infinite;
-  transition: transform 800ms var(--ease-out-expo);
+    0 60px 80px -42px rgb(0 0 0 / 0.75);
+  opacity: 0;
+  animation: fade 700ms ease 1300ms forwards;
 }
 
-.sleeve-art .cover {
-  width: 100%;
-}
+/* Caption ------------------------------------------------------------------ */
 
-.panel--sleeve:hover .sleeve-art {
-  transform: translateY(-6px) scale(1.015);
-}
-
-@keyframes float {
-  50% {
-    translate: 0 -5px;
-  }
-}
-
-.panel__caption {
+.cut__caption {
   display: grid;
-  gap: 6px;
+  gap: 8px;
+  max-width: calc(var(--s) * 1.3);
 }
 
 .album-title {
-  font-size: clamp(26px, 2.8vw, 42px);
-  font-weight: 300;
-  line-height: 1.12;
-  letter-spacing: -0.02em;
+  font-size: clamp(32px, 3.6vw, 58px);
+  font-weight: 200;
+  line-height: 1.04;
+  letter-spacing: -0.03em;
   overflow-wrap: anywhere;
+  animation: caption-in 1100ms var(--ease-out-expo) 500ms both;
 }
 
 .album-artist {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: 4px 14px;
-  font-size: 15px;
-  letter-spacing: 0.04em;
+  gap: 4px 16px;
+  font-size: 14px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
   color: var(--ink-60);
+  animation: caption-in 1100ms var(--ease-out-expo) 620ms both;
 }
 
 .album-artist .mono {
   font-size: 12px;
+  letter-spacing: 0.1em;
 }
 
-/* Notes side -------------------------------------------------------------- */
-
-.tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+@keyframes caption-in {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+    filter: blur(6px);
+  }
 }
 
-.tags li {
-  padding: 4px 12px;
-  border-radius: 999px;
-  border: 1px solid var(--ink-20);
-  font-size: 12.5px;
-  letter-spacing: 0.02em;
+/* Genre waveform with a lens --------------------------------------------------- */
+
+.wave {
+  display: grid;
+  gap: 6px;
+  animation: body-in 1000ms var(--ease-out-expo) 800ms both;
+}
+
+.wave__field {
+  position: relative;
+  padding-bottom: 26px;
+  cursor: crosshair;
+}
+
+.wave__svg {
+  display: block;
+  width: 100%;
+  height: 96px;
+  overflow: visible;
+}
+
+.wave__axis {
+  stroke: var(--ink-12);
+  stroke-width: 1;
+}
+
+.wave__bar {
+  stroke: var(--ink-40);
+  stroke-width: 2;
+  stroke-linecap: round;
+  transition: stroke 300ms ease;
+}
+
+.wave__bar[data-on] {
+  stroke: var(--page-ink);
+}
+
+.wave[data-active] .wave__bar:not([data-on]) {
+  stroke: var(--ink-20);
+}
+
+.wave__tags {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 20px;
+  pointer-events: none;
+}
+
+.wave__tag {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
   text-transform: capitalize;
-  animation: chip-in 600ms var(--ease-spring) both;
-  animation-delay: calc(420ms + var(--i) * 70ms);
+  color: var(--ink-60);
+  transition:
+    color 300ms ease,
+    font-size 500ms var(--ease-out-expo),
+    opacity 300ms ease;
+}
+
+.wave[data-active] .wave__tag {
+  opacity: 0.5;
+}
+
+.wave .wave__tag[data-on] {
+  opacity: 1;
+  color: var(--accent);
+  font-size: 14px;
+}
+
+.wave__keys {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.wave__note {
+  min-height: 3.4em;
+  font-size: 13.5px;
+  line-height: 1.75;
+  color: color-mix(in srgb, var(--page-ink) 82%, var(--page-room));
+}
+
+.wave__note strong {
+  margin-right: 10px;
+  font-weight: 500;
+  color: var(--page-ink);
+  text-transform: capitalize;
+  animation: body-in 400ms var(--ease-out-expo) both;
+}
+
+/* Words --------------------------------------------------------------------- */
+
+.cut__words {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-height: 0;
+  max-height: calc(100dvh - 180px);
+  align-self: center;
 }
 
 .basic-note {
   font-size: 12.5px;
+  letter-spacing: 0.06em;
   color: var(--ink-60);
 }
 
@@ -372,43 +421,146 @@
   filter: blur(4px);
 }
 
-.reviews__lead {
-  font-size: clamp(18px, 1.55vw, 23px);
-  font-weight: 300;
-  line-height: 1.8;
-  animation: body-in 900ms var(--ease-out-expo) 360ms both;
-}
-
 .reviews__long > div {
   height: 100%;
   overflow: auto;
   overscroll-behavior: contain;
   scrollbar-width: thin;
   scrollbar-color: var(--ink-20) transparent;
-  padding-right: 8px;
-  opacity: 0;
-  transform: translateY(18px);
-  transition:
-    opacity 700ms ease 240ms,
-    transform 900ms var(--ease-out-expo) 160ms;
+  padding-right: 10px;
+  display: grid;
+  align-content: start;
+  gap: 22px;
 }
 
-.reviews[data-expanded] .reviews__long > div {
+/* Tracks: writing played like music ------------------------------------------ */
+
+.track {
+  display: grid;
+  gap: 12px;
+}
+
+.track__head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.track__label {
+  flex: none;
+  min-width: 2.2em;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  color: var(--ink-40);
+}
+
+.track__line {
+  position: relative;
+  flex: 1;
+  height: 14px;
+  cursor: pointer;
+}
+
+.track__line::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 1px;
+  background: var(--ink-20);
+}
+
+.track__fill {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 1.5px;
+  margin-top: -0.25px;
+  background: var(--page-ink);
+  transform-origin: left;
+  animation:
+    track-fill var(--span) linear var(--start) both,
+    track-rest 900ms ease calc(var(--start) + var(--span)) forwards;
+}
+
+@keyframes track-fill {
+  from {
+    transform: scaleX(0);
+  }
+}
+
+@keyframes track-rest {
+  to {
+    opacity: 0.35;
+  }
+}
+
+.track__head-dot {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 9px;
+  height: 9px;
+  margin: -4.5px 0 0 -4.5px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 22%, transparent);
+  animation:
+    track-head var(--span) linear var(--start) both,
+    track-park 600ms ease calc(var(--start) + var(--span)) forwards;
+}
+
+@keyframes track-head {
+  from {
+    left: 0%;
+  }
+  to {
+    left: 100%;
+  }
+}
+
+@keyframes track-park {
+  to {
+    left: 100%;
+    transform: scale(0.5);
+    opacity: 0.5;
+  }
+}
+
+.track__line:hover .track__head-dot {
   opacity: 1;
-  transform: none;
 }
 
-.reviews__prose p {
+.track__time {
+  flex: none;
+  font-size: 11px;
+  color: var(--ink-40);
+}
+
+.track__text {
   font-size: 15.5px;
   line-height: 1.95;
-  margin-bottom: 1.1em;
+}
+
+.track--lead .track__text {
+  font-size: clamp(18px, 1.5vw, 22px);
+  font-weight: 300;
+  line-height: 1.85;
+}
+
+.type {
+  opacity: 0;
+  animation: type-in 280ms ease forwards;
+  animation-delay: var(--t);
 }
 
 .cite {
   margin: 0 1px;
   font-family: var(--font-mono);
   font-size: 0.62em;
-  opacity: 0.55;
+  color: var(--ink-60);
   vertical-align: super;
   line-height: 1;
 }
@@ -418,33 +570,39 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 8px 16px;
-  padding-top: 14px;
+  padding-top: 16px;
 }
 
 .reviews__toggle {
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  height: 38px;
-  padding: 0 16px;
-  border-radius: 999px;
-  border: 1px solid var(--ink-20);
-  font-size: 13.5px;
-  letter-spacing: 0.06em;
+  padding: 4px 0;
+  font-size: 14px;
+  letter-spacing: 0.14em;
+  background: linear-gradient(currentColor, currentColor) 0 100% / 100% 1px
+    no-repeat;
   transition:
-    border-color 300ms ease,
-    background-color 300ms ease,
-    padding 600ms var(--ease-out-expo);
+    background-size 520ms var(--ease-out-expo),
+    gap 520ms var(--ease-out-expo);
 }
 
 .reviews__toggle:hover {
-  border-color: var(--page-ink);
-  background: var(--ink-12);
+  background-position: 100% 100%;
+  background-size: 30% 1px;
+  gap: 14px;
 }
 
-.reviews__toggle[aria-expanded="true"] {
-  background: var(--page-ink);
-  color: var(--page-room);
+.reviews__toggle::after {
+  content: "→";
+}
+
+.reviews__toggle[aria-expanded="true"]::after {
+  content: "↑";
+}
+
+.reviews__toggle .mini-wave {
+  width: 34px;
 }
 
 .reviews__failed {
@@ -455,85 +613,57 @@
   color: var(--ink-60);
 }
 
-/* Five plucked strings: still writing. */
-.writing {
-  width: 30px;
-  height: 14px;
+/* Mini meter bars --------------------------------------------------------- */
+
+.mini-wave {
+  display: block;
+  height: auto;
   overflow: visible;
 }
 
-.writing path {
-  fill: none;
+.mini-wave line {
   stroke: currentColor;
-  stroke-width: 1.4;
+  stroke-width: 2.6;
   stroke-linecap: round;
-  animation: pluck 900ms ease-in-out infinite alternate;
+  transform-box: fill-box;
+  transform-origin: center;
 }
 
-.writing path:nth-child(2) {
-  animation-delay: -180ms;
-  animation-name: pluck-2;
-}
-.writing path:nth-child(3) {
-  animation-delay: -360ms;
-  animation-name: pluck-3;
-}
-.writing path:nth-child(4) {
-  animation-delay: -540ms;
-  animation-name: pluck-4;
-}
-.writing path:nth-child(5) {
-  animation-delay: -720ms;
-  animation-name: pluck-5;
+.mini-wave[data-live] line {
+  animation: meter 900ms ease-in-out infinite alternate;
+  animation-delay: calc(var(--i) * -137ms);
 }
 
-@keyframes pluck {
-  from {
-    d: path("M6 4 Q 2 12 6 20");
-  }
-  to {
-    d: path("M6 4 Q 10 12 6 20");
-  }
+.mini-wave[data-calm] line {
+  transform: scaleY(0.35);
+  animation: meter-calm 3.2s ease-in-out infinite alternate;
+  animation-delay: calc(var(--i) * -260ms);
 }
-@keyframes pluck-2 {
-  from {
-    d: path("M18 4 Q 14 12 18 20");
+
+@keyframes meter {
+  0% {
+    transform: scaleY(0.25);
   }
-  to {
-    d: path("M18 4 Q 22 12 18 20");
+  50% {
+    transform: scaleY(1);
   }
-}
-@keyframes pluck-3 {
-  from {
-    d: path("M30 4 Q 26 12 30 20");
-  }
-  to {
-    d: path("M30 4 Q 34 12 30 20");
-  }
-}
-@keyframes pluck-4 {
-  from {
-    d: path("M42 4 Q 38 12 42 20");
-  }
-  to {
-    d: path("M42 4 Q 46 12 42 20");
-  }
-}
-@keyframes pluck-5 {
-  from {
-    d: path("M54 4 Q 50 12 54 20");
-  }
-  to {
-    d: path("M54 4 Q 58 12 54 20");
+  100% {
+    transform: scaleY(0.45);
   }
 }
 
-/* Reactions --------------------------------------------------------------- */
+@keyframes meter-calm {
+  to {
+    transform: scaleY(0.6);
+  }
+}
+
+/* Reactions: three quiet words with an icon; choosing one plays its burst and dims. */
 
 .reacts {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 6px 22px;
   padding-top: 18px;
   border-top: 1px solid var(--ink-12);
 }
@@ -543,22 +673,18 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  height: 44px;
-  padding: 0 18px 0 14px;
-  border-radius: 999px;
-  border: 1px solid var(--ink-20);
+  height: 40px;
+  padding: 0 2px;
   font-size: 14px;
+  letter-spacing: 0.08em;
   transition:
     transform 520ms var(--ease-spring),
-    background-color 400ms ease,
-    border-color 400ms ease,
     color 400ms ease,
     opacity 700ms ease 500ms;
 }
 
 .react:hover:not(:disabled) {
-  transform: translateY(-3px);
-  border-color: var(--page-ink);
+  transform: translateY(-2px);
 }
 
 .react:active:not(:disabled) {
@@ -570,27 +696,39 @@
 }
 
 .react__icon {
-  width: 20px;
-  height: 20px;
+  width: 30px;
+  height: 30px;
+  padding: 5px;
+  border-radius: 50%;
+  border: 1px solid var(--ink-20);
   fill: none;
   stroke: currentColor;
   stroke-width: 1.6;
   stroke-linecap: round;
   stroke-linejoin: round;
-  transition: transform 520ms var(--ease-spring);
+  transition:
+    transform 520ms var(--ease-spring),
+    border-color 300ms ease,
+    background-color 300ms ease;
+}
+
+.react:hover:not(:disabled) .react__icon {
+  border-color: var(--page-ink);
 }
 
 .react[data-kind="like"]:hover .react__icon {
-  transform: scale(1.18);
+  transform: scale(1.12);
 }
 
 .react[data-kind="meh"]:hover .react__icon {
-  transform: rotate(-8deg);
+  transform: rotate(-10deg);
 }
 
-/* Chosen: the button takes on its colour, plays its burst, then dims. */
 .react[data-done] {
   opacity: 0.5;
+}
+
+.react[data-done] .react__icon {
   border-color: transparent;
   background: var(--ink-12);
 }
@@ -646,7 +784,7 @@
 
 .burst {
   position: absolute;
-  left: 22px;
+  left: 17px;
   top: 50%;
   width: 0;
   height: 0;
@@ -727,13 +865,79 @@
   }
 }
 
-/* Tail: the end of a group ------------------------------------------------ */
+/* The words of an incoming album arrive once the cover has closed up. */
+.cut[data-dir] .reacts {
+  animation: body-in 900ms var(--ease-out-expo) 1300ms both;
+}
+
+.cut[data-dir] .reviews__bar {
+  animation: body-in 900ms var(--ease-out-expo) 1500ms both;
+}
+
+.cut[data-heard] .sliced {
+  filter: saturate(0.35) brightness(0.85);
+  transition: filter 900ms ease;
+}
+
+/* Leaving: the cover breaks back into a waveform and sinks; words fade sideways. */
+.cut[data-leaving] {
+  pointer-events: none;
+}
+
+.cut[data-leaving] .slice {
+  animation: slice-out 620ms cubic-bezier(0.6, 0, 0.8, 0.4) both;
+  animation-delay: calc(var(--i) * 9ms);
+}
+
+.cut[data-leaving] .sliced__whole {
+  animation: none;
+  opacity: 0;
+  transition: none;
+}
+
+@keyframes slice-out {
+  35% {
+    transform: scaleY(var(--h3));
+    clip-path: inset(0 22% round 3px);
+    opacity: 1;
+  }
+  100% {
+    transform: scaleY(0.02) translateY(40%);
+    clip-path: inset(0 30% round 3px);
+    opacity: 0;
+  }
+}
+
+.cut[data-leaving] .cut__caption,
+.cut[data-leaving] .cut__words {
+  animation: words-out 480ms var(--ease-curtain) both;
+}
+
+.cut[data-leaving] .cut__caption *,
+.cut[data-leaving] .cut__words *,
+.cut[data-leaving] .sliced::after {
+  animation: none !important;
+}
+
+@keyframes words-out {
+  to {
+    opacity: 0;
+    transform: translateX(calc(var(--to, -1) * 50px));
+    filter: blur(6px);
+  }
+}
+
+.cut[data-leaving="prev"] {
+  --to: 1;
+}
+
+/* Tail ---------------------------------------------------------------------- */
 
 .tail {
   grid-area: 1 / 1;
   display: grid;
   justify-items: center;
-  gap: 28px;
+  gap: 34px;
   text-align: center;
   animation: tail-in 900ms var(--ease-out-expo) both;
 }
@@ -746,94 +950,85 @@
   }
 }
 
-.tail--supply p {
-  font-size: 18px;
-  font-weight: 300;
-  letter-spacing: 0.2em;
+.tail--supply {
+  gap: 20px;
 }
 
-.writing--large {
-  width: 90px;
-  height: 36px;
+.tail__wave {
+  width: 110px;
+  color: var(--page-ink);
+}
+
+.tail--supply p {
+  font-size: 17px;
+  font-weight: 300;
+  letter-spacing: 0.24em;
 }
 
 .finale__lead {
-  font-size: clamp(30px, 3.6vw, 52px);
+  font-size: clamp(30px, 3.4vw, 50px);
   font-weight: 200;
-  letter-spacing: -0.02em;
+  letter-spacing: 0.08em;
 }
 
 .finale__choices {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 300px));
-  gap: 18px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: clamp(36px, 7vw, 120px);
 }
 
 .choice {
-  position: relative;
   display: grid;
-  justify-items: start;
-  align-content: end;
-  gap: 6px;
-  min-height: 190px;
-  padding: 26px;
-  border-radius: var(--radius);
-  border: 1px solid var(--ink-20);
-  background: var(--glass);
-  text-align: left;
-  overflow: hidden;
-  animation: tail-in 900ms var(--ease-out-expo) both;
-  transition:
-    transform 700ms var(--ease-out-expo),
-    border-color 400ms ease,
-    box-shadow 700ms var(--ease-out-expo);
+  justify-items: center;
+  gap: 4px;
+  animation: tail-in 1000ms var(--ease-out-expo) 120ms both;
 }
 
 .choice + .choice {
-  animation-delay: 110ms;
+  animation-delay: 240ms;
 }
 
-.choice::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(
-    120% 100% at 100% 0%,
-    var(--ink-12),
-    transparent 60%
-  );
-  opacity: 0;
-  transition: opacity 600ms ease;
+.choice__wave {
+  width: clamp(150px, 14vw, 200px);
+  margin-bottom: 22px;
+  color: var(--ink-60);
+  transition:
+    transform 800ms var(--ease-out-expo),
+    color 400ms ease;
 }
 
-.choice:hover:not(:disabled) {
-  transform: translateY(-8px);
-  border-color: var(--page-ink);
-  box-shadow: 0 40px 70px -40px rgb(0 0 0 / 0.6);
+.choice--more .choice__wave {
+  color: var(--accent);
 }
 
-.choice:hover:not(:disabled)::before {
-  opacity: 1;
+.choice:hover:not(:disabled) .choice__wave {
+  transform: scaleY(1.25);
+  color: var(--page-ink);
+}
+
+.choice:hover:not(:disabled) .choice__wave[data-calm] line {
+  animation-duration: 900ms;
 }
 
 .choice__eyebrow {
   font-size: 13px;
+  letter-spacing: 0.1em;
   color: var(--ink-60);
 }
 
 .choice__title {
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 300;
+  letter-spacing: 0.12em;
+  background: linear-gradient(currentColor, currentColor) 50% 100% / 0 1px
+    no-repeat;
+  padding-bottom: 4px;
+  transition: background-size 520ms var(--ease-out-expo);
 }
 
-.choice--more {
-  background: var(--page-ink);
-  color: var(--page-room);
-  border-color: var(--page-ink);
-}
-
-.choice--more .choice__eyebrow {
-  color: color-mix(in srgb, var(--page-room) 65%, var(--page-ink));
+.choice:hover:not(:disabled) .choice__title {
+  background-size: 100% 1px;
 }
 
 .choice:disabled {
@@ -898,36 +1093,33 @@
   background: var(--page-ink);
 }
 
-/* Narrow screens ----------------------------------------------------------- */
+/* Narrower screens ---------------------------------------------------------- */
 
-@media (max-width: 860px) {
+@media (max-width: 1100px) {
+  .cut {
+    --s: min(46vh, 52vw, 420px);
+    grid-template-columns: 1fr;
+    justify-items: center;
+  }
+  .cut__words {
+    max-height: none;
+    width: min(100%, 560px);
+  }
+}
+
+@media (max-width: 760px) {
   .deck {
-    grid-template-columns: 40px minmax(0, 1fr) 40px;
+    grid-template-columns: 34px minmax(0, 1fr) 34px;
   }
   .deck__stage {
-    padding: 76px 0 110px;
+    padding: 72px 0 110px;
     place-items: start center;
   }
-  .spread {
-    grid-template-columns: 1fr;
-  }
-  .panel--notes {
-    max-height: none;
-  }
-  .sleeve-art {
-    width: min(100%, 38vh);
+  .cut {
+    --s: min(74vw, 320px);
+    gap: 26px;
   }
   .edge span {
     display: none;
-  }
-  .finale__choices {
-    grid-template-columns: 1fr;
-    width: min(100%, 340px);
-  }
-  .choice {
-    min-height: 120px;
-  }
-  .reviews__long > div {
-    max-height: 60vh;
   }
 }

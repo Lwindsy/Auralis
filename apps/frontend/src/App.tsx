@@ -7,7 +7,12 @@ import { Deck, type Feeling } from "./components/deck/Deck.tsx";
 import { Entry } from "./components/entry/Entry.tsx";
 import { Icon } from "./components/Icon.tsx";
 import { Drum } from "./components/motion/Drum.tsx";
-import { setCalm, pluck, Strings } from "./components/motion/Strings.tsx";
+import {
+  Contours,
+  ripple,
+  setFlow,
+  setTerrain,
+} from "./components/motion/Contours.tsx";
 import { Waiting } from "./components/motion/Waiting.tsx";
 import { paintPage, withViewTransition } from "./lib/motion.ts";
 import type { DiscoveryController } from "./state/controller.ts";
@@ -30,7 +35,8 @@ type Stage = "entry" | "leaving" | "waiting" | "deck";
 const LEAVE_MS = 720;
 /** Shortest wait shown, so even an instant answer winds down instead of flashing. */
 const MIN_WAIT_MS = 1600;
-const NIGHT = { room: "#111111", ink: "#f2efe8" };
+/** The start page and the wait: a deep night-blue room lit warm from one corner. */
+const NIGHT = { room: "#0d1220", ink: "#efe9df" };
 
 const working = (state: ProductState) =>
   ["RUNNING", "WAITING"].includes(state.status);
@@ -93,8 +99,13 @@ export function App({ api, controller, review, fixture }: AppProps) {
     paintPage(deckRoom.room, deckRoom.ink);
   }, [deckRoom.room, deckRoom.ink]);
   useEffect(() => {
-    setCalm(stage === "waiting" ? 1.1 : stage === "deck" ? 0.32 : 0.5);
+    setFlow(stage === "waiting" ? 2.4 : stage === "deck" ? 0.45 : 0.7);
   }, [stage]);
+  // Away from the start page the land keeps the shape of the submitted mode.
+  const submittedMode = state?.editable_input?.mode ?? "explore";
+  useEffect(() => {
+    if (stage !== "entry" && stage !== "leaving") setTerrain(submittedMode);
+  }, [stage, submittedMode]);
 
   const paint = useCallback(
     (base: string, ink: string) => setRoom({ room: base, ink }),
@@ -108,7 +119,7 @@ export function App({ api, controller, review, fixture }: AppProps) {
     clearTimeout(minTimer.current);
     minTimer.current = setTimeout(() => setMinDone(true), MIN_WAIT_MS);
     setRequested("waiting");
-    pluck(1.4);
+    ripple(1.4);
   };
 
   const owner = session ?? "blank";
@@ -153,7 +164,7 @@ export function App({ api, controller, review, fixture }: AppProps) {
     review.close();
     setEpoch((value) => value + 1);
     setRequested("deck");
-    pluck(1.6);
+    ripple(1.6);
   };
 
   const error = controller.error;
@@ -169,7 +180,7 @@ export function App({ api, controller, review, fixture }: AppProps) {
 
   return (
     <>
-      <Strings />
+      <Contours />
       {fixture ? (
         <p className="fixture-banner">
           契约样例模式 · 合成数据，不是真实推荐服务
@@ -177,6 +188,9 @@ export function App({ api, controller, review, fixture }: AppProps) {
       ) : null}
       <a
         className="brand"
+        data-hidden={stage === "entry" || stage === "leaving" || undefined}
+        aria-hidden={stage === "entry" || stage === "leaving" || undefined}
+        tabIndex={stage === "entry" || stage === "leaving" ? -1 : undefined}
         href="/"
         aria-label="Auralis 首页"
         onClick={(event) => {

@@ -31,7 +31,8 @@ import {
 } from "./Chips.tsx";
 import { GenrePanel, type GenreHandlers } from "./GenrePanel.tsx";
 import { Glyph } from "./Glyph.tsx";
-import { ModePicker } from "./ModePicker.tsx";
+import { setTerrain } from "../motion/Contours.tsx";
+import { ModeWords } from "./ModeWords.tsx";
 
 export type Door = "text" | "genres" | "albums";
 const DOORS: Door[] = ["text", "genres", "albums"];
@@ -89,9 +90,6 @@ export function Entry({
     structuredClone(saved ?? draftFrom(initial ?? emptyInput())),
   );
   const [active, setActive] = useState<Door | null>(null);
-  const [thresholdOpen, setThresholdOpen] = useState(
-    () => form.audience !== "",
-  );
   const draft = form.input;
 
   useEffect(() => {
@@ -111,6 +109,11 @@ export function Entry({
   };
   const update = (edit: (next: DiscoveryInput) => void) =>
     change((next) => edit(next.input));
+
+  // The landscape behind the page answers the exploration mode.
+  useEffect(() => {
+    setTerrain(draft.mode);
+  }, [draft.mode]);
 
   const length = codepoints(draft.request_text);
   const tooLong = length > MAX_TEXT;
@@ -252,13 +255,25 @@ export function Entry({
     onSubmit(input);
   };
 
+  // Escape, or a press anywhere outside the open door, folds it back.
   useEffect(() => {
+    if (!active) return;
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && active && !event.defaultPrevented)
+      if (event.key === "Escape" && !event.defaultPrevented) setActive(null);
+    };
+    const onPress = (event: PointerEvent) => {
+      const target = event.target as Element | null;
+      if (
+        !target?.closest?.('.door[data-state="open"], .door__face, .genre-card')
+      )
         setActive(null);
     };
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    document.addEventListener("pointerdown", onPress);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.removeEventListener("pointerdown", onPress);
+    };
   }, [active]);
 
   const counts: Record<Door, number> = {
@@ -350,11 +365,31 @@ export function Entry({
       aria-labelledby="entry-title"
     >
       <header className="entry__head">
-        <h1 id="entry-title" className="entry__title">
-          <span>下一张，</span>
-          <span>听什么？</span>
+        <h1 id="entry-title" className="entry__title" aria-label="Auralis">
+          {[..."Auralis"].map((char, index) => (
+            <span
+              key={index}
+              aria-hidden="true"
+              style={{ "--i": index } as CSSProperties}
+            >
+              {char}
+            </span>
+          ))}
+          <svg
+            className="entry__signature"
+            viewBox="0 0 300 24"
+            aria-hidden="true"
+            focusable="false"
+          >
+            <path
+              pathLength="1"
+              d="M2 14 C 30 14, 38 4, 58 6 S 86 22, 112 16 S 150 2, 176 8 S 214 22, 240 14 S 280 6, 298 10"
+            />
+          </svg>
         </h1>
-        <p className="entry__hint">选一扇门开始，也可以三扇都用。</p>
+        <p className="entry__hint">
+          不知道想听什么？在这里表达自己，得到属于你的配乐
+        </p>
         {notice}
         {onResume ? (
           <button type="button" className="entry__resume" onClick={onResume}>
@@ -425,7 +460,7 @@ export function Entry({
       </div>
 
       <footer className="dock">
-        <ModePicker
+        <ModeWords
           value={draft.mode}
           disabled={locked}
           onChange={(mode) =>
@@ -433,39 +468,14 @@ export function Entry({
               next.mode = mode;
             })
           }
+          audience={form.audience}
+          audienceProblem={audienceProblem}
+          onAudience={(value) =>
+            change((next) => {
+              next.audience = value;
+            })
+          }
         />
-        <div className="dock__threshold" data-open={thresholdOpen || undefined}>
-          <button
-            type="button"
-            className="dock__toggle"
-            aria-expanded={thresholdOpen}
-            onClick={() => setThresholdOpen((value) => !value)}
-          >
-            {form.audience ? `听众 ≥ ${form.audience}` : "更多设置"}
-          </button>
-          {thresholdOpen ? (
-            <label className="dock__field">
-              <span>最低听众数（可选）</span>
-              <input
-                type="number"
-                inputMode="numeric"
-                min={1}
-                step={1}
-                placeholder="默认"
-                value={form.audience}
-                aria-invalid={!!audienceProblem || undefined}
-                onChange={(event) =>
-                  change((next) => {
-                    next.audience = event.target.value.trim();
-                  })
-                }
-              />
-            </label>
-          ) : null}
-          {audienceProblem ? (
-            <span className="dock__error">{audienceProblem}</span>
-          ) : null}
-        </div>
         <button
           type="button"
           className="go"

@@ -124,6 +124,11 @@ test("doors widen one at a time; genres group families, show notes and keep mark
   await page.getByRole("button", { name: "不喜欢Metal", exact: true }).click();
   await page.keyboard.press("Escape");
   await expect(genres).toHaveAttribute("aria-expanded", "false");
+  // A press anywhere outside the open door folds it as well.
+  await genres.click();
+  await expect(genres).toHaveAttribute("aria-expanded", "true");
+  await page.getByRole("heading", { name: "Auralis" }).click();
+  await expect(genres).toHaveAttribute("aria-expanded", "false");
   await expect(genres).toHaveAccessibleName("风格，已选 2");
   await type(page, "温暖的爵士 🎷");
   await page.getByLabel("惊喜", { exact: true }).check({ force: true });

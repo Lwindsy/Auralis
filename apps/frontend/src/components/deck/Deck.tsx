@@ -18,11 +18,12 @@ import {
 import { useStore } from "../../state/hooks.ts";
 import { supplying } from "../../state/input.ts";
 import type { LongReviewController } from "../../state/review.ts";
-import { Cover } from "../Cover.tsx";
-import { pluck } from "../motion/Strings.tsx";
-import { Frame } from "./Frame.tsx";
+import { ripple } from "../motion/Contours.tsx";
 import { Reviews } from "./LongReview.tsx";
 import { Reaction } from "./Reaction.tsx";
+import { GenreWave } from "./GenreWave.tsx";
+import { MiniWave } from "./MiniWave.tsx";
+import { SlicedCover } from "./SlicedCover.tsx";
 
 export type Feeling = "like" | "meh";
 
@@ -37,7 +38,7 @@ export interface DeckProps {
   onMore: () => void;
 }
 
-const NIGHT = { base: "#121212", ink: "#efece6" };
+const NIGHT = { base: "#0d1220", ink: "#efe9df" };
 
 function emptyCopy(state: ProductState) {
   if (state.supply_state === "FINAL_EXHAUSTED") return "这次的候选都听完了";
@@ -108,10 +109,10 @@ export function Deck({
     review.close();
     clearTimeout(ghostTimer.current);
     setGhost(outgoing ? { entry: outgoing, dir: direction } : null);
-    ghostTimer.current = setTimeout(() => setGhost(null), 560);
+    ghostTimer.current = setTimeout(() => setGhost(null), 760);
     setDir(direction);
     setIndex(bounded);
-    pluck(0.9);
+    ripple(1, window.innerWidth * 0.3, window.innerHeight * 0.45);
   };
 
   useEffect(() => {
@@ -148,14 +149,13 @@ export function Deck({
         ),
       );
     mark(true);
-    pluck(0.6);
+    ripple(0.6, window.innerWidth * 0.7, window.innerHeight * 0.7);
     const done = await controller.action("card", entry.slotId, "HEARD");
     if (!done && !controller.pending) mark(false);
   };
 
   const spread = (entry: DeckEntry, leaving?: string): ReactNode => {
-    const { title, artist_credit, first_release_year, primary_genres } =
-      entry.card.identity;
+    const { title, artist_credit, first_release_year } = entry.card.identity;
     const feeling = feelings.get(entry.candidateId) ?? null;
     const available = !entry.heard;
     const undoable =
@@ -163,24 +163,21 @@ export function Deck({
     return (
       <article
         key={`${entry.candidateId}${leaving ? ":ghost" : ""}`}
-        className="spread"
+        className="cut"
         aria-label={title}
         aria-hidden={leaving ? true : undefined}
         data-leaving={leaving}
         data-dir={leaving ? undefined : dir}
+        data-heard={entry.heard || undefined}
         inert={leaving ? true : undefined}
       >
-        <div className="panel panel--sleeve">
-          <Frame />
-          <div className="sleeve-art">
-            <Cover
-              seed={albumSeed(title, artist_credit)}
-              title={title}
-              artist={artist_credit}
-              url={entry.card.cover_url}
-            />
-          </div>
-          <div className="panel__caption">
+        <div className="cut__sleeve">
+          <SlicedCover
+            title={title}
+            artist={artist_credit}
+            url={entry.card.cover_url}
+          />
+          <div className="cut__caption">
             <h2 className="album-title">{title}</h2>
             <p className="album-artist">
               {artist_credit}
@@ -190,33 +187,29 @@ export function Deck({
             </p>
           </div>
         </div>
-        <div className="panel panel--notes">
-          <Frame />
-          {primary_genres.length ? (
-            <ul
-              className="tags"
-              role="list"
-              aria-label="目录风格标签"
-              title="来自音乐目录的风格标签，只是线索；与需求的关系以短评为准。"
-            >
-              {primary_genres.slice(0, 4).map((genre, i) => (
-                <li key={genre.genre_id} style={{ "--i": i } as CSSProperties}>
-                  {genre.name}
-                </li>
-              ))}
-            </ul>
-          ) : null}
+        <div className="cut__words">
+          <GenreWave card={entry.card} />
           {state.analysis_mode === "BASIC" ? (
             <p className="basic-note">基础推荐 · 本次个性化未完成</p>
           ) : null}
-          <Reviews card={entry.card} review={review} available={available} />
+          <Reviews
+            card={entry.card}
+            review={review}
+            available={available}
+            delay={leaving ? 0 : 1250}
+          />
           <div className="reacts" role="group" aria-label="你的感受">
             <Reaction
               kind="like"
               label="我喜欢！"
               done={feeling === "like"}
               onToggle={() => {
-                if (feeling !== "like") pluck(1.2);
+                if (feeling !== "like")
+                  ripple(
+                    1.3,
+                    window.innerWidth * 0.7,
+                    window.innerHeight * 0.7,
+                  );
                 onFeel(entry.candidateId, feeling === "like" ? null : "like");
               }}
             />
@@ -225,7 +218,12 @@ export function Deck({
               label="一般般"
               done={feeling === "meh"}
               onToggle={() => {
-                if (feeling !== "meh") pluck(0.25);
+                if (feeling !== "meh")
+                  ripple(
+                    0.3,
+                    window.innerWidth * 0.7,
+                    window.innerHeight * 0.7,
+                  );
                 onFeel(entry.candidateId, feeling === "meh" ? null : "meh");
               }}
             />
@@ -253,18 +251,7 @@ export function Deck({
   const tail =
     busy && position === last ? (
       <div className="tail tail--supply" role="status">
-        <svg
-          className="writing writing--large"
-          viewBox="0 0 60 24"
-          aria-hidden="true"
-        >
-          {[0, 1, 2, 3, 4].map((i) => (
-            <path
-              key={i}
-              d={`M${6 + i * 12} 4 Q ${6 + i * 12} 12 ${6 + i * 12} 20`}
-            />
-          ))}
-        </svg>
+        <MiniWave bars={11} live className="tail__wave" />
         <p>正在再找一张</p>
       </div>
     ) : (
@@ -274,6 +261,7 @@ export function Deck({
         </p>
         <div className="finale__choices">
           <button type="button" className="choice" onClick={onRethink}>
+            <MiniWave bars={13} calm className="choice__wave" />
             <span className="choice__eyebrow">不满意？</span>
             <span className="choice__title">换一些想法吧</span>
           </button>
@@ -283,6 +271,7 @@ export function Deck({
             disabled={controller.locked}
             onClick={onMore}
           >
+            <MiniWave bars={13} live className="choice__wave" />
             <span className="choice__eyebrow">同样的需求</span>
             <span className="choice__title">再给我来一些</span>
           </button>
