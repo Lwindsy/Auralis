@@ -61,6 +61,46 @@ class CatalogSearchIT {
                                     .build(),
                             HttpResponse.BodyHandlers.ofString());
             assertEquals(200, bootstrap.statusCode(), bootstrap.body());
+            String coverPath =
+                    "/v1/catalog/albums/c31a5e2b-0bf8-32e0-8aeb-ef4ba9973932/cover?size=250";
+            assertEquals(
+                    400,
+                    anonymous
+                            .send(
+                                    HttpRequest.newBuilder(URI.create(host.base + coverPath))
+                                            .GET()
+                                            .build(),
+                                    HttpResponse.BodyHandlers.discarding())
+                            .statusCode());
+            assertEquals(
+                    400,
+                    client.send(
+                                    HttpRequest.newBuilder(
+                                                    URI.create(
+                                                            host.base
+                                                                    + coverPath.replace(
+                                                                            "250", "999")))
+                                            .GET()
+                                            .build(),
+                                    HttpResponse.BodyHandlers.discarding())
+                            .statusCode());
+            if (Boolean.getBoolean("auralis.cover.live")) {
+                var cover =
+                        client.send(
+                                HttpRequest.newBuilder(URI.create(host.base + coverPath))
+                                        .GET()
+                                        .build(),
+                                HttpResponse.BodyHandlers.ofByteArray());
+                assertEquals(200, cover.statusCode());
+                assertEquals(
+                        "private, max-age=86400",
+                        cover.headers().firstValue("Cache-Control").orElseThrow());
+                assertNotNull(
+                        javax.imageio.ImageIO.read(new java.io.ByteArrayInputStream(cover.body())));
+                assertTrue(
+                        cover.headers().firstValue("Set-Cookie").isEmpty(),
+                        "artwork does not renew identity");
+            }
             for (var pair :
                     new String[][] {
                         {"/v1/catalog/albums?query=Bjork", "AlbumSearchResult"},

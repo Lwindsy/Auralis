@@ -145,7 +145,10 @@ public final class CatalogDirectory {
                         .put(
                                 "mb_release_group_id",
                                 (core == null ? remote.id() : core.id()).toString())
-                        .put("in_core_catalog", core != null);
+                        .put("in_core_catalog", core != null)
+                        .put(
+                                "cover_url",
+                                AlbumCovers.url(core == null ? remote.id() : core.id(), 250));
         var identity = result.putObject("identity");
         identity.put("title", core == null ? remote.title() : core.title());
         identity.put("artist_credit", core == null ? remote.artist() : core.artistCredit());

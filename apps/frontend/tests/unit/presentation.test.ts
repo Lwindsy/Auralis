@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { message, note, stateMessage } from "../../src/api/messages.ts";
-import { coverArt, hash, initials, safeImage } from "../../src/lib/cover.ts";
+import { coverArt, hash, initials } from "../../src/lib/cover.ts";
 import { ready } from "../fixtures.ts";
 
 describe("presentation helpers", () => {
@@ -31,14 +31,5 @@ describe("presentation helpers", () => {
     expect(hash("a")).not.toBe(hash("b"));
     expect(initials("  the Köln Concert")).toBe("T");
     expect(initials("…")).toBe("♪");
-  });
-
-  test("only HTTPS cover URLs are rendered", () => {
-    expect(safeImage("https://example.org/a.jpg")).toBe(
-      "https://example.org/a.jpg",
-    );
-    expect(safeImage("http://example.org/a.jpg")).toBeNull();
-    expect(safeImage("javascript:alert(1)")).toBeNull();
-    expect(safeImage(null)).toBeNull();
   });
 });

@@ -99,14 +99,5 @@ export function initials(title: string): string {
   return (letters[0] ?? "♪").toUpperCase();
 }
 
-export function safeImage(url: string | null | undefined): string | null {
-  if (!url) return null;
-  try {
-    return new URL(url).protocol === "https:" ? url : null;
-  } catch {
-    return null;
-  }
-}
-
 export const albumSeed = (title: string, artist: string) =>
   `${title}\u0000${artist}`;

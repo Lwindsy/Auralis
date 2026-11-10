@@ -84,7 +84,9 @@ export function Chips({
               data-special={item.strength === "special" || undefined}
               data-focused={item.focused || undefined}
             >
-              {seed ? <Cover seed={seed} title={name} size="mini" /> : null}
+              {seed ? (
+                <Cover seed={seed} title={name} size="mini" albumId={item.id} />
+              ) : null}
               {avoid ? <span className="chip__lead">避开</span> : null}
               <span className="chip__name" title={name}>
                 <span className="chip__title">{parts.title}</span>

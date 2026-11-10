@@ -598,7 +598,7 @@ public class PostgresPublicationAuthority implements PublicationAuthority {
         var slots = out.putArray("slots");
         for (var row :
                 jdbc.queryForList(
-                        "SELECT s.slot_id,s.state,s.round_id,s.candidate_id,k.content::text AS card,c.identity_binding::text AS identity,l.state AS long_state,l.generation_run AS long_run FROM discovery.card_slot s LEFT JOIN discovery.recommendation_card k ON k.round_id=s.round_id AND k.candidate_id=s.candidate_id LEFT JOIN discovery.round_candidate c ON c.round_id=s.round_id AND c.candidate_id=s.candidate_id LEFT JOIN discovery.long_review l ON l.round_id=s.round_id AND l.candidate_id=s.candidate_id WHERE s.session_id=? ORDER BY s.slot_id",
+                        "SELECT s.slot_id,s.state,s.round_id,s.candidate_id,c.release_group_id AS album_id,k.content::text AS card,c.identity_binding::text AS identity,l.state AS long_state,l.generation_run AS long_run FROM discovery.card_slot s LEFT JOIN discovery.recommendation_card k ON k.round_id=s.round_id AND k.candidate_id=s.candidate_id LEFT JOIN discovery.round_candidate c ON c.round_id=s.round_id AND c.candidate_id=s.candidate_id LEFT JOIN discovery.long_review l ON l.round_id=s.round_id AND l.candidate_id=s.candidate_id WHERE s.session_id=? ORDER BY s.slot_id",
                         s.sessionId())) {
             var slot =
                     slots.addObject()
@@ -617,7 +617,7 @@ public class PostgresPublicationAuthority implements PublicationAuthority {
             var product =
                     slot.putObject("card")
                             .put("candidate_id", (String) row.get("candidate_id"))
-                            .putNull("cover_url")
+                            .put("cover_url", AlbumCovers.url((UUID) row.get("album_id"), 500))
                             .put(
                                     "long_review_state",
                                     row.get("long_state") == null

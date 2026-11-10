@@ -26,6 +26,7 @@ import { GenreWave } from "./GenreWave.tsx";
 import { MiniWave } from "./MiniWave.tsx";
 import { SlicedCover } from "./SlicedCover.tsx";
 import { useRoom } from "./useRoom.ts";
+import { prefetchCover } from "../../state/covers.ts";
 
 export type Feeling = "like" | "meh";
 
@@ -100,6 +101,10 @@ export function Deck({
   const last = entries.length; // the tail position after the final album
   const position = Math.min(index, last);
   const current = entries[position] ?? null;
+  const nextCover = entries[position + 1]?.card.cover_url;
+  useEffect(() => {
+    prefetchCover(nextCover);
+  }, [nextCover]);
 
   const room = useRoom(current?.card ?? null) ?? NIGHT;
   useEffect(() => {

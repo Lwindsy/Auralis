@@ -60,6 +60,7 @@ export interface CatalogAlbum {
   mb_release_group_id: string;
   identity: Identity;
   in_core_catalog: boolean;
+  cover_url?: string;
 }
 export interface Identity {
   title: string;

@@ -252,9 +252,26 @@ body {
 }
 
 .cover img {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
+  animation: cover-arrive 240ms ease-out both;
+}
+
+@keyframes cover-arrive {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cover img {
+    animation: none;
+  }
 }
 
 .cover__art {
