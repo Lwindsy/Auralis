@@ -12,6 +12,10 @@ Java在线底座使用`mvn -f apps/backend/pom.xml verify`构建，再运行`jav
 
 启动前须由离线迁移器应用V1～V15；Java与Python使用同版0.32协议配置。
 
+## Linux部署
+
+[容器部署说明](apps/runtime/deployment.txt)介绍单机Compose服务及需要独立准备的数据和密钥。[CI/CD工作流](.github/workflows/ci.yml)检查PR，并在main更新通过检查后经SSH部署，包含数据库备份、迁移和就绪检查。音乐数据和凭据不打入镜像。
+
 ## 前端开发
 
 使用 Node.js 22.12 或更新版本，在仓库根执行：

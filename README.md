@@ -12,6 +12,10 @@ The Java online bootstrap can be built with `mvn -f apps/backend/pom.xml verify`
 
 Apply the full checked-in migration chain before startup (currently V1–V15); use protocol revision 0.32 with matching Java and Python builds.
 
+## Linux deployment
+
+The [container deployment guide](apps/runtime/deployment.txt) describes the single-host Compose stack and its required external data and secrets. The [CI/CD workflow](.github/workflows/ci.yml) checks pull requests and deploys successful `main` updates over SSH, with a database backup, migration and readiness checks. It does not package music data or credentials into images.
+
 ## Browser development
 
 Use Node.js 22.12 or newer. From the repository root:
