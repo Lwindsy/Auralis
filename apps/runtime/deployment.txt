@@ -1,0 +1,47 @@
+Auralis Linux 容器部署
+
+入口：compose.yml；在仓库根构建 java.Dockerfile、python.Dockerfile、web.Dockerfile。
+前端先运行 npm --prefix apps/frontend ci 和 npm --prefix apps/frontend run build。
+Java、Python、Caddy使用Linux宿主网络，保留内部literal-loopback约束。
+PostgreSQL只映射127.0.0.1:15439，数据位于auralis_database命名卷。
+Caddy仅公开前端和/v1/，内部及管理端点返回404。
+
+运行准备（首次部署由运维执行，不由CI创建或复制音乐数据）：
+- /etc/auralis/{database,java,python,migrate,web}.env：root所有、权限600；
+  分别注入数据库管理员、普通在线账号、Python模型密钥、离线迁移身份和域名。
+  Java无模型密钥，Python无数据库凭据；这些文件不得提交或打进镜像。
+- /etc/auralis/config/{agent-service,models,recommendation}.json：显式部署配置。
+- /opt/auralis/data/{index,taxonomy,curated}与audience.json：已核验工件，只读挂载。
+- 新空库先创建auralis_migrator和auralis_online，再运行migrate服务。
+  目录与全量Audience须从已核验来源迁入并逐表对账；不能把空表当作已部署。
+- web.env的AURALIS_HOSTNAME与java.env的AURALIS_PRODUCT_ORIGIN须对应同一HTTPS源。
+  修改域名后重建java、web容器；购买正式域名不要求重建数据卷。
+
+CI/CD：.github/workflows/ci.yml
+PR只检查；main push或main手动执行通过检查后自动部署。检查包含Python Ruff、
+Pytest、Java Spotless及构建、前端类型/格式检查、单元测试及构建。
+GitHub Secrets：DEPLOY_HOST、DEPLOY_KEY、DEPLOY_KNOWN_HOSTS。
+GitHub变量：PRODUCT_URL（无末尾斜杠）。SSH主机密钥须独立核验，不临时自动信任。
+发布包只包含git archive产品内容与已检查前端dist，不包含私有工作资料。
+
+部署由 apps/runtime/deploy.sh <40位提交SHA> 执行：
+1. 在/opt/auralis/releases/<SHA>构建三个带SHA标签的镜像。
+2. 排他锁防止重叠部署；数据库进入维护，最多等待150秒排空执行槽。
+3. 停止网页和双端；pg_dump备份至/opt/auralis/backups。
+4. 使用独立迁移身份执行Flyway并更新在线账号授权。
+5. 启动Python/Java，确认readiness后启动网页；CI再验证公网HTTPS及bootstrap。
+数据库卷、工件、配置和身份签名密钥不会随镜像更新被替换。
+首次运行与后续版本均须实测，不把镜像构建成功视为推荐链路验收。
+
+失败与回退：
+构建失败不切换现有服务。排空超时保留维护状态，先核查在途请求；不杀任务掩盖失败。
+迁移或readiness失败时网页保持停止，保留备份和诊断，不自动恢复旧数据库。
+没有双版本并行兼容期；每次部署使用同一SHA的Java/Python/前端。
+若数据库迁移未变化且旧版兼容当前配置、工件，可对旧release执行deploy.sh回退。
+若DDL已经变化，先核对Flyway及兼容性；优先前滚，不自动启动不兼容旧应用。
+数据库恢复必须到新隔离库，核对备份后的账单与删除屏障，再按恢复手册切换；
+无法补齐删除记录时轮换身份签名密钥。不得删除卷或回写迁移历史伪装回退。
+已发出的模型调用费用及用户操作不可通过容器回退撤销。
+
+当前不设置全站每日费用上限；会话、轮次、车道预算仍由Java配置控制。
+备份在本机保留，需要运维定期复制到独立存储；容器更新不替代异机备份。

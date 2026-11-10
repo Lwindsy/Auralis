@@ -1,0 +1,59 @@
+name: auralis
+services:
+  database:
+    image: postgres:18.6-bookworm
+    restart: unless-stopped
+    env_file: /etc/auralis/database.env
+    ports: ["127.0.0.1:15439:5432"]
+    volumes: ["database:/var/lib/postgresql"]
+    mem_limit: 1g
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d auralis_core"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    logging: &logging
+      driver: local
+      options: {max-size: 10m, max-file: "2"}
+  python:
+    image: auralis-python:${AURALIS_RELEASE:?release required}
+    network_mode: host
+    restart: unless-stopped
+    env_file: /etc/auralis/python.env
+    volumes: ["/opt/auralis/data:/data:ro", "/etc/auralis/config:/config:ro"]
+    command: ["--config", "/config/agent-service.json", "--port", "18765"]
+    mem_limit: 3g
+    stop_grace_period: 60s
+    logging: *logging
+  java:
+    image: auralis-java:${AURALIS_RELEASE:?release required}
+    network_mode: host
+    restart: unless-stopped
+    env_file: /etc/auralis/java.env
+    volumes: ["/opt/auralis/data:/data:ro", "/etc/auralis/config:/config:ro"]
+    mem_limit: 2g
+    stop_grace_period: 60s
+    depends_on:
+      database: {condition: service_healthy}
+      python: {condition: service_started}
+    logging: *logging
+  migrate:
+    image: auralis-java:${AURALIS_RELEASE:?release required}
+    profiles: [maintenance]
+    network_mode: host
+    env_file: /etc/auralis/migrate.env
+    command: ["--offline-migrate"]
+    mem_limit: 1g
+    logging: *logging
+  web:
+    image: auralis-web:${AURALIS_RELEASE:?release required}
+    network_mode: host
+    restart: unless-stopped
+    env_file: /etc/auralis/web.env
+    volumes: ["caddy:/data", "caddy-config:/config"]
+    mem_limit: 256m
+    logging: *logging
+volumes:
+  database:
+  caddy:
+  caddy-config:

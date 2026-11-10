@@ -1,0 +1,79 @@
+name: CI / CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: auralis-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.10.8'
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: apps/frontend/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: 安装 Python 依赖
+        run: python -m pip install -e 'apps/intelligence[test]'
+      - name: Python 格式与静态检查
+        run: |
+          python -m ruff check --config apps/intelligence/pyproject.toml apps/intelligence/src apps/intelligence/tests
+          python -m ruff format --config apps/intelligence/pyproject.toml --check apps/intelligence/src apps/intelligence/tests
+      - name: Pytest
+        run: python -m pytest -c apps/intelligence/pyproject.toml apps/intelligence/tests -q
+      - name: Java 格式检查与构建
+        run: mvn -B -f apps/backend/pom.xml -DskipTests package
+      - name: 前端检查与构建
+        run: |
+          npm --prefix apps/frontend ci --no-audit --no-fund
+          npm --prefix apps/frontend run check
+          npm --prefix apps/frontend test
+          npm --prefix apps/frontend run build
+      - name: 配置部署 SSH
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        env:
+          DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/id_ed25519
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/id_ed25519 ~/.ssh/known_hosts
+      - name: 发送已检查的版本并更新容器
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+        run: |
+          git archive --format=tar -o release.tar "$GITHUB_SHA"
+          tar -rf release.tar apps/frontend/dist
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes "root@$DEPLOY_HOST" "mkdir -p /opt/auralis/releases/$GITHUB_SHA"
+          scp -o BatchMode=yes -o StrictHostKeyChecking=yes release.tar "root@$DEPLOY_HOST:/opt/auralis/releases/$GITHUB_SHA/release.tar"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes "root@$DEPLOY_HOST" "cd /opt/auralis/releases/$GITHUB_SHA && tar -xf release.tar && bash apps/runtime/deploy.sh $GITHUB_SHA"
+      - name: 验证公网 HTTPS
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        env:
+          PRODUCT_URL: ${{ vars.PRODUCT_URL }}
+        run: |
+          test -n "$PRODUCT_URL"
+          curl --fail --silent --show-error --retry 12 --retry-delay 5 --retry-all-errors "$PRODUCT_URL/" -o /dev/null
+          curl --fail --silent --show-error -H "Origin: $PRODUCT_URL" -H 'Content-Type: application/json' --data '{}' "$PRODUCT_URL/v1/bootstrap" -o /dev/null
