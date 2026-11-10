@@ -18,6 +18,16 @@ jobs:
   check:
     runs-on: ubuntu-22.04
     timeout-minutes: 35
+    services:
+      postgres:
+        image: postgres:18.6-bookworm
+        env:
+          POSTGRES_PASSWORD: auralis-synthetic-ci
+          POSTGRES_DB: auralis_core_verify
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 3s --health-retries 20
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6
@@ -43,6 +53,11 @@ jobs:
         run: python -m pytest -c apps/intelligence/pyproject.toml apps/intelligence/tests -q
       - name: Java 格式检查与构建
         run: mvn -B -f apps/backend/pom.xml -DskipTests package
+      - name: 数据库锁竞争回归
+        env:
+          AURALIS_TEST_POSTGRES_URL: jdbc:postgresql://127.0.0.1:5432/auralis_core_verify
+          AURALIS_TEST_POSTGRES_ADMIN_PASSWORD: auralis-synthetic-ci
+        run: mvn -B -f apps/backend/pom.xml '-Dit.test=AdmissionQueueIT#busyExecutionObservationDefersWithoutMaintenanceOrResend' failsafe:integration-test failsafe:verify
       - name: 前端检查与构建
         run: |
           npm --prefix apps/frontend ci --no-audit --no-fund

@@ -14,9 +14,10 @@ docker build -f apps/runtime/web.Dockerfile -t "auralis-web:$release" .
 "${compose[@]}" up -d --wait database
 sql() { "${compose[@]}" exec -T database psql -X -At -v ON_ERROR_STOP=1 -U postgres -d auralis_core -c "$1"; }
 # Stop new work and let already accepted operations settle before snapshotting.
+"${compose[@]}" stop web
 sql 'UPDATE discovery.runtime_control SET maintenance=true,revision=revision+1 WHERE singleton;'
 for i in $(seq 1 150); do
-    active=$(sql "SELECT count(*) FROM discovery.execution_slot WHERE state<>'FREE';")
+    active=$(sql "SELECT (SELECT count(*) FROM discovery.execution_slot WHERE state<>'FREE')+(SELECT count(*) FROM discovery.discovery_intent WHERE status='WAITING');")
     [[ "$active" == 0 ]] && break
     sleep 1
 done

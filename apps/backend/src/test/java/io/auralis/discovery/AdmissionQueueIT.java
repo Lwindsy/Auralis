@@ -333,6 +333,34 @@ class AdmissionQueueIT {
     }
 
     @Test
+    void busyExecutionObservationDefersWithoutMaintenanceOrResend() throws Exception {
+        queue.accept(input(), LIMITS);
+        dispatcher.tick();
+        var job = queue.active().getFirst();
+        var source = app.getBean(javax.sql.DataSource.class);
+        try (var connection = source.getConnection()) {
+            connection.setAutoCommit(false);
+            try (var statement =
+                    connection.prepareStatement(
+                            "SELECT id FROM discovery.execution WHERE id=? FOR UPDATE")) {
+                statement.setString(1, job.execution());
+                try (var rows = statement.executeQuery()) {
+                    assertTrue(rows.next());
+                }
+            }
+            dispatcher.tick();
+            assertTrue(queue.ready("java-1"));
+            assertEquals(1, peer.sends.get(job.execution()));
+            assertEquals(1, queue.active().size());
+            connection.rollback();
+        }
+        peer.complete(job.execution());
+        dispatcher.tick();
+        assertTrue(queue.active().isEmpty());
+        assertEquals(1, peer.sends.get(job.execution()));
+    }
+
+    @Test
     void unknownAdmissionStillAllowsCancellationButNeverResend() throws Exception {
         var in = input();
         var accepted = queue.accept(in, LIMITS);

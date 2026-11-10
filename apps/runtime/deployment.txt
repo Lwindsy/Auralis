@@ -20,13 +20,14 @@ Caddy仅公开前端和/v1/，内部及管理端点返回404。
 CI/CD：.github/workflows/ci.yml
 PR只检查；main push或main手动执行通过检查后自动部署。检查包含Python Ruff、
 Pytest、Java Spotless及构建、前端类型/格式检查、单元测试及构建。
+独立PostgreSQL另运行执行状态轮询的锁竞争回归，防止短暂行锁导致推荐中断。
 GitHub Secrets：DEPLOY_HOST、DEPLOY_KEY、DEPLOY_KNOWN_HOSTS。
 GitHub变量：PRODUCT_URL（无末尾斜杠）。SSH主机密钥须独立核验，不临时自动信任。
 发布包只包含git archive产品内容与已检查前端dist，不包含私有工作资料。
 
 部署由 apps/runtime/deploy.sh <40位提交SHA> 执行：
 1. 在/opt/auralis/releases/<SHA>构建三个带SHA标签的镜像。
-2. 排他锁防止重叠部署；数据库进入维护，最多等待150秒排空执行槽。
+2. 排他锁防止重叠部署；先停止网页接纳请求，再进入维护，最多等待150秒排空执行槽与等待队列。
 3. 停止网页和双端；pg_dump备份至/opt/auralis/backups。
 4. 使用独立迁移身份执行Flyway并更新在线账号授权。
 5. 启动Python/Java，确认readiness后启动网页；CI再验证公网HTTPS及bootstrap。
