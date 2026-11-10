@@ -48,7 +48,8 @@ test-results/
 /contracts/
 /.git-docs/
 /.editorconfig
-/.github/
+/.github/*
+!/.github/workflows/
 /AGENTS.md
 /CLAUDE.md
 /CONTRIBUTING.md

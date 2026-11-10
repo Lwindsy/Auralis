@@ -648,7 +648,7 @@ public class PostgresDispatchQueue implements DispatchQueue {
                     discovery.lockRuntime();
                     var rows =
                             jdbc.queryForList(
-                                    "SELECT observed_seq,cancellation_requested FROM discovery.execution WHERE id=? AND physical_released_at IS NULL",
+                                    "SELECT observed_seq,cancellation_requested FROM discovery.execution WHERE id=? AND physical_released_at IS NULL FOR UPDATE SKIP LOCKED",
                                     job.execution());
                     if (rows.isEmpty()
                             || ((Number) rows.getFirst().get("observed_seq")).longValue()

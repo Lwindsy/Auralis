@@ -6,11 +6,15 @@ Auralis aims to help you discover albums through genre preferences, favorite alb
 
 ## Availability
 
-The Java recommendation APIs and production Python pipeline are connected and verified with isolated PostgreSQL and synthetic model/page adapters. Browser recommendation interactions have also been tested against Java. Real-provider requests and local capacity have also been measured. Overall recommendation quality and complete website acceptance remain pending; the product has not been publicly deployed.
+An initial deployment is available at [Auralis](https://auralis-94-250-202-196.sslip.io/), using a temporary hostname. The frontend, Java, Python and PostgreSQL run on one VPS. HTTPS, browser search and a real three-card recommendation with three completed long reviews have been verified there. Broad recommendation quality and multi-user capacity on this VPS remain separate from this deployment smoke test.
 
 The Java online bootstrap can be built with `mvn -f apps/backend/pom.xml verify` and started with `java -jar apps/backend/target/auralis-core-database-0.1.0-SNAPSHOT-online.jar`. It requires explicit `AURALIS_JDBC_URL`, `AURALIS_DATABASE_USER`, `AURALIS_DATABASE_PASSWORD`, `AURALIS_PRODUCT_ORIGIN`, `AURALIS_PYTHON_URL`, `AURALIS_SERVICE_TOKEN`, `AURALIS_CONTRACT_REVISION` and `AURALIS_SUBJECT_SECRET` environment variables. Use PostgreSQL 18 with the existing migrations applied by the offline CLI and a non-DDL runtime role. The service exposes health probes, anonymous sessions and recommendation APIs. Recommendations additionally require explicit `AURALIS_RECOMMENDATION_CONFIG` and `AURALIS_DISPATCH_ENABLED=true`, with matching approved artifacts, model bindings and budget configuration.
 
 Apply the full checked-in migration chain before startup (currently V1–V15); use protocol revision 0.32 with matching Java and Python builds.
+
+## Linux deployment
+
+The [container deployment guide](apps/runtime/deployment.txt) describes the single-host Compose stack and its required external data and secrets. The [CI/CD workflow](.github/workflows/ci.yml) checks pull requests and deploys successful `main` updates over SSH, with a database backup, migration and readiness checks. It does not package music data or credentials into images.
 
 ## Browser development
 

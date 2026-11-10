@@ -6,11 +6,15 @@ Auralis帮助你通过风格偏好、喜欢的专辑或自然语言描述发现�
 
 ## 当前状态
 
-Java推荐API与Python生产流程已连通，并通过隔离PostgreSQL及合成模型／页面适配器验证。浏览器推荐交互也已通过真实Java验证；已有真实供应商请求及本机容量测量；广泛推荐质量和完整网站体验仍待验收，产品尚未公开部署。
+首次部署可通过临时地址[Auralis](https://auralis-94-250-202-196.sslip.io/)访问。前端、Java、Python与PostgreSQL同机运行；已在该VPS验证HTTPS、浏览器搜索及一次三卡三长评的真实推荐。广泛推荐质量和这台VPS上的多人容量仍需分别验证，不由本次部署冒烟测试推导。
 
 Java在线底座使用`mvn -f apps/backend/pom.xml verify`构建，再运行`java -jar apps/backend/target/auralis-core-database-0.1.0-SNAPSHOT-online.jar`；环境变量须显式提供数据库地址与运行凭据、产品同源地址、Python loopback地址、服务凭据及当前内部协议修订。使用已由离线CLI迁移的PostgreSQL 18及无DDL权限的运行账号，默认监听127.0.0.1:8080。健康探针、匿名会话与推荐API已实现。推荐还需显式提供`AURALIS_RECOMMENDATION_CONFIG`并设置`AURALIS_DISPATCH_ENABLED=true`，批准工件、模型绑定与硬预算配置须一致。
 
 启动前须由离线迁移器应用V1～V15；Java与Python使用同版0.32协议配置。
+
+## Linux部署
+
+[容器部署说明](apps/runtime/deployment.txt)介绍单机Compose服务及需要独立准备的数据和密钥。[CI/CD工作流](.github/workflows/ci.yml)检查PR，并在main更新通过检查后经SSH部署，包含数据库备份、迁移和就绪检查。音乐数据和凭据不打入镜像。
 
 ## 前端开发
 
