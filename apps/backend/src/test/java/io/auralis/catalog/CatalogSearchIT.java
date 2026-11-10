@@ -18,7 +18,21 @@ class CatalogSearchIT {
 
     @Test
     void actualHttpCookieAndSchemaWithRealIndexAndPostgres() throws Exception {
-        String digest = LuceneCatalogSearchTest.fixture(temp.resolve("source"));
+        LuceneCatalogSearchTest.fixture(temp.resolve("source"));
+        var album =
+                (com.fasterxml.jackson.databind.node.ObjectNode)
+                        new ObjectMapper()
+                                .readTree(Files.readString(temp.resolve("source/albums.jsonl")));
+        var single =
+                album.deepCopy()
+                        .put("id", "33333333-3333-4333-8333-333333333333")
+                        .put("title", "GateSingle")
+                        .put("type", "Single");
+        single.putArray("aliases");
+        single.putArray("redirects");
+        String digest =
+                LuceneCatalogSearchTest.writeRows(
+                        temp.resolve("source"), java.util.List.of(album, single));
         CatalogIndexBuild.build(temp.resolve("source"), temp.resolve("index"), digest);
         try (var host = new CatalogSearchHarness(temp.resolve("index"), digest);
                 var anonymous = HttpClient.newHttpClient();
@@ -68,6 +82,24 @@ class CatalogSearchIT {
                         "read must not renew");
                 assertEquals(
                         "no-store", response.headers().firstValue("Cache-Control").orElseThrow());
+            }
+            for (String query : new String[] {"Bjork", "GateSingle"}) {
+                var response =
+                        client.send(
+                                HttpRequest.newBuilder(
+                                                URI.create(
+                                                        host.base
+                                                                + "/v1/catalog/albums?query="
+                                                                + query))
+                                        .GET()
+                                        .build(),
+                                HttpResponse.BodyHandlers.ofString());
+                assertEquals(200, response.statusCode());
+                var page = json.readTree(response.body());
+                assertEquals(query.equals("GateSingle") ? 0 : 1, page.path("items").size());
+                for (var item : page.path("items"))
+                    assertNotEquals("Single", item.path("identity").path("release_type").asText());
+                assertTrue(page.path("next_offset").isNull());
             }
             for (String path :
                     new String[] {
