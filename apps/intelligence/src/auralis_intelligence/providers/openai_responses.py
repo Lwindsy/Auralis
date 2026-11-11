@@ -1,6 +1,7 @@
 """Single-request Responses adapter. No hosted runtime, implicit retry or fallback."""
 
 import json
+from dataclasses import replace
 from typing import Any
 
 import httpx
@@ -95,7 +96,7 @@ class OpenAIResponsesAdapter:
             return raw
         reply = self._normalize(raw)
         if reply.finish != "COMPLETE":
-            return reply
+            return replace(reply, diagnostic={"category": "MODEL_FAILED", "finish": reply.finish})
         text = "".join(
             part["text"]
             for part in self._parts(raw)
@@ -103,22 +104,45 @@ class OpenAIResponsesAdapter:
         )
         try:
             output = json.loads(text)
-        except (ValueError, TypeError):
+        except (ValueError, TypeError) as error:
             return CallResult(
                 outcome=reply.outcome,
                 finish="ERROR",
                 usage=reply.usage,
                 provider_request_ref=reply.provider_request_ref,
                 service_tier=reply.service_tier,
-                diagnostic={"invalid_json_text": text[:4096]},
+                diagnostic={
+                    "category": "JSON_PARSE_FAILED",
+                    "line": getattr(error, "lineno", None),
+                    "column": getattr(error, "colno", None),
+                    "output_text_chars": len(text),
+                },
             )
-        if not Draft202012Validator(request.output_schema).is_valid(output):
+        error = next(Draft202012Validator(request.output_schema).iter_errors(output), None)
+        if error is not None:
             return CallResult(
                 output=output,
                 outcome=reply.outcome,
                 finish="ERROR",
                 usage=reply.usage,
                 provider_request_ref=reply.provider_request_ref,
+                diagnostic={
+                    "category": "SCHEMA_VALIDATION_FAILED",
+                    "validator": error.validator,
+                    "schema_path": list(error.absolute_schema_path),
+                    "schema_errors": [
+                        {
+                            "validator": item.validator,
+                            "schema_path": list(item.absolute_schema_path),
+                            "missing_required": [
+                                name for name in item.validator_value if name not in item.instance
+                            ]
+                            if item.validator == "required" and isinstance(item.instance, dict)
+                            else [],
+                        }
+                        for item in [error, *error.context[:4]]
+                    ],
+                },
             )
         return CallResult(
             output,

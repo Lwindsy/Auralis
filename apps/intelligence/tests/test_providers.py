@@ -85,6 +85,19 @@ def test_model_normal_structured_truncated_refused_and_invalid(raw, finish):
             result = await adapter.complete(BINDING, REQUEST)
         assert result.finish == finish and result.outcome == "COMPLETED"
         assert result.usage.cached_input_tokens == 2
+        if finish != "COMPLETE":
+            expected = (
+                "JSON_PARSE_FAILED"
+                if raw == response(text="not-json")
+                else "SCHEMA_VALIDATION_FAILED"
+                if raw == response(text='{"score": 9}')
+                else "MODEL_FAILED"
+            )
+            assert result.diagnostic["category"] == expected
+            assert "invalid_json_text" not in result.diagnostic
+            if expected == "SCHEMA_VALIDATION_FAILED":
+                assert result.diagnostic["validator"] == "maximum"
+                assert result.diagnostic["schema_path"] == ["properties", "score", "maximum"]
         assert result.output == (
             {"score": 4}
             if finish == "COMPLETE"
@@ -283,6 +296,41 @@ def test_gateway_uses_bound_model_authorization_and_retains_invocation_id(tmp_pa
         assert rows[1]["output"] == result.output
         assert rows[1]["outcome"] == result.outcome
         assert rows[0]["invocation_id"] == result.invocation_id
+        await execution.cleanup()
+
+    asyncio.run(run())
+
+
+def test_safe_failure_log_correlates_call_without_model_text(caplog):
+    async def run():
+        execution, _ = web_execution()
+
+        async def handler(request):
+            return httpx.Response(200, json=response(text="PRIVATE_RESPONSE_AND_SECRET"))
+
+        async with OpenAIResponsesAdapter(
+            "synthetic-key", transport=httpx.MockTransport(handler), test_transport=True
+        ) as adapter:
+            result = await ModelGateway(adapter, {BINDING.ref: BINDING}).generate(
+                execution,
+                role="screen",
+                purpose="SCREEN",
+                system="PRIVATE_PROMPT",
+                input={"private": "PRIVATE_INPUT"},
+                output_schema=OUTPUT_SCHEMA,
+                prompt_version="screen.v1",
+            )
+        assert result.invocation_id in caplog.text
+        assert "JSON_PARSE_FAILED" in caplog.text
+        assert all(
+            secret not in caplog.text
+            for secret in (
+                "PRIVATE_RESPONSE_AND_SECRET",
+                "PRIVATE_PROMPT",
+                "PRIVATE_INPUT",
+                "synthetic-key",
+            )
+        )
         await execution.cleanup()
 
     asyncio.run(run())
