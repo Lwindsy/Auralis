@@ -858,6 +858,17 @@ public class PostgresPublicationAuthority implements PublicationAuthority {
                             row.get("content") == null
                                     ? JSON.nullNode()
                                     : json((String) row.get("content")));
+                    if ("NEEDS_MORE_RESEARCH".equals(row.get("state"))
+                            && out.path("status").asText().equals("FAILED")
+                            && "FAILED"
+                                    .equals(
+                                            jdbc.queryForObject(
+                                                    "SELECT screening#>>'{screen,status}' FROM discovery.round_candidate WHERE round_id=? AND candidate_id=?",
+                                                    String.class,
+                                                    r,
+                                                    candidate))) {
+                        out.put("message_key", "RESEARCH_FAILED");
+                    }
                     if (!schema.validDefinition("LongReviewView", out))
                         fail("INVALID_LONG_REVIEW_STATE");
                     return out.toString();
@@ -1543,6 +1554,8 @@ public class PostgresPublicationAuthority implements PublicationAuthority {
     }
 
     private String liveLongState(Scope scope, String run, String state) {
+        if (state.equals("NEEDS_MORE_RESEARCH") && !discovery.physicalWork(scope, run))
+            return "FAILED";
         if (!state.equals("GENERATING")) return state;
         var status = queue.status(scope, run).status();
         return !Set.of("WAITING", "DISPATCHING").contains(status)

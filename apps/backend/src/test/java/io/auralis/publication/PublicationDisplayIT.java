@@ -23,6 +23,32 @@ import org.springframework.boot.*;
 @EnabledIfEnvironmentVariable(named = "AURALIS_TEST_POSTGRES_URL", matches = ".+")
 class PublicationDisplayIT extends PublicationFixture {
     @Test
+    void endedResearchIsRetryableAndTechnicalFailureIsNotMaterialShortage() throws Exception {
+        var f = flow(1);
+        publish(f, 1);
+        String round = f.context().execution().evidence().round();
+        jdbc.update(
+                "UPDATE discovery.long_review SET state='NEEDS_MORE_RESEARCH',reason='REVIEW_MATERIAL_INSUFFICIENT',revision=revision+1 WHERE round_id=?",
+                round);
+        assertEquals(
+                "NEEDS_MORE_RESEARCH",
+                JSON.readTree(publication.longReview(latest(f), round, album(1)))
+                        .path("status")
+                        .asText());
+        release();
+        var shortage = JSON.readTree(publication.longReview(latest(f), round, album(1)));
+        assertEquals("FAILED", shortage.path("status").asText());
+        assertEquals("REVIEW_MATERIAL_INSUFFICIENT", shortage.path("message_key").asText());
+        jdbc.update(
+                "UPDATE discovery.round_candidate SET screening=jsonb_set(screening,'{screen,status}','\"FAILED\"'::jsonb) WHERE round_id=? AND candidate_id=?",
+                round,
+                album(1));
+        var failure = JSON.readTree(publication.longReview(latest(f), round, album(1)));
+        assertEquals("FAILED", failure.path("status").asText());
+        assertEquals("RESEARCH_FAILED", failure.path("message_key").asText());
+    }
+
+    @Test
     void completedPhysicalWorkCannotLeaveSupplySpinnerRunning() throws Exception {
         var f = flow(1);
         publish(f, 1);
