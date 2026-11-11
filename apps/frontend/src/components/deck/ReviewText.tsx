@@ -1,4 +1,5 @@
 import { Fragment } from "react";
+import { useCopy } from "../../i18n/index.ts";
 
 const MARKER = /\[(R[1-9][0-9]*)\]/g;
 
@@ -26,6 +27,7 @@ export function ReviewText({
 }
 
 export function Inline({ text }: { text: string }) {
+  const words = useCopy().review;
   const parts: (string | { marker: string })[] = [];
   let last = 0;
   for (const match of text.matchAll(MARKER)) {
@@ -40,7 +42,7 @@ export function Inline({ text }: { text: string }) {
         typeof part === "string" ? (
           <Fragment key={index}>{part}</Fragment>
         ) : (
-          <sup key={index} className="cite" title={`资料 ${part.marker}`}>
+          <sup key={index} className="cite" title={words.source(part.marker)}>
             {part.marker}
           </sup>
         ),

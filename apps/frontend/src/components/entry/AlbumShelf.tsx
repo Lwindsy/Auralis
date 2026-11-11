@@ -6,7 +6,9 @@ import {
   type CSSProperties,
 } from "react";
 import type { Api } from "../../api/client.ts";
+import { message } from "../../api/messages.ts";
 import type { AlbumSearchResult, CatalogAlbum } from "../../api/types.ts";
+import { useCopy } from "../../i18n/index.ts";
 import { coverUrl } from "../../state/covers.ts";
 import { albumSeed } from "../../lib/cover.ts";
 import { useDebounced } from "../../state/hooks.ts";
@@ -37,6 +39,7 @@ export function AlbumShelf({
 }) {
   const [query, setQuery] = useState("");
   const [immediate, setImmediate] = useState<string | null>(null);
+  const words = useCopy().albums;
   const debounced = useDebounced(query.trim(), 380);
   const effective = immediate ?? debounced;
   const load = useCallback(
@@ -81,8 +84,8 @@ export function AlbumShelf({
     <div className="albums">
       <SearchField
         id="albums-query"
-        label="查找专辑"
-        placeholder="搜索艺人或专辑名"
+        label={words.search}
+        placeholder={words.placeholder}
         value={query}
         onChange={(value) => {
           setQuery(value);
@@ -96,16 +99,14 @@ export function AlbumShelf({
         aria-busy={pages.status === "loading"}
       >
         {full ? (
-          <p className="albums__message">最多选择 {MAX_ALBUMS} 张专辑。</p>
+          <p className="albums__message">{words.full(MAX_ALBUMS)}</p>
         ) : null}
         {!effective ? (
-          <p className="albums__message albums__message--hint">
-            输入艺人或专辑名，结果会排成一墙唱片。
-          </p>
+          <p className="albums__message albums__message--hint">{words.hint}</p>
         ) : pages.status === "loading" || pages.status === "idle" ? (
           <ul
             className="shelf shelf--loading"
-            aria-label="正在查询…"
+            aria-label={words.searching}
             role="status"
           >
             {Array.from({ length: 8 }, (_, i) => (
@@ -118,20 +119,20 @@ export function AlbumShelf({
           </ul>
         ) : pages.status === "error" ? (
           <p className="albums__message" role="alert">
-            {pages.error}{" "}
+            {message(pages.error)}{" "}
             <button type="button" className="text-link" onClick={pages.retry}>
-              重试搜索
+              {words.retry}
             </button>
           </p>
         ) : !pages.items.length ? (
-          <p className="albums__message">没有匹配结果。</p>
+          <p className="albums__message">{words.noMatch}</p>
         ) : (
           <QuietScroll className="shelf-frame">
             <ul
               ref={shelf}
               className="shelf quiet-scroll"
               role="list"
-              aria-label="专辑搜索结果"
+              aria-label={words.results}
             >
               {pages.items.map((album, index) => {
                 const id = album.mb_release_group_id;
@@ -153,7 +154,7 @@ export function AlbumShelf({
                     <button
                       type="button"
                       className="sleeve__button"
-                      aria-label={added ? `已添加${name}` : `添加${name}`}
+                      aria-label={added ? words.added(name) : words.add(name)}
                       aria-pressed={added}
                       disabled={locked || added || full}
                       onClick={() => onAdd(album)}
@@ -172,7 +173,7 @@ export function AlbumShelf({
                       <span className="sleeve__title">{title}</span>
                       <span className="sleeve__artist">{artist_credit}</span>
                       <span className="sleeve__year mono">
-                        {first_release_year ?? "年份未知"}
+                        {first_release_year ?? words.yearUnknown}
                         {release_type ? ` · ${release_type}` : ""}
                       </span>
                     </button>

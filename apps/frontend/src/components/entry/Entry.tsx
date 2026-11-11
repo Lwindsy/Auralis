@@ -24,6 +24,7 @@ import {
   emptyInput,
   hasInput,
 } from "../../state/input.ts";
+import { useCopy } from "../../i18n/index.ts";
 import { labels } from "../../state/labels.ts";
 import { Icon } from "../Icon.tsx";
 import { AlbumShelf } from "./AlbumShelf.tsx";
@@ -41,18 +42,6 @@ import { Reach } from "./Reach.tsx";
 
 export type Door = "text" | "genres" | "albums";
 const DOORS: Door[] = ["text", "genres", "albums"];
-
-const FACE: Record<Door, { label: string; hint: string }> = {
-  text: { label: "说说想听什么", hint: "一句话，心情、场景或听感都行" },
-  genres: { label: "风格", hint: "挑喜欢的，或标出想避开的" },
-  albums: { label: "专辑", hint: "找几张喜欢的作参照" },
-};
-
-const EXAMPLES = [
-  "下雨的周末下午，想听爵士钢琴",
-  "适合深夜开车的电子乐，别太吵",
-  "像《In Rainbows》那样温暖、带点忧郁",
-];
 
 export interface EntryProps {
   api: Api;
@@ -87,6 +76,8 @@ export function Entry({
     structuredClone(saved ?? draftFrom(initial ?? emptyInput())),
   );
   const [active, setActive] = useState<Door | null>(null);
+  const words = useCopy();
+  const FACE = words.entry.doors;
   const draft = form.input;
 
   useEffect(() => {
@@ -288,8 +279,8 @@ export function Entry({
         <div className="words">
           <textarea
             className="words__input"
-            aria-label="这次想听的音乐"
-            placeholder="比如：下雨的周末下午，想听爵士钢琴"
+            aria-label={words.entry.textLabel}
+            placeholder={words.entry.textPlaceholder}
             value={draft.request_text}
             aria-invalid={tooLong || undefined}
             autoFocus
@@ -312,12 +303,15 @@ export function Entry({
           />
           {tooLong ? (
             <p className="words__error">
-              最多 {MAX_TEXT} 个字符，当前 {length}。
+              {words.entry.tooLong(MAX_TEXT, length)}
             </p>
           ) : null}
           {!draft.request_text ? (
-            <div className="words__examples" aria-label="试试这样说">
-              {EXAMPLES.map((text, index) => (
+            <div
+              className="words__examples"
+              aria-label={words.entry.examplesLabel}
+            >
+              {words.entry.examples.map((text, index) => (
                 <button
                   key={text}
                   type="button"
@@ -339,13 +333,21 @@ export function Entry({
     if (door === "genres")
       return (
         <>
-          <Chips items={genreChips} handlers={chipHandlers} label="已选风格" />
+          <Chips
+            items={genreChips}
+            handlers={chipHandlers}
+            label={words.entry.pickedGenres}
+          />
           <GenrePanel api={api} handlers={genreHandlers} />
         </>
       );
     return (
       <>
-        <Chips items={albumChips} handlers={chipHandlers} label="已选专辑" />
+        <Chips
+          items={albumChips}
+          handlers={chipHandlers}
+          label={words.entry.pickedAlbums}
+        />
         <AlbumShelf
           api={api}
           selected={albums}
@@ -386,13 +388,11 @@ export function Entry({
             />
           </svg>
         </h1>
-        <p className="entry__hint">
-          不知道想听什么？在这里表达自己，得到属于你的配乐
-        </p>
+        <p className="entry__hint">{words.entry.hint}</p>
         {notice}
         {onResume ? (
           <button type="button" className="entry__resume" onClick={onResume}>
-            回到刚才的推荐
+            {words.entry.resume}
             <Icon name="arrowRight" size={15} />
           </button>
         ) : null}
@@ -416,7 +416,7 @@ export function Entry({
                 aria-label={
                   FACE[door].label +
                   (counts[door] && door !== "text"
-                    ? `，已选 ${counts[door]}`
+                    ? words.entry.selectedCount(counts[door])
                     : "")
                 }
                 aria-expanded={state === "open"}
@@ -429,20 +429,18 @@ export function Entry({
                   <span className="face__label">{FACE[door].label}</span>
                   <span className="face__hint">
                     {door === "text" && preview
-                      ? `“${preview}”`
+                      ? words.entry.quote(preview)
                       : FACE[door].hint}
                   </span>
                 </span>
                 <span className="face face--open" aria-hidden="true">
                   <Glyph kind={door} />
                   <span className="face__label">{FACE[door].label}</span>
-                  <span className="face__fold">收起</span>
+                  <span className="face__fold">{words.entry.fold}</span>
                 </span>
                 <span className="face face--spine" aria-hidden="true">
                   <Glyph kind={door} />
-                  <span className="face__spine">
-                    {door === "text" ? "说说" : FACE[door].label}
-                  </span>
+                  <span className="face__spine">{words.entry.spine[door]}</span>
                 </span>
                 {counts[door] && door !== "text" ? (
                   <span className="door__count mono" aria-hidden="true">
@@ -480,7 +478,7 @@ export function Entry({
         <button
           type="button"
           className="go"
-          aria-label="开始发现"
+          aria-label={words.entry.start}
           data-ready={canSubmit || undefined}
           disabled={!canSubmit}
           aria-busy={locked || undefined}

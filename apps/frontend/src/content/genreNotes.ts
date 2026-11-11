@@ -1,7 +1,11 @@
 // Short editorial notes for common genres, shown in the hover card on the entry page.
 // The catalogue has no description field yet, so these are hand-written, general and kept
 // deliberately plain; genres without a note fall back to their catalogue relationships.
-// Keys are normalised names (see `noteKey`).
+// Keys are normalised names (see `noteKey`). English versions live in `genreNotes.en.ts`
+// under the same keys.
+
+import { i18n, type Locale } from "../i18n/index.ts";
+import { NOTES_EN } from "./genreNotes.en.ts";
 
 const NOTES: Record<string, string> = {
   rock: "以电吉他、贝斯和鼓为骨架的流行音乐大家族，从布鲁斯与摇滚乐发展而来，分支极多。",
@@ -166,5 +170,13 @@ export const noteKey = (name: string) =>
     .replace(/\s+/g, " ")
     .trim();
 
-export const genreNote = (name: string): string | null =>
-  NOTES[noteKey(name)] ?? null;
+const BY_LOCALE: Record<Locale, Record<string, string>> = {
+  "zh-CN": NOTES,
+  en: NOTES_EN,
+};
+
+/** The note for a genre in the page's current language, or null when there is none. */
+export const genreNote = (
+  name: string,
+  locale: Locale = i18n.locale,
+): string | null => BY_LOCALE[locale][noteKey(name)] ?? null;

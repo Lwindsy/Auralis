@@ -8,6 +8,7 @@ import {
 import { ApiError } from "../../api/client.ts";
 import { message } from "../../api/messages.ts";
 import type { ProductState } from "../../api/types.ts";
+import { copy, useCopy } from "../../i18n/index.ts";
 import type { DiscoveryController } from "../../state/controller.ts";
 import {
   freshDeck,
@@ -54,11 +55,12 @@ const TRANSIENT = new Set([
 const sleep = (ms: number) => new Promise((done) => setTimeout(done, ms));
 
 function emptyCopy(state: ProductState) {
-  if (state.supply_state === "FINAL_EXHAUSTED") return "这次的候选都听完了";
-  if (state.status === "NO_MATCH") return "这次没找到合适的专辑";
+  const words = copy().deck;
+  if (state.supply_state === "FINAL_EXHAUSTED") return words.exhausted;
+  if (state.status === "NO_MATCH") return words.noMatch;
   if (state.status === "FAILED" || state.status === "INTERRUPTED")
-    return message(state.message_key, "这次推荐没能完成");
-  return "这一组听完了";
+    return message(state.message_key, words.failed);
+  return words.done;
 }
 
 /**
@@ -78,6 +80,7 @@ export function Deck({
   onMore,
 }: DeckProps) {
   useStore(controller);
+  const words = useCopy().deck;
   const [entries, setEntries] = useState<DeckEntry[]>(() => freshDeck(state));
   const [index, setIndex] = useState(0);
   const [dir, setDir] = useState<"next" | "prev">("next");
@@ -308,17 +311,17 @@ export function Deck({
         <div className="cut__words">
           <GenreWave card={entry.card} />
           {state.analysis_mode === "BASIC" ? (
-            <p className="basic-note">基础推荐 · 本次个性化未完成</p>
+            <p className="basic-note">{words.basic}</p>
           ) : null}
           <Reviews
             card={entry.card}
             review={review}
             delay={leaving ? 0 : 1250}
           />
-          <div className="reacts" role="group" aria-label="你的感受">
+          <div className="reacts" role="group" aria-label={words.feelings}>
             <Reaction
               kind="like"
-              label="我喜欢！"
+              label={words.like}
               done={feeling === "like"}
               resting={resting}
               settling={settles("like")}
@@ -335,7 +338,7 @@ export function Deck({
             />
             <Reaction
               kind="meh"
-              label="一般般"
+              label={words.meh}
               done={feeling === "meh"}
               resting={resting}
               settling={settles("meh")}
@@ -352,7 +355,7 @@ export function Deck({
             />
             <Reaction
               kind="heard"
-              label="听过了"
+              label={words.heard}
               done={entry.heard}
               resting={resting}
               settling={settles("heard")}
@@ -360,9 +363,9 @@ export function Deck({
               title={
                 entry.heard
                   ? undoable
-                    ? "再点一次撤回"
-                    : "已记为听过"
-                  : "记为听过，之后不再推荐"
+                    ? words.undoHeard
+                    : words.heardKept
+                  : words.markHeard
               }
               onToggle={() => void heard(entry)}
             />
@@ -377,18 +380,18 @@ export function Deck({
     busy && position === last ? (
       <div className="tail tail--supply" role="status">
         <MiniWave bars={11} live className="tail__wave" />
-        <p>正在再找一张</p>
+        <p>{words.supplying}</p>
       </div>
     ) : (
-      <div className="tail finale" role="group" aria-label="接下来">
+      <div className="tail finale" role="group" aria-label={words.next}>
         <p className="finale__lead">
-          {entries.length ? "这一组听完了" : emptyCopy(state)}
+          {entries.length ? words.done : emptyCopy(state)}
         </p>
         <div className="finale__choices">
           <button type="button" className="choice" onClick={onRethink}>
             <MiniWave bars={13} calm className="choice__wave" />
-            <span className="choice__eyebrow">不满意？</span>
-            <span className="choice__title">换一些想法吧</span>
+            <span className="choice__eyebrow">{words.unhappy}</span>
+            <span className="choice__title">{words.rethink}</span>
           </button>
           <button
             type="button"
@@ -397,8 +400,8 @@ export function Deck({
             onClick={onMore}
           >
             <MiniWave bars={13} live className="choice__wave" />
-            <span className="choice__eyebrow">同样的需求</span>
-            <span className="choice__title">再给我来一些</span>
+            <span className="choice__eyebrow">{words.same}</span>
+            <span className="choice__title">{words.more}</span>
           </button>
         </div>
         {basic && entries.length ? (
@@ -411,25 +414,25 @@ export function Deck({
               void controller.action("rescreen");
             }}
           >
-            按原需求重新复筛
+            {words.rescreen}
           </button>
         ) : null}
       </div>
     );
 
   return (
-    <section className="deck" aria-label="推荐">
+    <section className="deck" aria-label={words.label}>
       <button
         type="button"
         className="edge edge--prev"
-        aria-label="上一张"
+        aria-label={words.prev}
         disabled={position === 0}
         onClick={() => go(position - 1)}
       >
         <svg viewBox="0 0 24 64" aria-hidden="true">
           <path d="M18 8 6 32l12 24" />
         </svg>
-        <span>上一张</span>
+        <span>{words.prev}</span>
       </button>
       <div className="deck__stage" data-dir={dir}>
         {ghost ? spread(ghost.entry, ghost.dir) : null}
@@ -438,16 +441,16 @@ export function Deck({
       <button
         type="button"
         className="edge edge--next"
-        aria-label="下一张"
+        aria-label={words.forward}
         disabled={position >= last}
         onClick={() => go(position + 1)}
       >
         <svg viewBox="0 0 24 64" aria-hidden="true">
           <path d="M6 8l12 24L6 56" />
         </svg>
-        <span>下一张</span>
+        <span>{words.forward}</span>
       </button>
-      <ol className="pips" aria-label="位置">
+      <ol className="pips" aria-label={words.position}>
         {entries.map((entry, i) => (
           <li
             key={entry.candidateId}
@@ -457,7 +460,7 @@ export function Deck({
           >
             <button
               type="button"
-              aria-label={`第 ${i + 1} 张`}
+              aria-label={words.nth(i + 1)}
               aria-current={i === position || undefined}
               onClick={() => go(i)}
             />
@@ -468,7 +471,11 @@ export function Deck({
           data-tail
           style={{ "--i": entries.length } as CSSProperties}
         >
-          <button type="button" aria-label="接下来" onClick={() => go(last)} />
+          <button
+            type="button"
+            aria-label={words.next}
+            onClick={() => go(last)}
+          />
         </li>
       </ol>
     </section>

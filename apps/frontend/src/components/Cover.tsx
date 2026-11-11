@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useCopy } from "../i18n/index.ts";
 import { coverArt } from "../lib/cover.ts";
 import { coverUrl, useCover, type LoadedCover } from "../state/covers.ts";
 
@@ -27,6 +28,7 @@ export function Cover({
   size = "card",
   className,
 }: CoverProps) {
+  const words = useCopy();
   const element = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
   const requestUrl =
@@ -66,7 +68,7 @@ export function Cover({
         <img
           key={image.url}
           src={image.url}
-          alt={`${title} 封面`}
+          alt={words.cover.alt(title)}
           decoding="async"
           referrerPolicy="no-referrer"
         />

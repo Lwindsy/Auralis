@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { ProductState } from "../../api/types.ts";
+import { useCopy } from "../../i18n/index.ts";
 import { Drum } from "./Drum.tsx";
 
 const clock = (ms: number) => {
@@ -22,6 +23,7 @@ export function Waiting({
   settling: boolean;
   onSettled: () => void;
 }) {
+  const words = useCopy().waiting;
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     if (settling) return;
@@ -29,20 +31,25 @@ export function Waiting({
     return () => clearInterval(timer);
   }, [settling]);
   const queued = state?.status === "WAITING";
-  const title = settling ? "挑好了" : queued ? "排队中" : "正在挑选";
-  const detail = settling
-    ? "马上就来"
+  const title = settling
+    ? words.settling
     : queued
-      ? `轮到你时会自动开始 · ${clock(now - since)}`
-      : `已等待 ${clock(now - since)}`;
+      ? words.queued
+      : words.working;
+  const detail = settling
+    ? words.soon
+    : queued
+      ? words.queuedFor(clock(now - since))
+      : words.waited(clock(now - since));
   return (
-    <section className="waiting" aria-live="polite" aria-label="正在推荐">
+    <section className="waiting" aria-live="polite" aria-label={words.label}>
       <Drum settling={settling} onSettled={onSettled} />
       <div className="waiting__text">
         <p className="waiting__title" key={title}>
+          {/* Each letter rises on its own; spaces are kept as fixed gaps between them. */}
           {[...title].map((char, i) => (
             <span key={i} style={{ animationDelay: `${i * 45}ms` }}>
-              {char}
+              {char === " " ? "\u00a0" : char}
             </span>
           ))}
         </p>

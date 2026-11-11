@@ -1,3 +1,4 @@
+import { useCopy } from "../../i18n/index.ts";
 import { Icon } from "../Icon.tsx";
 
 export function SearchField({
@@ -15,6 +16,7 @@ export function SearchField({
   onChange: (value: string) => void;
   onSubmit: () => void;
 }) {
+  const words = useCopy();
   return (
     <div className="search-field">
       <label htmlFor={id} className="visually-hidden">
@@ -42,7 +44,7 @@ export function SearchField({
         <button
           type="button"
           className="search-field__clear"
-          aria-label="清空搜索"
+          aria-label={words.search.clear}
           onClick={() => onChange("")}
         >
           <Icon name="close" size={14} />

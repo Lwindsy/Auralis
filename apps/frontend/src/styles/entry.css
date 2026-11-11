@@ -329,6 +329,10 @@
   font-weight: 400;
 }
 
+.face__spine:lang(en) {
+  letter-spacing: 0.24em;
+}
+
 .door__count {
   position: absolute;
   top: 18px;
@@ -1220,6 +1224,7 @@
 
 .modes {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 6px;
   min-width: 0;
 }
@@ -1243,6 +1248,11 @@
   transition:
     color 500ms var(--ease-out-expo),
     transform 600ms var(--ease-spring);
+}
+
+/* Latin words read better lightly tracked than spaced out like single characters. */
+.mode:lang(en) {
+  letter-spacing: 0.05em;
 }
 
 .mode:hover {
@@ -1460,6 +1470,11 @@
 
 .reach__zones li:first-child {
   border-left-color: transparent;
+}
+
+/* English band names may need a second line in the narrow 30% bands. */
+.reach__zones li:lang(en) {
+  white-space: normal;
 }
 
 .reach__zones .mono {
@@ -1687,5 +1702,11 @@
   .dock .go {
     grid-column: 2;
     grid-row: 1;
+  }
+  .modes__row:lang(en) {
+    column-gap: 18px;
+  }
+  .mode:lang(en) {
+    font-size: 17px;
   }
 }

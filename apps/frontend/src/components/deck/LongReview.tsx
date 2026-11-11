@@ -2,9 +2,9 @@ import { useLayoutEffect, useRef, useState } from "react";
 import { message } from "../../api/messages.ts";
 import type { ProductCard } from "../../api/types.ts";
 import { useStore } from "../../state/hooks.ts";
+import { useCopy } from "../../i18n/index.ts";
 import {
   ACTIVE_REVIEW,
-  FAILURE_LABELS,
   type LongReviewController,
 } from "../../state/review.ts";
 import { QuietScroll } from "../QuietScroll.tsx";
@@ -43,6 +43,7 @@ export function Reviews({
   delay?: number;
 }) {
   useStore(review);
+  const words = useCopy().review;
   const open = review.isOpen && review.card?.candidate_id === card.candidate_id;
   const status = open ? (review.view?.status ?? card.long_review_state) : null;
   const sections = open ? review.view?.review?.sections : null;
@@ -100,7 +101,7 @@ export function Reviews({
             autoplay
             startDelay={delay}
             pace={20}
-            label="短评"
+            label={words.short}
             className="track--lead"
           />
         </div>
@@ -139,14 +140,14 @@ export function Reviews({
         >
           {waiting ? <MiniWave bars={7} live /> : null}
           <span>
-            {expanded ? "收起长评" : waiting ? "长评写作中" : "读长评"}
+            {expanded ? words.close : waiting ? words.writing : words.open}
           </span>
         </button>
         {failed && status ? (
           <span className="reviews__failed" role="status">
-            {FAILURE_LABELS[status] ?? "长评暂不可用"}
+            {words.failures[status] ?? words.unavailable}
             {review.view?.message_key
-              ? `：${message(review.view.message_key, "")}`
+              ? words.detail(message(review.view.message_key, ""))
               : ""}
             <button
               type="button"
@@ -154,7 +155,7 @@ export function Reviews({
               disabled={review.busy}
               onClick={() => void review.write("regenerate")}
             >
-              重新生成
+              {words.regenerate}
             </button>
           </span>
         ) : null}
@@ -171,7 +172,7 @@ export function Reviews({
                   : void review.read()
               }
             >
-              再试一次
+              {words.again}
             </button>
           </span>
         ) : null}

@@ -4,20 +4,38 @@ type ViewTransitionDocument = Document & {
   startViewTransition?: (update: () => void) => { finished: Promise<void> };
 };
 
+const reducedMotion = () =>
+  !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+
 /**
  * Runs a page-level state change inside a View Transition so whole scenes cross over
- * instead of cutting. Without the API, or with reduced motion, the change just happens.
+ * instead of cutting. `kind` names the change on the root element while it runs, so
+ * styles can give it its own timing (a language switch fades longer and keeps the switch
+ * itself live). Without the API, a named change gets a light fade-in instead; with
+ * reduced motion, the change just happens.
  */
-export function withViewTransition(update: () => void) {
+export function withViewTransition(update: () => void, kind?: string) {
   const doc = document as ViewTransitionDocument;
-  if (
-    !doc.startViewTransition ||
-    window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
-  ) {
+  const root = document.documentElement;
+  if (reducedMotion()) {
     update();
     return;
   }
-  doc.startViewTransition(() => flushSync(update));
+  if (!doc.startViewTransition) {
+    update();
+    if (kind) {
+      root.removeAttribute("data-refade");
+      void root.offsetWidth;
+      root.setAttribute("data-refade", kind);
+    }
+    return;
+  }
+  if (kind) root.dataset.transition = kind;
+  const transition = doc.startViewTransition(() => flushSync(update));
+  if (kind)
+    void transition.finished.finally(() => {
+      if (root.dataset.transition === kind) delete root.dataset.transition;
+    });
 }
 
 /** The page chrome follows the colour of the room (the album on the platter). */

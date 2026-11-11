@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useCopy } from "../../i18n/index.ts";
 import { reachToListeners } from "../../state/draft.ts";
 
-/** Three bands of the scale and what each means; shown only while the slider is moved. */
+/** Three bands of the scale; what each means is shown only while the slider is moved. */
 const ZONES = [
-  { from: 0, to: 40, say: "除非你真的很小众" },
-  { from: 40, to: 70, say: "来点小火的" },
-  { from: 70, to: 100, say: "没人听的我也不听" },
+  { from: 0, to: 40 },
+  { from: 40, to: 70 },
+  { from: 70, to: 100 },
 ] as const;
 
 const zoneOf = (value: number) => (value < 40 ? 0 : value < 70 ? 1 : 2);
@@ -26,6 +27,7 @@ export function Reach({
   onChange: (value: number) => void;
 }) {
   const [active, setActive] = useState(false);
+  const words = useCopy().reach;
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => () => clearTimeout(timer.current), []);
   const show = () => {
@@ -46,7 +48,7 @@ export function Reach({
     >
       <div className="reach__head">
         <label className="reach__label" htmlFor="reach-input">
-          传播度
+          {words.label}
         </label>
         <span className="reach__value mono" aria-hidden="true">
           {value}
@@ -64,7 +66,9 @@ export function Reach({
           step={1}
           value={value}
           disabled={disabled}
-          aria-valuetext={`${value}%，${value === 0 ? "不限听众数" : `至少约 ${listeners} 位听众`}`}
+          aria-valuetext={
+            value === 0 ? words.anyone(value) : words.atLeast(value, listeners)
+          }
           onChange={(event) => onChange(Number(event.target.value))}
           onPointerDown={show}
           onPointerUp={() => hideSoon(700)}
@@ -97,7 +101,7 @@ export function Reach({
             <span className="mono">
               {item.from} – {item.to}%
             </span>
-            <span>{item.say}</span>
+            <span>{words.zones[index]}</span>
           </li>
         ))}
       </ol>

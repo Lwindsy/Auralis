@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { albumSeed, hash } from "../../lib/cover.ts";
+import { useCopy } from "../../i18n/index.ts";
 import { Cover } from "../Cover.tsx";
 import { useCover } from "../../state/covers.ts";
 
@@ -28,6 +29,7 @@ export function SlicedCover({
   artist: string;
   url: string | null;
 }) {
+  const words = useCopy();
   const seed = albumSeed(title, artist);
   const image = useCover(url);
   const base = hash(seed);
@@ -54,7 +56,7 @@ export function SlicedCover({
     <div
       className="sliced"
       role="img"
-      aria-label={`${title} 封面`}
+      aria-label={words.cover.alt(title)}
       data-rippling={rippling ? true : undefined}
       onPointerEnter={(event) => {
         if (event.pointerType !== "touch") ripple();

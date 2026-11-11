@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import type { ProductCard } from "../../api/types.ts";
 import { genreNote } from "../../content/genreNotes.ts";
+import { useCopy } from "../../i18n/index.ts";
 import { hash } from "../../lib/cover.ts";
 import { genreName } from "../../lib/text.ts";
 
@@ -30,6 +31,7 @@ function lens(x: number, focus: number, power: number) {
  */
 export function GenreWave({ card }: { card: ProductCard }) {
   const tags = card.identity.primary_genres.slice(0, 4);
+  const words = useCopy();
   const svg = useRef<SVGSVGElement>(null);
   const names = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState<number | null>(null);
@@ -150,9 +152,7 @@ export function GenreWave({ card }: { card: ProductCard }) {
         : { focus: (index + 0.5) / tags.length, power: POWER };
   };
   const tag = active === null ? null : tags[active];
-  const note = tag
-    ? (genreNote(tag.name) ?? "音乐目录给这张专辑标的风格，只是线索。")
-    : null;
+  const note = tag ? (genreNote(tag.name) ?? words.wave.fallback) : null;
 
   return (
     <div className="wave" data-active={active !== null || undefined}>
@@ -209,7 +209,7 @@ export function GenreWave({ card }: { card: ProductCard }) {
           ))}
         </div>
       </div>
-      <ul className="wave__keys" role="list" aria-label="目录风格标签">
+      <ul className="wave__keys" role="list" aria-label={words.wave.tags}>
         {tags.map((item, i) => (
           <li key={item.genre_id}>
             <button

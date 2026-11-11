@@ -72,6 +72,10 @@
     transform 620ms var(--ease-out-expo);
 }
 
+.edge span:lang(en) {
+  letter-spacing: 0.2em;
+}
+
 .edge:hover:not(:disabled) {
   opacity: 1;
 }
@@ -1087,6 +1091,17 @@
   font-size: clamp(30px, 3.4vw, 50px);
   font-weight: 200;
   letter-spacing: 0.08em;
+  text-wrap: balance;
+}
+
+/* English copy runs longer than the Chinese; it is tracked tighter so it keeps the
+   same measure. */
+.tail--supply p:lang(en) {
+  letter-spacing: 0.08em;
+}
+
+.finale__lead:lang(en) {
+  letter-spacing: 0.01em;
 }
 
 .finale__choices {
@@ -1143,6 +1158,10 @@
     no-repeat;
   padding-bottom: 4px;
   transition: background-size 520ms var(--ease-out-expo);
+}
+
+.choice__title:lang(en) {
+  letter-spacing: 0.02em;
 }
 
 .choice:hover:not(:disabled) .choice__title {

@@ -2,7 +2,7 @@
 
 [中文](README_ZH.md)
 
-Auralis aims to help you discover albums through genre preferences, favorite albums, or a description of what you want to hear. Provide at least one type of input, then explore short reviews and open detailed reviews when interested.
+Auralis aims to help you discover albums through genre preferences, favorite albums, or a description of what you want to hear. Provide at least one type of input, then explore short reviews and open detailed reviews when interested. The page switches between Chinese and English from the 中文 / EN toggle in the top-left corner; reviews are shown as the service returns them.
 
 ## Availability
 

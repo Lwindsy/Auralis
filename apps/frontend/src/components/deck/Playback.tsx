@@ -6,6 +6,7 @@ import {
   type KeyboardEvent,
   type PointerEvent,
 } from "react";
+import { useCopy } from "../../i18n/index.ts";
 
 const MARKER = /\[(R[1-9][0-9]*)\]/g;
 /** Characters per second used for the "length" shown at the end of the line. */
@@ -77,6 +78,7 @@ export function Playback({
   /** Called the first time the track reaches its end. */
   onEnd?: () => void;
 }) {
+  const words = useCopy().review;
   const parts = useMemo(() => split(text), [text]);
   const total = charCount(text);
   const root = useRef<HTMLDivElement>(null);
@@ -218,10 +220,10 @@ export function Playback({
           className="track__line"
           role="slider"
           tabIndex={0}
-          aria-label={`${label ?? "评论"}播放进度，可拖动`}
+          aria-label={words.progress(label ?? null)}
           aria-valuemin={0}
           aria-valuemax={100}
-          aria-valuetext="拖动或用方向键调整阅读进度"
+          aria-valuetext={words.scrub}
           onPointerDown={onDown}
           onPointerMove={onMove}
           onPointerUp={onUp}
@@ -246,7 +248,11 @@ export function Playback({
               ))}
             </Fragment>
           ) : (
-            <sup key={i} className="cite type" title={`资料 ${part.marker}`}>
+            <sup
+              key={i}
+              className="cite type"
+              title={words.source(part.marker)}
+            >
               {part.marker}
             </sup>
           ),
