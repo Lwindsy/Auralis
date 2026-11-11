@@ -4,7 +4,7 @@ type ViewTransitionDocument = Document & {
   startViewTransition?: (update: () => void) => { finished: Promise<void> };
 };
 
-const reducedMotion = () =>
+export const reducedMotion = () =>
   !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 
 /**
@@ -38,9 +38,28 @@ export function withViewTransition(update: () => void, kind?: string) {
     });
 }
 
-/** The page chrome follows the colour of the room (the album on the platter). */
+/** Fading copies of earlier rooms kept at once; older ones are dropped. */
+const MAX_FADES = 2;
+
+/**
+ * The page chrome follows the colour of the room (the album on the platter). The new
+ * colours apply at once; a copy of the old room's background is laid just above the new
+ * one and fades out on the compositor, so the change reads as a slow cross-fade without
+ * restyling or repainting the page on every frame.
+ */
 export function paintPage(room: string, ink: string) {
   const root = document.documentElement.style;
+  const previous = root.getPropertyValue("--page-room").trim();
+  if (previous && previous !== room && !reducedMotion() && document.body) {
+    const fade = document.createElement("div");
+    fade.className = "room-fade";
+    fade.setAttribute("aria-hidden", "true");
+    fade.style.setProperty("--page-room", previous);
+    fade.addEventListener("animationend", () => fade.remove(), { once: true });
+    document.body.prepend(fade);
+    const fades = document.querySelectorAll(".room-fade");
+    for (let i = MAX_FADES; i < fades.length; i++) fades[i]!.remove();
+  }
   root.setProperty("--page-room", room);
   root.setProperty("--page-ink", ink);
   let tag = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');

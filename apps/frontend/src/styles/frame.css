@@ -28,15 +28,19 @@
   --glass-strong: color-mix(in srgb, var(--page-room) 72%, var(--page-ink) 6%);
   --accent: #e0714f;
   --radius: 26px;
+  --room-change: 1100ms var(--ease-out-expo);
   color-scheme: dark;
-  transition:
-    --page-room 1100ms var(--ease-out-expo),
-    --page-ink 1100ms var(--ease-out-expo);
 }
 
 /* The room is never a flat fill: a warm light from the upper right, a cooler pool in
-   the lower left and a soft vignette, all derived from the room colour. */
-body {
+   the lower left and a soft vignette, all derived from the room colour.
+
+   A new room takes effect at once; the change is softened by a copy of the old room
+   (.room-fade, added by paintPage) that sits just above this background and fades out on
+   the compositor. Nothing on the page is restyled or repainted frame by frame, which a
+   transition of the room colours themselves would force on every element. */
+body,
+.room-fade {
   background:
     radial-gradient(
       90% 70% at 88% 6%,
@@ -57,6 +61,25 @@ body {
   background-attachment: fixed;
   color: var(--page-ink);
 }
+
+.room-fade {
+  position: fixed;
+  z-index: -1;
+  inset: 0;
+  pointer-events: none;
+  animation: room-fade var(--room-change) forwards;
+}
+
+@keyframes room-fade {
+  to {
+    opacity: 0;
+  }
+}
+
+/* The few parts that stay in place while the room changes (the canvas, brand, language
+   switch, edges and position pips) ease into the new colours on their own; the canvas
+   reads its line colour from its own CSS colour. Everything else is either cross-fading
+   with the album or arrives after the change. */
 
 ::selection {
   background: var(--page-ink);
@@ -83,6 +106,7 @@ body {
     #000 75%
   );
   animation: fade 2400ms ease 200ms both;
+  transition: color var(--room-change);
 }
 
 /* Scroll areas: the browser's bar is switched off entirely; QuietScroll draws a slim
@@ -179,6 +203,9 @@ body {
   font-family: var(--font-mono);
   font-size: 11px;
   white-space: nowrap;
+  transition:
+    color var(--room-change),
+    background-color var(--room-change);
   max-width: calc(100vw - 24px);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -210,6 +237,7 @@ body {
   white-space: nowrap;
   transition:
     opacity 600ms ease,
+    color var(--room-change),
     max-width 760ms var(--ease-out-expo),
     margin-right 760ms var(--ease-out-expo);
 }
@@ -232,10 +260,12 @@ body {
   padding: var(--lang-pad);
   border: 1px solid var(--ink-20);
   border-radius: 999px;
-  background: var(--glass);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  transition: border-color 300ms ease;
+  /* An opaque tint instead of a backdrop blur: the land behind moves every frame, and a
+     blur would have to be recomputed each time. */
+  background: color-mix(in srgb, var(--page-room) 82%, var(--page-ink) 6%);
+  transition:
+    border-color 300ms ease,
+    background-color var(--room-change);
 }
 
 .lang:hover {

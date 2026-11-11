@@ -3,6 +3,7 @@ import {
   useEffect,
   useMemo,
   useRef,
+  type CSSProperties,
   type KeyboardEvent,
   type PointerEvent,
 } from "react";
@@ -65,6 +66,7 @@ export function Playback({
   className,
   autoplay = false,
   startDelay = 0,
+  still = false,
   onEnd,
 }: {
   text: string;
@@ -75,6 +77,8 @@ export function Playback({
   /** Start playing (once) when this turns true, after `startDelay` ms. */
   autoplay?: boolean;
   startDelay?: number;
+  /** Show the whole text at once, with no clock or per-character markup. */
+  still?: boolean;
   /** Called the first time the track reaches its end. */
   onEnd?: () => void;
 }) {
@@ -90,7 +94,7 @@ export function Playback({
 
   useEffect(() => {
     const element = root.current;
-    if (!element) return;
+    if (!element || still) return;
     const chars = [...element.querySelectorAll<HTMLElement>(".type")];
     const count = chars.length;
     let shown = 0;
@@ -153,7 +157,7 @@ export function Playback({
       cancelAnimationFrame(frame);
       engine.current = null;
     };
-  }, [parts, pace]);
+  }, [parts, pace, still]);
 
   useEffect(() => {
     if (!autoplay) return;
@@ -212,7 +216,8 @@ export function Playback({
     <div
       ref={root}
       className={["track", className ?? ""].join(" ")}
-      data-state="paused"
+      data-state={still ? "done" : "paused"}
+      style={still ? ({ "--q": 1 } as CSSProperties) : undefined}
     >
       <div className="track__head">
         {label ? <span className="track__label mono">{label}</span> : null}
@@ -240,17 +245,21 @@ export function Playback({
       <p className="track__text">
         {parts.map((part, i) =>
           typeof part === "string" ? (
-            <Fragment key={i}>
-              {[...part].map((char, j) => (
-                <span key={j} className="type">
-                  {char}
-                </span>
-              ))}
-            </Fragment>
+            still ? (
+              <Fragment key={i}>{part}</Fragment>
+            ) : (
+              <Fragment key={i}>
+                {[...part].map((char, j) => (
+                  <span key={j} className="type">
+                    {char}
+                  </span>
+                ))}
+              </Fragment>
+            )
           ) : (
             <sup
               key={i}
-              className="cite type"
+              className={still ? "cite" : "cite type"}
               title={words.source(part.marker)}
             >
               {part.marker}

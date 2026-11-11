@@ -128,7 +128,7 @@ def test_batch_one_call_and_audience_verified_at_publication(
 
             def reply(binding, request):
                 seen.append(request.schema_name)
-                if request.schema_name != ("batch_v6_en" if english else "batch_v6"):
+                if request.schema_name != ("batch_v7_en" if english else "batch_v7"):
                     return _reply(binding, request)
                 from auralis_intelligence.agents import CallResult, Usage
 
@@ -171,7 +171,7 @@ def test_batch_one_call_and_audience_verified_at_publication(
                 await harness.supervisor.wait(execution.id)
                 entry = harness.control.executions[execution.id]
                 first_ids = set(entry["display"]["shown_candidate_ids"])
-                assert seen == ["batch_v6"]
+                assert seen == ["batch_v7"]
                 if cold:
                     deferred = [
                         screening
@@ -219,7 +219,7 @@ def test_batch_one_call_and_audience_verified_at_publication(
                     if d["kind"] == "SUPPLY_STATUS"
                 ]
                 assert supply_states[-1] == "R_EXHAUSTED"
-            name = "batch_v6_en" if english else "batch_v6"
+            name = "batch_v7_en" if english else "batch_v7"
             assert seen == ([name, name] if background else [name])
             assert any(
                 call["plan"]["purpose"] == "SELECT" for call in harness.control.invocations.values()

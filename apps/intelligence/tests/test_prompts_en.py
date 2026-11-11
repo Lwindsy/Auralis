@@ -17,9 +17,9 @@ from auralis_intelligence.ranking import selection
 
 HAN = re.compile(r"[一-鿿]")
 PAIRS = [
-    ("auralis_intelligence.album_reviews", "batch.v6"),
+    ("auralis_intelligence.album_reviews", "batch.v7"),
     ("auralis_intelligence.album_reviews", "research.v2"),
-    ("auralis_intelligence.album_reviews", "writing.v1.2"),
+    ("auralis_intelligence.album_reviews", "writing.v1.3"),
     ("auralis_intelligence.ranking", "select.v1"),
 ]
 
@@ -55,10 +55,10 @@ def test_recommendation_uses_one_language_for_every_model_stage(tmp_path, englis
                 "genre_pass2_v0_8": edition.PASS_TWO_PROMPT,
                 "research_v2": research.RESEARCH_PROMPT_EN if english else research.RESEARCH_PROMPT,
                 "select_v1": selection.PROMPT_EN if english else selection.PROMPT,
-                "short_review_v1_2": writing.WRITING_PROMPT_EN
+                "short_review_v1_3": writing.WRITING_PROMPT_EN
                 if english
                 else writing.WRITING_PROMPT,
-                "long_review_v1_2": writing.WRITING_PROMPT_EN
+                "long_review_v1_3": writing.WRITING_PROMPT_EN
                 if english
                 else writing.WRITING_PROMPT,
             }
@@ -97,14 +97,66 @@ def test_recommendation_uses_one_language_for_every_model_stage(tmp_path, englis
 
 def test_english_prompts_name_english_output_and_word_lengths():
     album = "auralis_intelligence.album_reviews"
-    assert "English cards" in text(album, "batch.v6.en.txt")
-    assert "about 40 words" in text(album, "batch.v6.en.txt")
-    assert "original English reviews" in text(album, "writing.v1.2.en.txt")
-    assert "50 to 110 words" in text(album, "writing.v1.2.en.txt")
+    assert "English cards" in text(album, "batch.v7.en.txt")
+    assert "about 40 words" in text(album, "batch.v7.en.txt")
+    assert "original English reviews" in text(album, "writing.v1.3.en.txt")
+    assert "50 to 110 words" in text(album, "writing.v1.3.en.txt")
     assert "{measured} words" in prompts_en.LONG_LENGTH_NOTE
     assert prompts_en.LONG_LENGTH_NOTE.format(measured=12).startswith(
         "The previous long review was only about 12 words"
     )
+
+
+REVIEW_PROMPTS = [
+    ("batch.v7.txt", "batch.v7.en.txt"),
+    ("writing.v1.3.txt", "writing.v1.3.en.txt"),
+]
+
+
+@pytest.mark.parametrize(("chinese_name", "english_name"), REVIEW_PROMPTS)
+def test_review_prompts_forbid_defensive_writing(chinese_name, english_name):
+    album = "auralis_intelligence.album_reviews"
+    chinese, english = text(album, chinese_name), text(album, english_name)
+    # The rule is stated outright, with the phrasings the user rejected named as banned.
+    assert "严禁防御性写作" in chinese and "No defensive writing, ever." in english
+    for banned in ("可能不适合你", "不是已证实的某风格", "邻近尝试", "资料将它描述为", "评论形容"):
+        assert banned in chinese
+    for banned in (
+        "may not be for you",
+        "not a proven/confirmed [genre]",
+        "rather than X, expect Y",
+    ):
+        assert banned in english
+    assert "自信" in chinese and "confident" in english
+    # The old instructions that asked for drawbacks, gaps and kept uncertainty are gone.
+    for old in (
+        "可能劝退之处",
+        "可能劝退的地方",
+        "可能不喜欢什么",
+        "与用户目标的偏离，以及缺少哪些目标特点的依据",
+        "保留其不确定性",
+        "资料未知就说明未知",
+        "不一概改成赞美",
+    ):
+        assert old not in chinese
+    for old in (
+        "what might put someone off",
+        "what might put them off",
+        "what they might not like",
+        "how it departs from the user's target, and which target traits lack support",
+        "Keep the uncertainty",
+        "say it is unknown",
+        "rather than turning them all into praise",
+    ):
+        assert old not in english
+
+
+def test_seed_instruction_shares_appeal_without_gaps():
+    assert "可能劝退" not in seed_context.SEED_INSTRUCTION
+    assert "不写候选与种子的差距" in seed_context.SEED_INSTRUCTION
+    assert "put the user off" not in prompts_en.SEED_INSTRUCTION
+    assert "never the gaps between candidate and seed" in prompts_en.SEED_INSTRUCTION
+    assert seed_context.SeedContext.version("batch.v7") == "batch.v7.seed.v2"
 
 
 def test_inline_fragments_have_english_editions():

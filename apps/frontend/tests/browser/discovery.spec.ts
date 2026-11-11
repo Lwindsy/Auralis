@@ -263,6 +263,128 @@ test("English layout fits on a phone", async ({ page, context }) => {
   ).toBe(true);
 });
 
+test("an album at rest keeps no strips; the leaving copy is static and keeps its room", async ({
+  page,
+  context,
+}) => {
+  await attach(context, new FixtureBackend(ready()));
+  await page.goto("/");
+  await expect(album(page, "样例专辑 1")).toBeVisible();
+  // The strips exist only while the cover assembles.
+  await expect(page.locator(".slice")).toHaveCount(0, { timeout: 4000 });
+  const before = await page.evaluate(() =>
+    getComputedStyle(document.documentElement).getPropertyValue("--page-room"),
+  );
+  await page.keyboard.press("ArrowRight");
+  const ghost = page.locator(".cut[data-leaving]");
+  await expect(ghost).toHaveCount(1);
+  // Static: no per-character playback markup and the old room colours pinned inline.
+  await expect(ghost.locator(".type")).toHaveCount(0);
+  expect(
+    await ghost.evaluate((node) =>
+      getComputedStyle(node).getPropertyValue("--page-room"),
+    ),
+  ).toBe(before);
+  // The old room fades out as a single layer above the new one.
+  await expect(page.locator(".room-fade")).toHaveCount(1);
+  await expect(album(page, "样例专辑 2")).toBeVisible();
+  await expect(ghost).toHaveCount(0);
+  await expect(page.locator(".room-fade")).toHaveCount(0, { timeout: 3000 });
+  await expect(page.locator(".slice")).toHaveCount(0, { timeout: 4000 });
+});
+
+test("a genre note opens above the wave and nothing below it moves", async ({
+  page,
+  context,
+}) => {
+  await attach(context, new FixtureBackend(ready()));
+  await page.goto("/");
+  const card = notes(page, "样例专辑 1");
+  await expect(card.getByText("这是用于交互验证的合成短评")).toBeAttached();
+  await page.waitForTimeout(2600);
+  const review = card.locator(".reviews");
+  const wave = card.locator(".wave__field");
+  const before = [await review.boundingBox(), await wave.boundingBox()];
+  await card.getByRole("button", { name: "Jazz", exact: true }).focus();
+  const note = card.locator(".wave__note");
+  await expect(note).toContainText("即兴");
+  const after = [await review.boundingBox(), await wave.boundingBox()];
+  expect(after).toEqual(before);
+  const box = (await note.boundingBox())!;
+  expect(box.y + box.height).toBeLessThanOrEqual(before[1]!.y + 1);
+  // Its lead line is the album's own spark, not the fixed accent.
+  const spark = await card.evaluate((node) =>
+    getComputedStyle(node.closest(".cut")!).getPropertyValue("--spark"),
+  );
+  expect(spark).toMatch(/^#[0-9a-f]{6}$/);
+});
+
+test("the long review is printed on a sheet; the album moves into the header and back", async ({
+  page,
+  context,
+}) => {
+  await attach(context, new FixtureBackend(ready()));
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+  const card = notes(page, "样例专辑 1");
+  await page.waitForTimeout(2600);
+  const cover = card.locator(".sliced");
+  const resting = (await cover.boundingBox())!;
+  await card.getByRole("button", { name: "读长评" }).click();
+  await expect(page.locator(".cut[data-reading]")).toHaveCount(1, {
+    timeout: 8000,
+  });
+  await expect(card.getByText("第二段合成文字，验证多段落排版。")).toBeVisible({
+    timeout: 8000,
+  });
+  await page.waitForTimeout(1000);
+  const small = (await cover.boundingBox())!;
+  expect(Math.round(small.width)).toBe(84);
+  expect(Math.round(small.y)).toBe(82);
+  // The sheet covers the page below the header; the background keeps running.
+  const paper = (await card.locator(".liner__paper").boundingBox())!;
+  expect(Math.round(paper.y)).toBe(82 + 84 + 30);
+  await expect(page.locator(".contours")).toBeVisible();
+  expect(
+    await page.evaluate(() => document.documentElement.style.overflow),
+  ).toBe("hidden");
+  // Reactions stay usable on the sheet's foot.
+  await card.getByRole("button", { name: "我喜欢！" }).click();
+  await expect(card.getByRole("button", { name: "收起长评" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.locator(".cut[data-reading]")).toHaveCount(0);
+  await page.waitForTimeout(1200);
+  expect(await cover.boundingBox()).toEqual(resting);
+  expect(
+    await page.evaluate(() => document.documentElement.style.overflow),
+  ).toBe("");
+});
+
+test("from the last album the sleeve flies into the group's stack", async ({
+  page,
+  context,
+}) => {
+  await attach(context, new FixtureBackend(ready()));
+  await page.goto("/");
+  for (const title of ["样例专辑 1", "样例专辑 2"]) {
+    await expect(album(page, title)).toBeVisible();
+    await page.getByRole("button", NEXT).click();
+  }
+  await expect(album(page, "样例专辑 3")).toBeVisible();
+  await page.getByRole("button", NEXT).click();
+  // No strips over the finale: the sleeve leaves whole and lands in the stack.
+  await expect(
+    page.locator('.cut[data-leaving] .sliced[data-exit="flight"]'),
+  ).toHaveCount(1);
+  await expect(page.locator(".cut[data-leaving] .slice")).toHaveCount(0);
+  await expect(page.locator(".finale__stack .stack__slot")).toHaveCount(3);
+  await expect(page.locator(".stack__slot[data-landing]")).toHaveCount(1);
+  await expect(page.locator(".cut[data-leaving]")).toHaveCount(0, {
+    timeout: 2000,
+  });
+  await expect(page.getByText("这一组听完了")).toBeVisible();
+});
+
 test("one album at a time: edges and keys move, 听过了 records and can be taken back", async ({
   page,
   context,

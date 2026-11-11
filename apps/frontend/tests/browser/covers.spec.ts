@@ -116,7 +116,16 @@ test("slices and colour share one decoded cover; old response cannot repaint a n
   await page.getByRole("button", { name: "上一张", exact: true }).click();
   const first = page.getByRole("article", { name: "样例专辑 1", exact: true });
   await expect(first.locator(".sliced__whole img")).toBeVisible();
-  await expect(first.locator(".cover img")).toHaveCount(31);
+  // One decoded image: the whole cover shows it, and any strips still on screen paint
+  // the same object URL as their background instead of loading their own copy.
+  await expect(first.locator(".cover img")).toHaveCount(1);
+  const src = await first.locator(".sliced__whole img").getAttribute("src");
+  const strips = await first
+    .locator(".slice__art")
+    .evaluateAll((items) =>
+      items.map((item) => (item as HTMLElement).style.backgroundImage),
+    );
+  expect(strips.every((paint) => paint.includes(src!))).toBe(true);
   expect([...counts.values()]).toEqual([1, 1]);
   const sampled = await page.evaluate(async () => {
     const image = document.querySelector<HTMLImageElement>(

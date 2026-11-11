@@ -13,6 +13,8 @@ export interface Swatch {
 export interface Room {
   room: string;
   ink: string;
+  /** Small marks (a lit genre name, a note's lead line): the sleeve's own hue, lit up. */
+  spark: string;
 }
 
 const srgbToLinear = (c: number) =>
@@ -119,6 +121,10 @@ const clamp = (v: number, lo: number, hi: number) =>
  *    largest colour so the cover never melts into the wall.
  * 4. The text colour is whichever of a near-white or near-black (tinted with the same hue)
  *    reads better on the room by APCA contrast, and the room must give it Lc ≥ 75.
+ * 5. The spark keeps the same hue at full strength and moves away from the room's
+ *    lightness until it reads on it (Lc ≥ 60), so it is always the record's own colour,
+ *    never a fixed accent that may clash with or vanish into the wall. A greyish sleeve
+ *    has no colour to light up; its spark is the ink.
  */
 export function roomFor(swatches: readonly Swatch[]): Room {
   const total = swatches.reduce((sum, s) => sum + s.area, 0) || 1;
@@ -170,7 +176,26 @@ export function roomFor(swatches: readonly Swatch[]): Room {
     }
   }
   const pick = best ?? fallback!;
-  return { room: pick.room, ink: pick.ink };
+  return {
+    room: pick.room,
+    ink: pick.ink,
+    spark: sparkFor(hue, chromaOf(lead), pick.room, pick.ink),
+  };
+}
+
+const SPARK_CONTRAST = 60;
+
+function sparkFor(hue: number, chroma: number, room: string, ink: string) {
+  if (chroma < 0.04) return ink;
+  const strength = clamp(chroma * 1.3, 0.1, 0.17);
+  // A light ink means a dark room: the spark is found by lightening, else by darkening.
+  const up = hexToOklab(ink).L > hexToOklab(room).L;
+  for (let step = 0; step <= 40; step++) {
+    const L = up ? 0.6 + step * 0.01 : 0.6 - step * 0.01;
+    const spark = oklchToHex(L, strength, hue);
+    if (Math.abs(apcaContrast(spark, room)) >= SPARK_CONTRAST) return spark;
+  }
+  return ink;
 }
 
 /** Swatches of a placeholder sleeve: its field and its mark, by how much each covers. */

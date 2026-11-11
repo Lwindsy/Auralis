@@ -32,7 +32,9 @@
   gap: 14px;
   color: var(--page-ink);
   opacity: 0.5;
-  transition: opacity 400ms ease;
+  transition:
+    opacity 400ms ease,
+    color var(--room-change);
 }
 
 .edge::before {
@@ -153,10 +155,8 @@
   height: var(--s);
 }
 
-.slice__art .cover {
-  width: 100%;
-}
-
+/* No transition: the strips and the whole cover show the same picture at rest, so they
+   swap in a single frame when the strips come and go. */
 .sliced__whole {
   position: absolute;
   z-index: 1;
@@ -164,7 +164,6 @@
   opacity: 0;
   pointer-events: none;
   animation: fade 260ms ease 1720ms forwards;
-  transition: opacity 160ms ease;
 }
 
 .sliced__whole .cover {
@@ -180,34 +179,37 @@
   animation-delay: 1980ms;
 }
 
-/* Bars of a meter that bounce three times and close into the picture. */
+/* Bars of a meter that bounce three times and close into the picture. Thin bars are the
+   strips narrowed with scaleX; only transform and opacity change, so this runs on the
+   compositor without repainting. */
 @keyframes slice-in {
   0% {
     opacity: 0;
-    transform: scaleY(0.02);
-    clip-path: inset(0 26% round 3px);
+    transform: scale(0.48, 0.02);
   }
   12% {
     opacity: 1;
   }
   26% {
-    transform: scaleY(var(--h1));
+    transform: scale(0.48, var(--h1));
   }
   44% {
-    transform: scaleY(var(--h2));
+    transform: scale(0.48, var(--h2));
   }
   62% {
-    transform: scaleY(var(--h3));
-    clip-path: inset(0 22% round 3px);
+    transform: scale(0.56, var(--h3));
   }
   82% {
-    transform: scaleY(1.02);
-    clip-path: inset(0 0 round 0);
+    transform: scale(1, 1.02);
   }
   100% {
-    transform: scaleY(1);
-    clip-path: inset(0 0 round 0);
+    transform: scale(1, 1);
   }
+}
+
+/* Strips brought back for a ripple are already closed up. */
+.sliced[data-phase="rippling"] .slice {
+  animation: none;
 }
 
 /* One ripple runs across the strips when the pointer arrives (the whole cover steps aside
@@ -224,16 +226,13 @@
 
 @keyframes slice-ripple {
   35% {
-    transform: scaleY(calc(0.86 + var(--h1) * 0.14));
-    clip-path: inset(0 12%);
+    transform: scale(0.76, calc(0.86 + var(--h1) * 0.14));
   }
   70% {
-    transform: scaleY(1.03);
-    clip-path: inset(0 0);
+    transform: scale(1, 1.03);
   }
   100% {
     transform: none;
-    clip-path: inset(0 0);
   }
 }
 
@@ -283,20 +282,28 @@
   letter-spacing: 0.1em;
 }
 
+/* The words column arrives: transform and opacity only (no blur to repaint). */
+@keyframes deck-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+}
+
 @keyframes caption-in {
   from {
     opacity: 0;
     transform: translateY(24px);
-    filter: blur(6px);
   }
 }
 
 /* Genre waveform with a lens --------------------------------------------------- */
 
 .wave {
+  position: relative;
   display: grid;
   gap: 6px;
-  animation: body-in 1000ms var(--ease-out-expo) 800ms both;
+  animation: deck-rise 1000ms var(--ease-out-expo) 800ms backwards;
 }
 
 .wave__field {
@@ -368,7 +375,7 @@
 
 .wave .wave__tag[data-on] {
   opacity: 1;
-  color: var(--accent);
+  color: var(--spark, var(--accent));
 }
 
 .wave__keys {
@@ -380,11 +387,26 @@
   white-space: nowrap;
 }
 
+/* A margin note: it grows upward into the free space over the wave, out of the flow, so
+   the wave, its names and the reviews below never move or get covered. Its lead line takes
+   the album's spark, the same colour as the lit name. */
 .wave__note {
-  min-height: 3.4em;
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 100%;
+  margin-bottom: 6px;
+  padding-left: 12px;
+  border-left: 1px solid var(--spark, var(--accent));
   font-size: 13.5px;
   line-height: 1.75;
   color: color-mix(in srgb, var(--page-ink) 82%, var(--page-room));
+  pointer-events: none;
+  transition: border-color 300ms ease;
+}
+
+.wave__note:empty {
+  display: none;
 }
 
 .typed {
@@ -397,7 +419,7 @@
   margin-right: 10px;
   font-weight: 500;
   color: var(--page-ink);
-  animation: body-in 400ms var(--ease-out-expo) both;
+  animation: deck-rise 400ms var(--ease-out-expo) backwards;
 }
 
 /* Words --------------------------------------------------------------------- */
@@ -442,26 +464,6 @@
     visibility 0s linear 0s;
 }
 
-.reviews__scroll {
-  display: grid;
-  align-content: start;
-  gap: 22px;
-  max-height: min(48vh, 520px);
-  padding-right: 14px;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-}
-
-.reviews__pane--long {
-  opacity: 0;
-  visibility: hidden;
-  transform: translateY(22px);
-  transition:
-    opacity 380ms ease,
-    transform 680ms var(--ease-out-expo),
-    visibility 0s linear 680ms;
-}
-
 .reviews[data-expanded] .reviews__pane--short {
   opacity: 0;
   visibility: hidden;
@@ -473,14 +475,168 @@
     visibility 0s linear 680ms;
 }
 
-.reviews[data-expanded] .reviews__pane--long {
-  opacity: 1;
-  visibility: visible;
-  transform: none;
+/* Liner notes ------------------------------------------------------------------ */
+
+/* The pieces that move into the header or onto the sheet's foot. They keep their layout
+   and are moved by transforms that liner.ts measures; closing runs a little quicker. */
+.sliced,
+.cut__caption,
+.wave,
+.reacts,
+.reviews__bar {
+  position: relative;
+  z-index: 2;
+  transform-origin: 0 0;
+}
+
+.cut:not([data-liner-still]) .sliced,
+.cut:not([data-liner-still]) .cut__caption,
+.cut:not([data-liner-still]) .wave,
+.cut:not([data-liner-still]) .reacts,
+.cut:not([data-liner-still]) .reviews__bar {
   transition:
-    opacity 520ms ease 160ms,
-    transform 760ms var(--ease-out-expo) 120ms,
-    visibility 0s linear 0s;
+    transform 640ms var(--ease-in-out),
+    opacity 400ms ease,
+    filter 900ms ease;
+}
+
+.cut[data-reading]:not([data-liner-still]) .sliced,
+.cut[data-reading]:not([data-liner-still]) .cut__caption,
+.cut[data-reading]:not([data-liner-still]) .wave,
+.cut[data-reading]:not([data-liner-still]) .reacts,
+.cut[data-reading]:not([data-liner-still]) .reviews__bar {
+  transition:
+    transform 820ms var(--ease-out-expo),
+    opacity 400ms ease,
+    filter 900ms ease;
+}
+
+/* The title must never cross the sleeve: going up, the sleeve shrinks away first; coming
+   back, the title gets down before the sleeve has grown. */
+.cut[data-reading]:not([data-liner-still]) .cut__caption {
+  transition-delay: 60ms;
+}
+
+.cut:not([data-reading], [data-liner-still]) .sliced {
+  transition:
+    transform 760ms var(--ease-out-expo) 110ms,
+    opacity 400ms ease,
+    filter 900ms ease;
+}
+
+.cut:not([data-reading], [data-liner-still]) .cut__caption {
+  transition:
+    transform 520ms var(--ease-out-expo),
+    opacity 400ms ease;
+}
+
+.cut[data-reading] .sliced {
+  transform: var(--to-cover);
+}
+
+.cut[data-reading] .cut__caption {
+  transform: var(--to-caption);
+}
+
+.cut[data-reading] .wave {
+  transform: var(--to-wave);
+  opacity: var(--wave-o, 1);
+}
+
+.cut[data-reading] .reacts {
+  transform: var(--to-reacts);
+}
+
+.cut[data-reading] .reviews__bar {
+  z-index: 3;
+  transform: var(--to-bar);
+}
+
+/* The genre lens is not used from the header. */
+.cut[data-reading] .wave__field {
+  pointer-events: none;
+}
+
+/* Hidden but still holding its place: on narrow screens the note keeps a slot in the
+   flow, and the page must not change height under the sheet. */
+.cut[data-reading] .wave__note {
+  visibility: hidden;
+}
+
+/* The sheet is the room's own colour moved a little toward its ink and its spark: of the
+   room, but clearly a page of its own. It is opaque and only covers the moving background,
+   which keeps running around and above it. */
+.liner {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.liner__paper {
+  position: absolute;
+  top: var(--liner-top, 30vh);
+  left: var(--liner-left, 0px);
+  right: var(--liner-right, 0px);
+  bottom: 0;
+  border-radius: 22px 22px 0 0;
+  background: color-mix(
+    in oklab,
+    color-mix(in oklab, var(--page-room) 91%, var(--page-ink) 6%),
+    var(--spark, var(--page-ink)) 3%
+  );
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--page-ink) 12%, transparent),
+    0 -26px 60px -40px rgb(0 0 0 / 0.7);
+  transform: translateY(calc(100vh - var(--liner-top, 30vh) + 60px));
+  transition: transform 640ms var(--ease-in-out);
+}
+
+.cut[data-reading] .liner__paper {
+  transform: none;
+  transition: transform 820ms var(--ease-out-expo);
+}
+
+.liner__text {
+  position: absolute;
+  top: calc(var(--liner-top, 30vh) + 40px);
+  left: var(--liner-text-left, 10vw);
+  width: var(--liner-text-width, 60vw);
+  bottom: var(--liner-text-bottom, 120px);
+  display: grid;
+  opacity: 0;
+  transform: translateY(48px);
+  transition:
+    opacity 200ms ease,
+    transform 300ms ease;
+}
+
+.cut[data-reading] .liner__text {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+  transition:
+    opacity 600ms ease 340ms,
+    transform 900ms var(--ease-out-expo) 280ms;
+}
+
+.cut[data-liner-still] .liner__paper,
+.cut[data-liner-still] .liner__text {
+  transition: none;
+}
+
+.liner__frame {
+  min-height: 0;
+}
+
+.liner__scroll {
+  display: grid;
+  align-content: start;
+  gap: 26px;
+  height: 100%;
+  padding-right: 14px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 /* Tracks: writing played like music ------------------------------------------ */
@@ -634,6 +790,7 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  justify-self: start;
   gap: 8px 16px;
   padding-top: 16px;
 }
@@ -989,11 +1146,11 @@
 
 /* The words of an incoming album arrive once the cover has closed up. */
 .cut[data-dir] .reacts {
-  animation: body-in 900ms var(--ease-out-expo) 1300ms both;
+  animation: deck-rise 900ms var(--ease-out-expo) 1300ms backwards;
 }
 
 .cut[data-dir] .reviews__bar {
-  animation: body-in 900ms var(--ease-out-expo) 1500ms both;
+  animation: deck-rise 900ms var(--ease-out-expo) 1500ms backwards;
 }
 
 .cut[data-heard] .sliced {
@@ -1001,8 +1158,16 @@
   transition: filter 900ms ease;
 }
 
-/* Leaving: the cover breaks back into a waveform and sinks; words fade sideways. */
+/* Leaving: the cover breaks back into a waveform and sinks; words fade sideways. The
+   leaving copy keeps the colours of its own room (set inline) while the page switches to
+   the next one, so its words never flip colour on the way out. */
 .cut[data-leaving] {
+  --ink-12: color-mix(in srgb, var(--page-ink) 12%, transparent);
+  --ink-20: color-mix(in srgb, var(--page-ink) 20%, transparent);
+  --ink-40: color-mix(in srgb, var(--page-ink) 42%, transparent);
+  --ink-60: color-mix(in srgb, var(--page-ink) 62%, var(--page-room));
+  --glass: color-mix(in srgb, var(--page-ink) 5%, transparent);
+  color: var(--page-ink);
   pointer-events: none;
 }
 
@@ -1017,15 +1182,35 @@
   transition: none;
 }
 
+/* Into the finale the sleeve leaves whole: it flies into the stack (Deck animates it, over
+   the finale) or fades where there is no stack. */
+.cut[data-leaving] .sliced[data-exit] .sliced__whole {
+  opacity: 1;
+}
+
+.cut[data-exit="flight"] {
+  z-index: 2;
+}
+
+.cut[data-leaving] .sliced[data-exit="quiet"] {
+  transform-origin: 50% 50%;
+  animation: cover-out 520ms var(--ease-curtain) both;
+}
+
+@keyframes cover-out {
+  to {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+}
+
 @keyframes slice-out {
   35% {
-    transform: scaleY(var(--h3));
-    clip-path: inset(0 22% round 3px);
+    transform: scale(0.56, var(--h3));
     opacity: 1;
   }
   100% {
-    transform: scaleY(0.02) translateY(40%);
-    clip-path: inset(0 30% round 3px);
+    transform: translateY(20%) scale(0.4, 0.02);
     opacity: 0;
   }
 }
@@ -1041,11 +1226,12 @@
   animation: none !important;
 }
 
+/* Transform and opacity only: a blur over the whole column would be repainted every
+   frame of the exit. */
 @keyframes words-out {
   to {
     opacity: 0;
     transform: translateX(calc(var(--to, -1) * 50px));
-    filter: blur(6px);
   }
 }
 
@@ -1061,14 +1247,22 @@
   justify-items: center;
   gap: 34px;
   text-align: center;
-  animation: tail-in 900ms var(--ease-out-expo) both;
+}
+
+/* The finale's parts rise one after another, after the stack has gathered; the stack
+   itself is never moved as a whole, so the flying sleeve lands exactly on its place. */
+.tail > :not(.finale__stack, .finale__choices) {
+  animation: tail-in 900ms var(--ease-out-expo) 300ms both;
+}
+
+.tail--supply > * {
+  animation-delay: 0ms !important;
 }
 
 @keyframes tail-in {
   from {
     opacity: 0;
     transform: translateY(26px) scale(0.97);
-    filter: blur(8px);
   }
 }
 
@@ -1115,11 +1309,75 @@
   display: grid;
   justify-items: center;
   gap: 4px;
-  animation: tail-in 1000ms var(--ease-out-expo) 120ms both;
+  animation: tail-in 1000ms var(--ease-out-expo) 440ms both;
 }
 
 .choice + .choice {
-  animation-delay: 240ms;
+  animation-delay: 560ms;
+}
+
+/* The group, gathered ------------------------------------------------------- */
+
+.finale__stack {
+  --w: clamp(76px, 8vw, 116px);
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  height: calc(var(--w) + 28px);
+  margin-bottom: -10px;
+}
+
+/* An unrotated place (measurable) holding a tilted card. */
+.stack__slot {
+  position: relative;
+  flex: none;
+  width: var(--w);
+  height: var(--w);
+  margin-top: var(--lift);
+  margin-left: calc(var(--w) * -0.4);
+  animation: stack-in 760ms var(--ease-out-expo) both;
+  animation-delay: calc(140ms + var(--i) * 70ms);
+}
+
+.stack__slot:first-child {
+  margin-left: 0;
+}
+
+.stack__card {
+  width: 100%;
+  height: 100%;
+  border-radius: 2px;
+  background-size: cover;
+  background-position: center;
+  rotate: var(--r);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--page-ink) 12%, transparent),
+    0 18px 28px -18px rgb(0 0 0 / 0.7);
+}
+
+.stack__slot[data-heard] .stack__card {
+  opacity: 0.55;
+}
+
+@keyframes stack-in {
+  from {
+    opacity: 0;
+    transform: translate(calc(var(--o) * -46%), 16px) scale(0.92);
+  }
+}
+
+/* The place of the flying sleeve shows only as it lands (FLIGHT_MS in GroupStack). */
+.stack__slot[data-landing] {
+  animation: stack-land 1ms linear 780ms both;
+}
+
+@keyframes stack-land {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .choice__wave {
@@ -1191,9 +1449,10 @@
   gap: 10px;
   padding: 8px 12px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--page-room) 70%, transparent);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  /* Solid, not a backdrop blur: the strips and covers move right behind the pips, and a
+     blur there is re-rendered on every frame of every transition. */
+  background: color-mix(in srgb, var(--page-room) 86%, var(--page-ink) 5%);
+  transition: background-color var(--room-change);
 }
 
 .pips li {
@@ -1241,6 +1500,21 @@
   .cut__words {
     max-height: none;
     width: min(100%, 560px);
+  }
+  /* The caption sits right above the words here, so the note keeps a fixed slot under
+     the wave instead (still no movement below it). */
+  .wave__note,
+  .wave__note:empty {
+    position: static;
+    display: -webkit-box;
+    height: calc(3 * 1.75em);
+    margin: 0;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+  }
+  .wave__note:empty {
+    border-color: transparent;
   }
 }
 

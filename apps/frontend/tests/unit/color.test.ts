@@ -35,6 +35,22 @@ describe("room colour", () => {
     }
   });
 
+  test("the spark is the sleeve's own hue and reads on its room (APCA |Lc| ≥ 60)", () => {
+    for (const seed of seeds) {
+      const art = coverArt(seed);
+      const { room, spark } = roomFor(
+        placeholderSwatches(art.base, art.accent, art.markShare),
+      );
+      expect(Math.abs(apcaContrast(spark, room))).toBeGreaterThanOrEqual(60);
+    }
+    const warm = roomFor(placeholderSwatches("#141414", "#d94f30", 0.25));
+    const { a, b } = hexToOklab(warm.spark);
+    expect(Math.hypot(a, b)).toBeGreaterThan(0.08);
+    expect(a).toBeGreaterThan(0);
+    const grey = roomFor(placeholderSwatches("#3a3a3a", "#9a9a9a", 0.3));
+    expect(grey.spark).toBe(grey.ink);
+  });
+
   test("the room keeps the hue of a vivid accent on a grey field", () => {
     const { room } = roomFor(placeholderSwatches("#141414", "#d94f30", 0.25));
     const { a, b } = hexToOklab(room);

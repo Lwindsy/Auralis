@@ -24,8 +24,8 @@ SHORT_SCHEMA = json.loads(
 LONG_SCHEMA = json.loads(
     files(__package__).joinpath("long_review.v1.schema.json").read_text(encoding="utf-8")
 )
-WRITING_PROMPT = files(__package__).joinpath("writing.v1.2.txt").read_text(encoding="utf-8")
-WRITING_PROMPT_EN = files(__package__).joinpath("writing.v1.2.en.txt").read_text(encoding="utf-8")
+WRITING_PROMPT = files(__package__).joinpath("writing.v1.3.txt").read_text(encoding="utf-8")
+WRITING_PROMPT_EN = files(__package__).joinpath("writing.v1.3.en.txt").read_text(encoding="utf-8")
 
 
 @dataclass(frozen=True)
@@ -67,7 +67,7 @@ class WriteStage:
 
     @staticmethod
     def _version(execution: Execution, form: str) -> str:
-        return f"{form}_review.v1.2" + (".en" if execution.english else "")
+        return f"{form}_review.v1.3" + (".en" if execution.english else "")
 
     def start(
         self,

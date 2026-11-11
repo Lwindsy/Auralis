@@ -1,5 +1,6 @@
 import {
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type CSSProperties,
@@ -8,6 +9,7 @@ import {
 import { ApiError } from "../../api/client.ts";
 import { message } from "../../api/messages.ts";
 import type { ProductState } from "../../api/types.ts";
+import type { Room } from "../../lib/color.ts";
 import { copy, useCopy } from "../../i18n/index.ts";
 import type { DiscoveryController } from "../../state/controller.ts";
 import {
@@ -25,8 +27,11 @@ import { Reviews } from "./LongReview.tsx";
 import { Reaction } from "./Reaction.tsx";
 import { GenreWave } from "./GenreWave.tsx";
 import { MiniWave } from "./MiniWave.tsx";
-import { SlicedCover } from "./SlicedCover.tsx";
+import { SlicedCover, type CoverExit } from "./SlicedCover.tsx";
+import { FLIGHT_MS, GroupStack, STACK_MAX } from "./GroupStack.tsx";
+import { reducedMotion } from "../../lib/motion.ts";
 import { useRoom } from "./useRoom.ts";
+import { LINER_CLOSE_MS } from "./liner.ts";
 import { prefetchCover } from "../../state/covers.ts";
 
 export type Feeling = "like" | "meh";
@@ -42,7 +47,7 @@ export interface DeckProps {
   onMore: () => void;
 }
 
-const NIGHT = { room: "#0d1220", ink: "#efe9df" };
+const NIGHT: Room = { room: "#0d1220", ink: "#efe9df", spark: "#e0714f" };
 /** After a reaction, all three rest this long before taking another press. */
 const REST_MS = 1100;
 /** Refusals that only mean "not now" (a supply or another write is still running). */
@@ -84,9 +89,13 @@ export function Deck({
   const [entries, setEntries] = useState<DeckEntry[]>(() => freshDeck(state));
   const [index, setIndex] = useState(0);
   const [dir, setDir] = useState<"next" | "prev">("next");
-  const [ghost, setGhost] = useState<{ entry: DeckEntry; dir: string } | null>(
-    null,
-  );
+  const [ghost, setGhost] = useState<{
+    entry: DeckEntry;
+    dir: string;
+    room: Room;
+    exit: CoverExit;
+  } | null>(null);
+  const stage = useRef<HTMLDivElement>(null);
   const ghostTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
     undefined,
   );
@@ -141,19 +150,112 @@ export function Deck({
     restTimer.current = setTimeout(() => setSettling(null), REST_MS);
   };
 
+  // Moving on while the liner notes are out puts the sheet back first, then turns the
+  // record, so the album never jumps from the header straight into its exit. Presses made
+  // meanwhile add up to one move.
+  const navTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const pendingTurn = useRef<number | null>(null);
+  useEffect(() => () => clearTimeout(navTimer.current), []);
   const go = (target: number) => {
+    const bound = (value: number) => Math.max(0, Math.min(last, value));
+    if (pendingTurn.current !== null) {
+      pendingTurn.current = bound(pendingTurn.current + target - position);
+      return;
+    }
+    const reading = stage.current?.querySelector(
+      ".cut[data-reading]:not([data-leaving])",
+    );
+    if (reading && bound(target) !== position) {
+      review.close();
+      pendingTurn.current = bound(target);
+      navTimer.current = setTimeout(() => {
+        const next = pendingTurn.current;
+        pendingTurn.current = null;
+        if (next !== null) turn(next);
+      }, LINER_CLOSE_MS - 140);
+      return;
+    }
+    turn(target);
+  };
+
+  const turn = (target: number) => {
     const bounded = Math.max(0, Math.min(last, target));
     if (bounded === position) return;
     const outgoing = entries[position];
     const direction = bounded > position ? "next" : "prev";
+    // Into the finale the sleeve does not break into strips over the closing words: it
+    // flies whole into the group's stack, or just fades when there is no stack to join.
+    const stacked =
+      !!outgoing &&
+      entries
+        .slice(-STACK_MAX)
+        .some((e) => e.candidateId === outgoing.candidateId);
+    const exit: CoverExit =
+      bounded !== last
+        ? "slices"
+        : stacked && !busy && !reducedMotion()
+          ? "flight"
+          : "quiet";
     review.close();
     clearTimeout(ghostTimer.current);
-    setGhost(outgoing ? { entry: outgoing, dir: direction } : null);
-    ghostTimer.current = setTimeout(() => setGhost(null), 760);
+    // The leaving copy keeps the colours of the room it is leaving.
+    setGhost(outgoing ? { entry: outgoing, dir: direction, room, exit } : null);
+    ghostTimer.current = setTimeout(
+      () => setGhost(null),
+      exit === "flight" ? FLIGHT_MS + 40 : 760,
+    );
     setDir(direction);
     setIndex(bounded);
     ripple(1, window.innerWidth * 0.3, window.innerHeight * 0.45);
   };
+
+  // The flight into the stack: from the leaving sleeve to its own (unrotated) place in the
+  // stack, landing with that card's tilt. One element, transform only.
+  useLayoutEffect(() => {
+    if (ghost?.exit !== "flight" || !stage.current) return;
+    const sleeve = stage.current.querySelector<HTMLElement>(
+      ".cut[data-leaving] .sliced",
+    );
+    const place = stage.current.querySelector<HTMLElement>(
+      `.stack__slot[data-candidate="${CSS.escape(ghost.entry.candidateId)}"]`,
+    );
+    if (!sleeve || !place || !sleeve.animate) return;
+    const from = sleeve.getBoundingClientRect();
+    const to = place.getBoundingClientRect();
+    if (!from.width || !to.width) return;
+    const dx = to.left - from.left;
+    const dy = to.top - from.top;
+    const scale = to.width / from.width;
+    const tilt =
+      parseFloat(getComputedStyle(place).getPropertyValue("--r")) || 0;
+    // The sleeve turns about its own centre while it scales from its corner (the
+    // transform origin is the top left), so every step names the centre explicitly.
+    const step = (x: number, y: number, size: number, turn: number) => {
+      const half = (from.width * size) / 2;
+      return `translate(${x + half}px, ${y + half}px) rotate(${turn}deg) translate(${-half}px, ${-half}px) scale(${size})`;
+    };
+    const flight = sleeve.animate(
+      [
+        { transform: step(0, 0, 1, 0) },
+        {
+          transform: step(
+            dx * 0.42,
+            dy * 0.42 - 36,
+            (1 + scale) / 2,
+            tilt * 0.4,
+          ),
+          offset: 0.45,
+        },
+        { transform: step(dx, dy, scale, tilt) },
+      ],
+      {
+        duration: FLIGHT_MS,
+        easing: "cubic-bezier(0.5, 0, 0.2, 1)",
+        fill: "forwards",
+      },
+    );
+    return () => flight.cancel();
+  }, [ghost]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -272,7 +374,12 @@ export function Deck({
     void flush();
   };
 
-  const spread = (entry: DeckEntry, leaving?: string): ReactNode => {
+  const spread = (
+    entry: DeckEntry,
+    leaving?: string,
+    colours?: Room,
+    exit?: CoverExit,
+  ): ReactNode => {
     const { title, artist_credit, first_release_year } = entry.card.identity;
     const feeling = feelings.get(entry.candidateId) ?? null;
     const waiting = queued.has(entry.candidateId);
@@ -288,15 +395,26 @@ export function Deck({
         aria-label={title}
         aria-hidden={leaving ? true : undefined}
         data-leaving={leaving}
+        data-exit={leaving ? exit : undefined}
         data-dir={leaving ? undefined : dir}
         data-heard={entry.heard || undefined}
         inert={leaving ? true : undefined}
+        style={
+          (colours
+            ? {
+                "--page-room": colours.room,
+                "--page-ink": colours.ink,
+                "--spark": colours.spark,
+              }
+            : { "--spark": room.spark }) as unknown as CSSProperties
+        }
       >
         <div className="cut__sleeve">
           <SlicedCover
             title={title}
             artist={artist_credit}
             url={entry.card.cover_url}
+            leaving={leaving ? (exit ?? "slices") : false}
           />
           <div className="cut__caption">
             <h2 className="album-title">{title}</h2>
@@ -309,14 +427,15 @@ export function Deck({
           </div>
         </div>
         <div className="cut__words">
-          <GenreWave card={entry.card} />
+          <GenreWave card={entry.card} still={!!leaving} />
           {state.analysis_mode === "BASIC" ? (
             <p className="basic-note">{words.basic}</p>
           ) : null}
           <Reviews
             card={entry.card}
             review={review}
-            delay={leaving ? 0 : 1250}
+            delay={1250}
+            still={!!leaving}
           />
           <div className="reacts" role="group" aria-label={words.feelings}>
             <Reaction
@@ -384,6 +503,10 @@ export function Deck({
       </div>
     ) : (
       <div className="tail finale" role="group" aria-label={words.next}>
+        <GroupStack
+          entries={entries}
+          landing={ghost?.exit === "flight" ? ghost.entry.candidateId : null}
+        />
         <p className="finale__lead">
           {entries.length ? words.done : emptyCopy(state)}
         </p>
@@ -434,8 +557,8 @@ export function Deck({
         </svg>
         <span>{words.prev}</span>
       </button>
-      <div className="deck__stage" data-dir={dir}>
-        {ghost ? spread(ghost.entry, ghost.dir) : null}
+      <div className="deck__stage" data-dir={dir} ref={stage}>
+        {ghost ? spread(ghost.entry, ghost.dir, ghost.room, ghost.exit) : null}
         {current ? spread(current) : tail}
       </div>
       <button

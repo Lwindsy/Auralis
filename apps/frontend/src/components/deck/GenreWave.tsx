@@ -29,7 +29,14 @@ function lens(x: number, focus: number, power: number) {
  * short note unfolds below. Without a pointer (or on a keyboard) the tags are also plain
  * buttons that do the same.
  */
-export function GenreWave({ card }: { card: ProductCard }) {
+export function GenreWave({
+  card,
+  still = false,
+}: {
+  card: ProductCard;
+  /** Laid out once and never animated: the leaving copy of an album. */
+  still?: boolean;
+}) {
   const tags = card.identity.primary_genres.slice(0, 4);
   const words = useCopy();
   const svg = useRef<SVGSVGElement>(null);
@@ -75,6 +82,16 @@ export function GenreWave({ card }: { card: ProductCard }) {
     let frame = 0;
     let last = performance.now();
     const draw = (now: number) => {
+      // At rest only the slow breathing moves, so it is drawn at about 24 frames a second;
+      // the lens and the names run at full rate while the pointer is on the wave.
+      const resting =
+        activeRef.current === null &&
+        target.current.power === 0 &&
+        state.power < 0.002;
+      if (resting && now - last < 40) {
+        frame = requestAnimationFrame(draw);
+        return;
+      }
       const dt = Math.min(0.05, (now - last) / 1000);
       last = now;
       state.t += dt;
@@ -132,14 +149,15 @@ export function GenreWave({ card }: { card: ProductCard }) {
       labels.forEach((label, i) => {
         label.style.transform = `translate3d(${lefts[i]!.toFixed(1)}px,0,0) scale(${scales[i]!.toFixed(3)})`;
       });
-      frame = requestAnimationFrame(draw);
+      if (!still) frame = requestAnimationFrame(draw);
     };
-    frame = requestAnimationFrame(draw);
+    if (still) draw(last + 16);
+    else frame = requestAnimationFrame(draw);
     return () => {
       cancelAnimationFrame(frame);
       observer.disconnect();
     };
-  }, [seed, tags.length]);
+  }, [seed, tags.length, still]);
 
   if (!tags.length) return null;
   const segmentOf = (u: number) =>

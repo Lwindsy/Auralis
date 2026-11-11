@@ -257,7 +257,7 @@ def test_real_round_continuation_reuses_seed_and_writes_with_same_evidence(tmp_p
             h.request["deadlines"]["idle_close_ms"] = 20
             h.request["payload_digest"] = content_digest(h.request)
             h.adapter.replies = lambda binding, request: _reply(
-                binding, replace(request, schema_name=request.schema_name.removesuffix("_seed_v1"))
+                binding, replace(request, schema_name=request.schema_name.removesuffix("_seed_v2"))
             )
             search = Search()
 
@@ -364,7 +364,7 @@ def test_seeded_batch_and_long_review_use_same_registered_seed(tmp_path):
 
             def reply(binding, request):
                 assert request.input["seed_evidence"][0]["seed_id"] == "album-0"
-                if request.schema_name == "batch_v6_seed_v1":
+                if request.schema_name == "batch_v7_seed_v2":
                     candidates = request.input["candidates"]
                     output = {
                         "assessments": [
@@ -377,7 +377,7 @@ def test_seeded_batch_and_long_review_use_same_registered_seed(tmp_path):
                         ],
                     }
                 else:
-                    assert request.schema_name == "long_review_v1_2_seed_v1"
+                    assert request.schema_name == "long_review_v1_3_seed_v2"
                     output = {
                         "status": "ok",
                         "sections": {
@@ -423,12 +423,12 @@ def test_seeded_batch_and_long_review_use_same_registered_seed(tmp_path):
                 if d["kind"] == "CARD_BATCH"
             )
             assert len(cards) == 3
-            assert all(c["short_review"]["prompt_version"] == "batch.v6.seed.v1" for c in cards)
+            assert all(c["short_review"]["prompt_version"] == "batch.v7.seed.v2" for c in cards)
             longs = [
                 d["payload"] for d in h.control.deliveries.values() if d["kind"] == "LONG_REVIEW"
             ]
             assert len(longs) == 3 and all(
-                row["status"] == "READY" and row["prompt_version"] == "long_review.v1.2.seed.v1"
+                row["status"] == "READY" and row["prompt_version"] == "long_review.v1.3.seed.v2"
                 for row in longs
             )
             assert search.calls.count("album-0") == 1

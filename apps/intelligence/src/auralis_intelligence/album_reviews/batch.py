@@ -15,8 +15,8 @@ from .types import AlbumDossier, ReadRecord, ResearchResult
 from .validation import validate_short
 from .writing import ShortWriteResult, WriteStage
 
-PROMPT = files(__package__).joinpath("batch.v6.txt").read_text(encoding="utf-8")
-PROMPT_EN = files(__package__).joinpath("batch.v6.en.txt").read_text(encoding="utf-8")
+PROMPT = files(__package__).joinpath("batch.v7.txt").read_text(encoding="utf-8")
+PROMPT_EN = files(__package__).joinpath("batch.v7.en.txt").read_text(encoding="utf-8")
 REFS = array({"type": "string"}, maximum=4)
 SCHEMA = object_schema(
     {
@@ -269,7 +269,7 @@ class BatchResearchStage:
             r.result.receipt["read_id"] for _, dossier in loaded for r in dossier.reads
         )
         output = None
-        version = "batch.v6.en" if execution.english else "batch.v6"
+        version = "batch.v7.en" if execution.english else "batch.v7"
         for attempt in range(2):
             reply = await self.model.generate(
                 execution,
