@@ -136,7 +136,10 @@ class ModelGateway:
             output=result.output,
             usage=asdict(result.usage),
         )
-        if result.finish != "COMPLETE":
+        if (
+            result.finish != "COMPLETE"
+            or (result.diagnostic or {}).get("category") == "OUTPUT_PHASE_SELECTED"
+        ):
             detail = result.diagnostic or {"category": "MODEL_FAILED"}
             logging.getLogger(__name__).warning(
                 "AURALIS_MODEL_DIAGNOSTIC %s",
@@ -157,6 +160,12 @@ class ModelGateway:
                                 "line",
                                 "column",
                                 "output_text_chars",
+                                "parse_error",
+                                "output_text_parts",
+                                "output_text_lengths",
+                                "message_phases",
+                                "legacy_parse_error",
+                                "selected_text_chars",
                             )
                             if k in detail
                         },
