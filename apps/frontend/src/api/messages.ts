@@ -38,6 +38,10 @@ const copy: Record<string, string | null> = {
   RESOURCE_UNAVAILABLE: "该内容暂时无法读取，请刷新状态后重试。",
   LONG_REVIEW_BUSY: "详细乐评生成名额紧张，请稍后点击重新生成。",
   REVIEW_MATERIAL_INSUFFICIENT: "可用资料不足，暂时无法写出完整乐评。",
+  MODEL_FAILED: "模型未正常完成这次请求，可以手动重试。",
+  JSON_PARSE_FAILED: "模型返回格式异常，未能读取生成结果。",
+  SCHEMA_VALIDATION_FAILED: "模型返回内容未通过结构校验。",
+  RESEARCH_FAILED: "资料审查发生技术错误，并非已确认资料不足。",
   NETWORK_UNCERTAIN:
     "连接暂时中断，操作是否完成尚不确定。请先刷新状态，或用原操作重试。",
   INVALID_RESPONSE: "服务返回了无法识别的数据，请稍后刷新状态。",
