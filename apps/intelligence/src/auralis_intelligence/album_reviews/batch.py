@@ -9,12 +9,14 @@ from auralis_intelligence.ranking import SelectionResult, SelectStage
 from auralis_intelligence.recall.full_audience import matches_policy
 
 from .context import preference_context
+from .prompts_en import BATCH_REPAIR
 from .research import ResearchStage, excerpt
 from .types import AlbumDossier, ReadRecord, ResearchResult
 from .validation import validate_short
 from .writing import ShortWriteResult, WriteStage
 
 PROMPT = files(__package__).joinpath("batch.v6.txt").read_text(encoding="utf-8")
+PROMPT_EN = files(__package__).joinpath("batch.v6.en.txt").read_text(encoding="utf-8")
 REFS = array({"type": "string"}, maximum=4)
 SCHEMA = object_schema(
     {
@@ -267,15 +269,16 @@ class BatchResearchStage:
             r.result.receipt["read_id"] for _, dossier in loaded for r in dossier.reads
         )
         output = None
+        version = "batch.v6.en" if execution.english else "batch.v6"
         for attempt in range(2):
             reply = await self.model.generate(
                 execution,
                 role="select",
                 purpose="SELECT" if not attempt else "STRUCTURE_REPAIR",
-                system=PROMPT,
+                system=PROMPT_EN if execution.english else PROMPT,
                 input=payload,
                 output_schema=SCHEMA,
-                prompt_version="batch.v6",
+                prompt_version=version,
                 read_ids=read_ids,
             )
             if reply.finish == "COMPLETE":
@@ -285,13 +288,18 @@ class BatchResearchStage:
                         aliases,
                         payload["target_count"],
                         execution.start["agent_policy"]["writing"],
+                        english=execution.english,
                     )
                     output = reply.output
                     break
                 except (ContractError, KeyError, TypeError) as error:
                     payload = {
                         **payload,
-                        "repair": "修复格式或引用；短评尽量约60汉字，最多3句；候选编号和引用必须来自输入。错误："
+                        "repair": (
+                            BATCH_REPAIR
+                            if execution.english
+                            else "修复格式或引用；短评尽量约60汉字，最多3句；候选编号和引用必须来自输入。错误："
+                        )
                         + str(error),
                     }
             if reply.outcome != "COMPLETED" or reply.finish == "REFUSED":
@@ -340,9 +348,9 @@ class BatchResearchStage:
                     "status": "OK",
                     "score": score,
                     "invocation_id": reply.invocation_id,
-                    "prompt_version": self.model.version("batch.v6")
+                    "prompt_version": self.model.version(version)
                     if hasattr(self.model, "version")
-                    else "batch.v6",
+                    else version,
                 },
                 "disposition": "RESERVE"
                 if qualified and score >= 3
@@ -369,9 +377,9 @@ class BatchResearchStage:
                     "text": row["text"],
                     "citations": [{"marker": ref, "read_id": lookup[ref]} for ref in row["refs"]],
                     "invocation_id": reply.invocation_id,
-                    "prompt_version": self.model.version("batch.v6")
+                    "prompt_version": self.model.version(version)
                     if hasattr(self.model, "version")
-                    else "batch.v6",
+                    else version,
                 },
             )
         execution.counters["qualified"] += sum(
@@ -380,7 +388,7 @@ class BatchResearchStage:
         return results
 
     @staticmethod
-    def _validate(output, aliases, count, policy):
+    def _validate(output, aliases, count, policy, *, english=False):
         assessments = output["assessments"]
         if len(assessments) != len(aliases) or {r["c"] for r in assessments} != set(aliases):
             raise ContractError("BATCH_ASSESSMENTS_INCOMPLETE")
@@ -403,7 +411,9 @@ class BatchResearchStage:
             ):
                 raise ContractError("BATCH_EVIDENCE_INSUFFICIENT")
             available = {r.ref for r in aliases[card["c"]][1].reads}
-            validate_short({"text": card["text"], "refs": card["refs"]}, available, policy)
+            validate_short(
+                {"text": card["text"], "refs": card["refs"]}, available, policy, english=english
+            )
 
 
 class BatchWriteStage(WriteStage):

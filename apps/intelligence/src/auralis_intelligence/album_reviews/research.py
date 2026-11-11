@@ -19,6 +19,7 @@ SCREEN_SCHEMA = json.loads(
     files(__package__).joinpath("screen.v1.schema.json").read_text(encoding="utf-8")
 )
 RESEARCH_PROMPT = files(__package__).joinpath("research.v2.txt").read_text(encoding="utf-8")
+RESEARCH_PROMPT_EN = files(__package__).joinpath("research.v2.en.txt").read_text(encoding="utf-8")
 
 
 def validate_screen(
@@ -140,6 +141,7 @@ class ResearchStage:
         min_score,
     ):
         policy = execution.start["agent_policy"]["screening"]
+        version = "research.v2.en" if execution.english else "research.v2"
         context, pref_aliases = preference_context(
             execution, preferences, genre_names=self.genre_names, album_names=self.album_names
         )
@@ -184,10 +186,10 @@ class ResearchStage:
                 execution,
                 role="screen",
                 purpose="SCREEN",
-                system=RESEARCH_PROMPT,
+                system=RESEARCH_PROMPT_EN if execution.english else RESEARCH_PROMPT,
                 input=payload,
                 output_schema=decision_schema,
-                prompt_version="research.v2",
+                prompt_version=version,
                 candidate_id=dossier.candidate_id,
                 read_ids=tuple(r.result.receipt["read_id"] for r in records),
                 lane=lane,
@@ -212,6 +214,7 @@ class ResearchStage:
                     dossier,
                     "SCREEN_FAILED",
                     (reply.diagnostic or {}).get("category", "MODEL_FAILED"),
+                    prompt_version=version,
                 )
             step = reply.output
             action = step["action"]
@@ -355,7 +358,7 @@ class ResearchStage:
                 "status": "OK",
                 "score": output["score"],
                 "invocation_id": reply.invocation_id,
-                "prompt_version": "research.v2",
+                "prompt_version": version,
             },
             "disposition": "RESERVE" if eligible else "BELOW_FLOOR" if qualified else "INELIGIBLE",
             "reason_code": None
@@ -373,7 +376,7 @@ class ResearchStage:
         return ResearchResult(screening, dossier, eligible)
 
     @staticmethod
-    def _failed(candidate, dossier, reason, error_code=None):
+    def _failed(candidate, dossier, reason, error_code=None, *, prompt_version="research.v2"):
         wire_reason = (
             error_code
             if error_code
@@ -407,7 +410,7 @@ class ResearchStage:
                 "status": "FAILED" if reason == "SCREEN_FAILED" else "NOT_RUN",
                 "score": None,
                 "invocation_id": None,
-                "prompt_version": "research.v2" if reason == "SCREEN_FAILED" else None,
+                "prompt_version": prompt_version if reason == "SCREEN_FAILED" else None,
             },
             "disposition": "INELIGIBLE",
             "reason_code": wire_reason,

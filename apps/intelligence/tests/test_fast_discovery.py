@@ -35,11 +35,18 @@ def test_generic_route_never_swallows_specific_constraints():
 
 @pytest.mark.parametrize("minimum", [10, 50, 500])
 @pytest.mark.parametrize(
-    "background,insufficient,cold",
-    [(False, 0, False), (True, 0, False), (False, 2, False), (False, 4, False), (True, 0, True)],
+    "background,insufficient,cold,english",
+    [
+        (False, 0, False, False),
+        (True, 0, False, False),
+        (False, 2, False, False),
+        (False, 4, False, False),
+        (True, 0, True, False),
+        (False, 0, False, True),
+    ],
 )
 def test_batch_one_call_and_audience_verified_at_publication(
-    tmp_path, background, insufficient, cold, minimum
+    tmp_path, background, insufficient, cold, english, minimum
 ):
     async def run():
         harness = DemoHarness(root=tmp_path, scenario="genre", r=5, k=5, n=3)
@@ -53,6 +60,11 @@ def test_batch_one_call_and_audience_verified_at_publication(
                 "snapshot_digest": "sha256:" + "a" * 64,
             }
             policy["digest"] = content_digest(policy, "digest")
+            if english:
+                harness.request["input"]["language"] = "en"
+                raw = harness.request["input"]["raw"]
+                raw["language"] = "en"
+                raw["input_digest"] = content_digest(raw, "input_digest")
             harness.request["payload_digest"] = content_digest(harness.request)
             for identifier in harness.control.catalog:
                 harness.control.candidate_audiences[identifier] = {
@@ -116,11 +128,17 @@ def test_batch_one_call_and_audience_verified_at_publication(
 
             def reply(binding, request):
                 seen.append(request.schema_name)
-                if request.schema_name != "batch_v6":
+                if request.schema_name != ("batch_v6_en" if english else "batch_v6"):
                     return _reply(binding, request)
                 from auralis_intelligence.agents import CallResult, Usage
 
                 text = "这张专辑在合成测试资料中呈现克制的编配，钢琴与轻缓鼓点之间留有清晰空间，旋律以渐进的方式展开而不过度依赖厚重音墙[R1]。另一份资料强调人声与吉他的亲近感；如果这次想在深夜安静地听，可以留意这种舒缓而细致的安排，这里只验证程序流程而不代表真实试听评价[R2]。"
+                if english:
+                    assert "specific English cards" in request.system
+                    text = (
+                        "Piano and quiet drums leave room around the melody, keeping the sound light and spacious [R1]. "
+                        "Close vocals and a soft guitar give the slower passages an intimate quality that suits late evening listening [R2]."
+                    )
                 candidates = request.input["candidates"]
                 assert all("primary_genres" not in c["album"] for c in candidates)
                 assert all("catalog_genre_hints" in c for c in candidates)
@@ -201,7 +219,8 @@ def test_batch_one_call_and_audience_verified_at_publication(
                     if d["kind"] == "SUPPLY_STATUS"
                 ]
                 assert supply_states[-1] == "R_EXHAUSTED"
-            assert seen == (["batch_v6", "batch_v6"] if background else ["batch_v6"])
+            name = "batch_v6_en" if english else "batch_v6"
+            assert seen == ([name, name] if background else [name])
             assert any(
                 call["plan"]["purpose"] == "SELECT" for call in harness.control.invocations.values()
             )

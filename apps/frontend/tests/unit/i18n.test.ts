@@ -1,12 +1,11 @@
 import { afterEach, describe, expect, test } from "vitest";
 import { message, stateMessage } from "../../src/api/messages.ts";
 import { genreNote } from "../../src/content/genreNotes.ts";
-import { NOTES_EN } from "../../src/content/genreNotes.en.ts";
 import en from "../../src/i18n/en.ts";
 import { copy, i18n, LOCALES, withLanguage } from "../../src/i18n/index.ts";
 import zhCN from "../../src/i18n/zh-CN.ts";
 import { emptyInput } from "../../src/state/input.ts";
-import { ready } from "../fixtures.ts";
+import { JAZZ_GENRE_ID, RABBIT_SONG_GENRE_ID, ready } from "../fixtures.ts";
 
 afterEach(() => {
   i18n.set("zh-CN");
@@ -87,15 +86,13 @@ describe("interface language", () => {
     expect(i18n.locale).toBe("zh-CN");
   });
 
-  test("every genre note has an English version", () => {
+  test("genre notes follow the interface language and use the catalogue ID", () => {
+    expect(genreNote(JAZZ_GENRE_ID)).toContain("即兴");
+    expect(genreNote(RABBIT_SONG_GENRE_ID)).toBeNull();
     i18n.set("en");
-    expect(genreNote("Trip-Hop")).toBe(NOTES_EN["trip hop"]);
-    expect(genreNote("R&B")).toBe(NOTES_EN["r and b"]);
-    expect(genreNote("Zeuhl")).toBeNull();
-    expect(genreNote("Jazz", "zh-CN")).toMatch(/\p{Script=Han}/u);
-    for (const [key, note] of Object.entries(NOTES_EN)) {
-      expect(genreNote(key, "zh-CN"), key).not.toBeNull();
-      expect(note, key).not.toMatch(/\p{Script=Han}/u);
-    }
+    expect(genreNote(JAZZ_GENRE_ID)).toContain("Improvisation");
+    expect(genreNote(JAZZ_GENRE_ID, "zh-CN")).toContain("即兴");
+    expect(genreNote(RABBIT_SONG_GENRE_ID)).toBeNull();
+    expect(genreNote("Jazz")).toBeNull();
   });
 });

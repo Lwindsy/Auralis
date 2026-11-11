@@ -524,7 +524,8 @@ abstract class PublicationFixture {
                         resolution,
                         population,
                         policy.toString(),
-                        target);
+                        target,
+                        false);
         publication.register(context, bundle.toString());
         var reads = new HashMap<String, String>();
         for (String candidate : candidates.keySet()) {

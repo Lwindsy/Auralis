@@ -1,9 +1,4 @@
-"""English editions of the runtime preference prompts (genre_pass1_v0.7, genre_pass2_v0.8).
-
-Faithful translations of prompts.py with English examples and output. Not wired into
-PreferencesStage: the Chinese originals stay in use until the backend chooses prompts by
-the request's language.
-"""
+"""English system prompts for the two-pass preference interpreter."""
 
 PASS_ONE_PROMPT = """# Role and task
 

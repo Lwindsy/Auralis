@@ -2656,6 +2656,10 @@
         "input": {
           "type": "object",
           "properties": {
+            "language": {
+              "const": "en",
+              "description": "Selects English model prompts for this execution, including starts without raw input. An omitted value keeps the Chinese runtime."
+            },
             "raw": {
               "anyOf": [
                 {

@@ -8,6 +8,7 @@ import pytest
 from auralis_intelligence.agents import CallResult, Execution, Usage
 from auralis_intelligence.agents.demo import DemoHarness, DemoPages
 from auralis_intelligence.agents.http import ControlHTTPClient, create_control_double_app
+from auralis_intelligence.album_reviews import prompts_en
 from auralis_intelligence.album_reviews.seed_context import SeedContext, SeededPipeline
 from auralis_intelligence.contracts import ContractError, content_digest
 from auralis_intelligence.preferences import PreferencesStage
@@ -59,10 +60,17 @@ def next_request(harness, ex, *, session=None):
     return request
 
 
-def test_seed_cache_reused_in_same_execution_and_next_round_over_http(tmp_path):
+@pytest.mark.parametrize("english", [False, True])
+def test_seed_cache_reused_in_same_execution_and_next_round_over_http(tmp_path, english):
     async def run():
         h = DemoHarness(scenario="album", root=tmp_path, r=5, k=3, n=3)
         try:
+            if english:
+                raw = h.request["input"]["raw"]
+                raw["language"] = "en"
+                raw["input_digest"] = content_digest(raw, "input_digest")
+                h.request["input"]["language"] = "en"
+                h.request["payload_digest"] = content_digest(h.request)
             async with running(create_control_double_app(h.control, token="seed-test")) as url:
                 client = ControlHTTPClient(url, "seed-test")
                 try:
@@ -93,6 +101,10 @@ def test_seed_cache_reused_in_same_execution_and_next_round_over_http(tmp_path):
                     assert reused.rows == saved and reused.reused_count == 1
                     assert search.calls == ["album-0"]
                     await reused.generate(second, **args)
+                    if english:
+                        assert (
+                            h.adapter.requests[-1][1].system == "Test" + prompts_en.SEED_INSTRUCTION
+                        )
                     assert (
                         h.adapter.requests[-1][1].input["seed_evidence"][0]["seed_id"] == "album-0"
                     )

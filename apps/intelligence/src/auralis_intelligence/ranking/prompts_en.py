@@ -1,9 +1,4 @@
-"""English edition of the model-facing instruction written inline in ranking.
-
-A faithful translation of the current Chinese text. Not wired into the runtime:
-selection.py keeps sending the Chinese original until the backend chooses prompts by the
-request's language. The system prompt itself is select.v1.en.txt.
-"""
+"""English repair instruction for select.v1.en."""
 
 # selection.py repair instruction after an invalid select.v1 reply.
 SELECT_REPAIR_INSTRUCTION = (

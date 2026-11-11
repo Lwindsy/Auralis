@@ -1,11 +1,15 @@
-"""English prompt editions: complete, well-formed and not yet wired into the runtime."""
+"""English prompt structure and runtime selection."""
 
+import asyncio
 import json
 import re
+from dataclasses import replace
 from importlib.resources import files
 
 import pytest
-from auralis_intelligence.album_reviews import batch, prompts_en, research, seed_context, writing
+from auralis_intelligence.agents.demo import DemoHarness, _reply
+from auralis_intelligence.album_reviews import prompts_en, research, seed_context, writing
+from auralis_intelligence.contracts import content_digest
 from auralis_intelligence.preferences import prompts as prompts_zh
 from auralis_intelligence.preferences import prompts_en as preferences_en
 from auralis_intelligence.ranking import prompts_en as ranking_en
@@ -33,12 +37,62 @@ def test_english_edition_keeps_the_paragraph_structure(package, stem):
     assert english.endswith("\n") and "\r" not in english
 
 
-def test_runtime_still_sends_the_chinese_prompts():
-    assert batch.PROMPT == text("auralis_intelligence.album_reviews", "batch.v6.txt")
-    assert research.RESEARCH_PROMPT == text("auralis_intelligence.album_reviews", "research.v2.txt")
-    assert writing.WRITING_PROMPT == text("auralis_intelligence.album_reviews", "writing.v1.2.txt")
-    assert selection.PROMPT == text("auralis_intelligence.ranking", "select.v1.txt")
-    assert HAN.search(seed_context.SEED_INSTRUCTION)
+@pytest.mark.parametrize("english", [False, True])
+def test_recommendation_uses_one_language_for_every_model_stage(tmp_path, english):
+    async def run():
+        harness = DemoHarness(scenario="text", r=3, k=2, n=1, root=tmp_path)
+        try:
+            start = harness.request
+            if english:
+                start["input"]["language"] = "en"
+                raw = start["input"]["raw"]
+                raw.update(language="en", request_text="Quiet jazz for late evenings")
+                raw["input_digest"] = content_digest(raw, "input_digest")
+                start["payload_digest"] = content_digest(start)
+            edition = preferences_en if english else prompts_zh
+            systems = {
+                "genre_pass1_v0_7": edition.PASS_ONE_PROMPT,
+                "genre_pass2_v0_8": edition.PASS_TWO_PROMPT,
+                "research_v2": research.RESEARCH_PROMPT_EN if english else research.RESEARCH_PROMPT,
+                "select_v1": selection.PROMPT_EN if english else selection.PROMPT,
+                "short_review_v1_2": writing.WRITING_PROMPT_EN
+                if english
+                else writing.WRITING_PROMPT,
+                "long_review_v1_2": writing.WRITING_PROMPT_EN
+                if english
+                else writing.WRITING_PROMPT,
+            }
+            seen = set()
+
+            def reply(binding, request):
+                name = request.schema_name.removesuffix("_en")
+                assert request.schema_name == name + ("_en" if english else "")
+                assert request.system == systems[name]
+                seen.add(name)
+                answer = _reply(binding, replace(request, schema_name=name))
+                if english and name.startswith("short_review"):
+                    answer.output["text"] = (
+                        "Quiet drums and warm piano leave room around the melody, while the guitar stays low in the mix [R1]. "
+                        "The close vocal and slowly changing harmonies give the record a calm feel, with enough movement to hold your attention through a late evening listen [R2]."
+                    )
+                if english and name.startswith("long_review"):
+                    answer.output["sections"] = {
+                        "production": "The piano and drums leave space around each phrase [R1].",
+                        "instrumentation": "",
+                        "vocals": "",
+                        "mood": "Soft percussion and gradual harmonies create a quiet atmosphere [R2].",
+                    }
+                return answer
+
+            harness.adapter.replies = reply
+            result = await harness.run()
+            assert result["first_outcome"] == "DISPLAYABLE", result
+            assert result["published_count"] == 1 and result["long_reviews"] == 2
+            assert seen == systems.keys()
+        finally:
+            harness.close()
+
+    asyncio.run(run())
 
 
 def test_english_prompts_name_english_output_and_word_lengths():

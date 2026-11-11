@@ -1,10 +1,4 @@
-"""English editions of the model-facing instructions written inline in album_reviews.
-
-Faithful translations of the current Chinese text, with the output language switched to
-English (lengths in English words). Not wired into the runtime: seed_context.py,
-batch.py, writing.py and context.py keep sending the Chinese originals until the backend
-chooses prompts by the request's language.
-"""
+"""English instructions appended to the album research and review prompts."""
 
 # seed_context.py SEED_INSTRUCTION, appended to the system prompt (".seed.v1").
 SEED_INSTRUCTION = """

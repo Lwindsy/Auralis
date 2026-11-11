@@ -16,12 +16,16 @@ import io.auralis.session.api.SessionStore;
 import io.auralis.session.api.SessionStore.Scope;
 import java.time.Clock;
 import java.util.*;
+import java.util.regex.Pattern;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 /** Atomic result admission and display consumption; external work is delegated after commit. */
 @Service
 public class PostgresPublicationAuthority implements PublicationAuthority {
+    private static final Pattern CITATION_MARKER = Pattern.compile("\\[[A-Za-z][0-9]+\\]");
+    private static final Pattern ENGLISH_WORD =
+            Pattern.compile("[A-Za-z0-9]+(?:['’-][A-Za-z0-9]+)*");
     private final JdbcTemplate jdbc;
     private final ShortTransactions tx;
     private final SessionStore sessions;
@@ -126,7 +130,8 @@ public class PostgresPublicationAuthority implements PublicationAuthority {
                 c.preferenceResolution(),
                 c.audience(),
                 c.policy(),
-                c.target());
+                c.target(),
+                c.english());
     }
 
     private void guard(Context c) {
@@ -451,15 +456,26 @@ public class PostgresPublicationAuthority implements PublicationAuthority {
         }
         for (var citation : review.path("citations"))
             if (!used.contains(citation.path("read_id").asText())) return "CITATION_INVALID";
-        long han =
-                review.path("text")
-                        .asText()
-                        .codePoints()
-                        .filter(n -> (n >= 0x3400 && n <= 0x4dbf) || (n >= 0x4e00 && n <= 0x9fff))
-                        .count();
-        if (han < policy.path("writing").path("short_min_han").asInt()
-                || han > policy.path("writing").path("short_max_han").asInt())
-            return "LENGTH_INVALID";
+        String text = review.path("text").asText();
+        if (c.english()) {
+            long words =
+                    ENGLISH_WORD
+                            .matcher(CITATION_MARKER.matcher(text).replaceAll(""))
+                            .results()
+                            .count();
+            if (words < 30 || words > 110) return "LENGTH_INVALID";
+        } else {
+            long han =
+                    text.codePoints()
+                            .filter(
+                                    n ->
+                                            (n >= 0x3400 && n <= 0x4dbf)
+                                                    || (n >= 0x4e00 && n <= 0x9fff))
+                            .count();
+            if (han < policy.path("writing").path("short_min_han").asInt()
+                    || han > policy.path("writing").path("short_max_han").asInt())
+                return "LENGTH_INVALID";
+        }
         String expected =
                 batch.path("analysis_mode").asText().equals("PERSONALIZED")
                         ? "SELECTED"
@@ -1334,16 +1350,14 @@ public class PostgresPublicationAuthority implements PublicationAuthority {
                         } catch (java.io.IOException e) {
                             throw new IllegalStateException(e);
                         }
-                    String policy =
-                            json(queue.startPayload(execution.evidence().execution()))
-                                    .path("agent_policy")
-                                    .toString();
+                    var start = json(queue.startPayload(execution.evidence().execution()));
                     return new Context(
                             execution,
                             (String) row.get("preference_resolution"),
                             binding,
-                            policy,
-                            ((Number) row.get("target")).intValue());
+                            start.path("agent_policy").toString(),
+                            ((Number) row.get("target")).intValue(),
+                            "en".equals(start.path("input").path("language").asText()));
                 });
     }
 

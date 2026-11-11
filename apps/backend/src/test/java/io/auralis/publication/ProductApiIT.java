@@ -211,11 +211,13 @@ class ProductApiIT extends ProductApiFixture {
         }
     }
 
-    @Test
-    void interruptedPhysicalExecutionCanRegenerateLongReviewExplicitly() throws Exception {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"zh-CN", "en"})
+    void interruptedPhysicalExecutionCanRegenerateLongReviewExplicitly(String language)
+            throws Exception {
         peer.failLongNext.set(true);
         var b = browser();
-        b.submit(userInput(""), "interrupted-long");
+        b.submit(userInput("").put("language", language), "interrupted-long");
         b.awaitState(
                 s ->
                         s.path("slots")
@@ -239,6 +241,26 @@ class ProductApiIT extends ProductApiFixture {
                                 .asText()
                                 .equals("READY"));
         assertTrue(peer.modelCalls.get() > calls);
+        var rerun =
+                peer.jobs.values().stream()
+                        .filter(j -> j.start.path("session_id").equals(b.state.path("session_id")))
+                        .filter(j -> j.start.path("run_kind").asText().equals("RERUN"))
+                        .findFirst()
+                        .orElseThrow();
+        assertTrue(rerun.start.path("input").path("raw").isNull());
+        assertEquals(
+                language.equals("en") ? "en" : "",
+                rerun.start.path("input").path("language").asText());
+        if (language.equals("en"))
+            assertTrue(
+                    b.state
+                            .path("slots")
+                            .get(0)
+                            .path("card")
+                            .path("short_review")
+                            .path("text")
+                            .asText()
+                            .startsWith("Piano and quiet drums"));
     }
 
     @Test
@@ -358,11 +380,13 @@ class ProductApiIT extends ProductApiFixture {
         assertTrue(peer.failures.isEmpty(), peer.failures.toString());
     }
 
-    @Test
-    void replacementSupplyThenCacheAndNextRoundKeepHistoryAndNoRawReplay() throws Exception {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"zh-CN", "en"})
+    void replacementSupplyThenCacheAndNextRoundKeepHistoryAndNoRawReplay(String language)
+            throws Exception {
         peer.holdReports = true;
         var b = browser();
-        b.submit(userInput("原文只发送首轮"), "start");
+        b.submit(userInput("原文只发送首轮").put("language", language), "start");
         b.awaitState(s -> s.path("status").asText().equals("SUCCEEDED"));
         String firstRound = b.state.path("round_id").asText();
         String first = b.state.path("slots").get(0).path("card").path("candidate_id").asText();
@@ -411,13 +435,23 @@ class ProductApiIT extends ProductApiFixture {
                                         && s.path("status").asText().equals("SUCCEEDED"));
         assertTrue(
                 peer.jobs.values().stream()
-                        .filter(j -> j.start.path("round_seq").asInt() > 1)
-                        .allMatch(j -> j.start.path("input").path("raw").isNull()));
+                        .filter(j -> j.start.path("round_id").equals(next.path("round_id")))
+                        .allMatch(
+                                j ->
+                                        j.start.path("input").path("raw").isNull()
+                                                && j.start
+                                                        .path("input")
+                                                        .path("language")
+                                                        .asText()
+                                                        .equals(
+                                                                language.equals("en")
+                                                                        ? "en"
+                                                                        : "")));
         assertTrue(
                 peer.jobs.values().stream()
                         .anyMatch(
                                 j ->
-                                        j.start.path("round_seq").asInt() > 1
+                                        j.start.path("round_id").equals(next.path("round_id"))
                                                 && j.start
                                                         .path("input")
                                                         .path("exclusions")

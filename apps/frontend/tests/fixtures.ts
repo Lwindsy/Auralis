@@ -19,6 +19,9 @@ interface FixtureRow {
 
 const rows = fixtures as FixtureRow[];
 
+export const JAZZ_GENRE_ID = "a715278f-1580-409f-8078-4ffbc800e08b";
+export const RABBIT_SONG_GENRE_ID = "b5876590-f58e-4582-ba02-976063ea5824";
+
 export const shared = <T = unknown>(name: string): T =>
   structuredClone(rows.find((row) => row.name === name)!.payload) as T;
 
@@ -43,6 +46,10 @@ export function card(number = 1): ProductCard {
         .identity,
       title: `样例专辑 ${number}`,
       artist_credit: "合成测试艺人",
+      primary_genres: [
+        { genre_id: JAZZ_GENRE_ID, name: "Jazz" },
+        { genre_id: RABBIT_SONG_GENRE_ID, name: "Rabbit Song" },
+      ],
     },
     cover_url: null,
     short_review: {
@@ -121,7 +128,12 @@ export interface FixtureResponse {
 
 const GENRES = {
   roots: [
-    { genre_id: "jazz", name: "Jazz", parent_ids: [], has_children: true },
+    {
+      genre_id: JAZZ_GENRE_ID,
+      name: "Jazz",
+      parent_ids: [],
+      has_children: true,
+    },
     { genre_id: "metal", name: "Metal", parent_ids: [], has_children: false },
     {
       genre_id: "trip-hop",
@@ -137,17 +149,17 @@ const GENRES = {
     },
   ],
   children: {
-    jazz: [
+    [JAZZ_GENRE_ID]: [
       {
         genre_id: "cool-jazz",
         name: "Cool Jazz",
-        parent_ids: ["jazz"],
+        parent_ids: [JAZZ_GENRE_ID],
         has_children: false,
       },
       {
         genre_id: "modal-jazz",
         name: "Modal Jazz",
-        parent_ids: ["jazz"],
+        parent_ids: [JAZZ_GENRE_ID],
         has_children: false,
       },
     ],

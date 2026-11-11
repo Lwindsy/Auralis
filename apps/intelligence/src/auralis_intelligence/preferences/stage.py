@@ -8,7 +8,7 @@ from auralis_intelligence.contracts import content_digest, validate_definition
 from auralis_intelligence.providers import ModelGateway
 from jsonschema import Draft202012Validator
 
-from .prompts import PASS_ONE_PROMPT, PASS_TWO_PROMPT
+from . import prompts, prompts_en
 from .reference import PreferenceError, ReferenceCatalog, locate
 from .schemas import PASS_ONE, PASS_TWO
 
@@ -35,7 +35,7 @@ class PreferencesStage:
             system=system,
             input=payload,
             output_schema=schema,
-            prompt_version=version,
+            prompt_version=version + (".en" if execution.english else ""),
         )
         if result.outcome != "COMPLETED" or result.finish != "COMPLETE":
             raise PreferenceError("INTERPRETATION_FAILED")
@@ -66,11 +66,12 @@ class PreferencesStage:
             "soft_preferences": [],
         }
         if text.strip():
+            edition = prompts_en if execution.english else prompts
             execution.phase = "INTERPRETING"
             branches = self.reference.branch_material()
             first = await self._generate(
                 execution,
-                PASS_ONE_PROMPT,
+                edition.PASS_ONE_PROMPT,
                 {"request_text": text, "branches": branches},
                 PASS_ONE,
                 "genre_pass1_v0.7",
@@ -113,7 +114,7 @@ class PreferencesStage:
             )
             second = await self._generate(
                 execution,
-                PASS_TWO_PROMPT,
+                edition.PASS_TWO_PROMPT,
                 {"request_text": text, "genres": genres},
                 PASS_TWO,
                 "genre_pass2_v0.8",

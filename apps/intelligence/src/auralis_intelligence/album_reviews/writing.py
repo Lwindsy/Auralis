@@ -12,10 +12,11 @@ from auralis_intelligence.contracts import ContractError
 from auralis_intelligence.providers import ModelGateway, ToolGateway
 from jsonschema import Draft202012Validator
 
+from . import prompts_en
 from .context import preference_context
 from .research import excerpt
 from .types import AlbumDossier, ReadRecord
-from .validation import han_count, validate_long, validate_short
+from .validation import han_count, validate_long, validate_short, word_count
 
 SHORT_SCHEMA = json.loads(
     files(__package__).joinpath("short_review.v1.schema.json").read_text(encoding="utf-8")
@@ -24,6 +25,7 @@ LONG_SCHEMA = json.loads(
     files(__package__).joinpath("long_review.v1.schema.json").read_text(encoding="utf-8")
 )
 WRITING_PROMPT = files(__package__).joinpath("writing.v1.2.txt").read_text(encoding="utf-8")
+WRITING_PROMPT_EN = files(__package__).joinpath("writing.v1.2.en.txt").read_text(encoding="utf-8")
 
 
 @dataclass(frozen=True)
@@ -62,6 +64,10 @@ class WriteStage:
     ) -> None:
         self.model, self.tools = model, tools
         self.genre_names, self.album_names = genre_names, album_names
+
+    @staticmethod
+    def _version(execution: Execution, form: str) -> str:
+        return f"{form}_review.v1.2" + (".en" if execution.english else "")
 
     def start(
         self,
@@ -130,10 +136,10 @@ class WriteStage:
                 if form == "long" and "long_write" in execution.start["model_bindings"]
                 else "write",
                 purpose=purpose if attempt == 0 else "STRUCTURE_REPAIR",
-                system=WRITING_PROMPT,
+                system=WRITING_PROMPT_EN if execution.english else WRITING_PROMPT,
                 input=payload,
                 output_schema=schema,
-                prompt_version=f"{form}_review.v1.2",
+                prompt_version=self._version(execution, form),
                 candidate_id=dossier.candidate_id,
                 read_ids=tuple(record.result.receipt["read_id"] for record in records),
                 lane=lane,
@@ -146,28 +152,39 @@ class WriteStage:
                 invocation_ids.append(reply.invocation_id)
             if reply.finish == "COMPLETE" and Draft202012Validator(schema).is_valid(reply.output):
                 try:
-                    (validate_short if form == "short" else validate_long)(
-                        reply.output, {record.ref for record in records}, policy
-                    )
+                    refs = {record.ref for record in records}
+                    if form == "short":
+                        validate_short(reply.output, refs, policy, english=execution.english)
+                    else:
+                        validate_long(reply.output, refs, policy)
                     return reply
                 except ContractError:
                     pass
             if reply.outcome != "COMPLETED" or reply.finish == "REFUSED":
                 raise ContractError("WRITE_MODEL_FAILED")
-            measured = (
-                sum(han_count(text) for text in reply.output.get("sections", {}).values())
-                if form == "long" and isinstance(reply.output, dict)
-                else None
-            )
-            length_note = (
-                f"上一条长评只有约{measured}个汉字；只写有实际资料支持的内容，不凑字数。"
-                if measured is not None
-                else ""
+            length_note = ""
+            if form == "long" and isinstance(reply.output, dict):
+                sections = reply.output.get("sections", {})
+                if isinstance(sections, dict):
+                    count = word_count if execution.english else han_count
+                    measured = sum(
+                        count(text) for text in sections.values() if isinstance(text, str)
+                    )
+                    length_note = (
+                        prompts_en.LONG_LENGTH_NOTE.format(measured=measured)
+                        if execution.english
+                        else f"上一条长评只有约{measured}个汉字；只写有实际资料支持的内容，不凑字数。"
+                    )
+            repair = (
+                prompts_en.WRITE_REPAIR
+                if execution.english
+                else "上一条未通过完整性、字数、引用或结构检查。只用已有资料重写完整输出；不要猜测新事实。"
             )
             payload = {
                 **payload,
                 "repair_instruction": length_note
-                + "上一条未通过完整性、字数、引用或结构检查。只用已有资料重写完整输出；不要猜测新事实。",
+                + (" " if execution.english and length_note else "")
+                + repair,
             }
         raise ContractError("WRITE_INVALID_OUTPUT")
 
@@ -199,9 +216,9 @@ class WriteStage:
                         {"marker": ref, "read_id": lookup[ref]} for ref in reply.output["refs"]
                     ],
                     "invocation_id": reply.invocation_id,
-                    "prompt_version": self.model.version("short_review.v1.2")
+                    "prompt_version": self.model.version(self._version(execution, "short"))
                     if hasattr(self.model, "version")
-                    else "short_review.v1.2",
+                    else self._version(execution, "short"),
                 },
             )
         except asyncio.CancelledError:
@@ -244,9 +261,9 @@ class WriteStage:
             "extra_read_ids": extra_ids,
             "missing_sections": [],
             "invocation_ids": invocation_ids,
-            "prompt_version": self.model.version("long_review.v1.2")
+            "prompt_version": self.model.version(self._version(execution, "long"))
             if hasattr(self.model, "version")
-            else "long_review.v1.2",
+            else self._version(execution, "long"),
             "reason_code": None,
         }
         try:

@@ -152,7 +152,7 @@ export function GenreWave({ card }: { card: ProductCard }) {
         : { focus: (index + 0.5) / tags.length, power: POWER };
   };
   const tag = active === null ? null : tags[active];
-  const note = tag ? (genreNote(tag.name) ?? words.wave.fallback) : null;
+  const note = tag ? (genreNote(tag.genre_id) ?? words.wave.fallback) : null;
 
   return (
     <div className="wave" data-active={active !== null || undefined}>

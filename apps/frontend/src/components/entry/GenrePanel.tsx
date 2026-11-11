@@ -189,7 +189,7 @@ export function GenrePanel({
  */
 function HoverCard({ hover }: { hover: Hover }) {
   useCopy();
-  const note = genreNote(hover.node.name);
+  const note = genreNote(hover.node.genre_id);
   const width = 288;
   const { anchor } = hover;
   const mid = (anchor.top + anchor.bottom) / 2;

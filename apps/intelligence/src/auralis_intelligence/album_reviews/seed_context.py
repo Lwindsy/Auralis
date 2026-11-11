@@ -7,6 +7,7 @@ from copy import deepcopy
 from auralis_intelligence.agents import CallDenied, ControlUnavailable
 from auralis_intelligence.contracts import ContractError, digest, validate_definition
 
+from . import prompts_en
 from .cold import ColdEvidence
 from .research import excerpt
 
@@ -143,7 +144,9 @@ class SeedContext:
                 "seed_evidence": rows,
                 "seed_context_revision": "seed-evidence.v1",
             }
-            kwargs["system"] += SEED_INSTRUCTION
+            kwargs["system"] += (
+                prompts_en.SEED_INSTRUCTION if execution.english else SEED_INSTRUCTION
+            )
             kwargs["read_ids"] = tuple(
                 dict.fromkeys(
                     [

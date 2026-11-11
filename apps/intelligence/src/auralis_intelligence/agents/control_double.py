@@ -2,13 +2,13 @@
 
 import asyncio
 import math
-import re
 from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from fractions import Fraction
 from typing import Any, Callable
 
+from auralis_intelligence.album_reviews.validation import valid_short_length
 from auralis_intelligence.contracts import (
     ContractError,
     IdempotencyLedger,
@@ -954,12 +954,10 @@ class JavaControlDouble:
                     ]
                 ):
                     reason = "SCORE_BELOW_THRESHOLD"
-                elif (
-                    not entry["start"]["agent_policy"]["writing"]["short_min_han"]
-                    <= len(
-                        re.findall(r"[\u3400-\u4dbf\u4e00-\u9fff]", card["short_review"]["text"])
-                    )
-                    <= entry["start"]["agent_policy"]["writing"]["short_max_han"]
+                elif not valid_short_length(
+                    card["short_review"]["text"],
+                    entry["start"]["agent_policy"]["writing"],
+                    english=entry["start"]["input"].get("language") == "en",
                 ):
                     reason = "LENGTH_INVALID"
                 elif any(

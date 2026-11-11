@@ -367,13 +367,11 @@ public class Recommendations {
                         accepted.plusSeconds(limits.executionSeconds()).toString())
                 .put("idle_close_ms", settings.path("idle_close_ms").asInt());
         var preferences = effective(scope, config);
+        var raw = json(sessions.current(scope.subjectId()).orElseThrow().rawInput());
         var input = out.putObject("input");
         input.set("accepted_preferences", preferences);
-        input.set(
-                "raw",
-                preferences.isNull()
-                        ? json(sessions.current(scope.subjectId()).orElseThrow().rawInput())
-                        : JSON.nullNode());
+        input.set("raw", preferences.isNull() ? raw : JSON.nullNode());
+        if ("en".equals(raw.path("language").asText())) input.put("language", "en");
         var excludes = exclusions(scope, round.id());
         input.set("exclusions", excludes);
         input.put("exclusion_digest", digest(excludes));
@@ -888,7 +886,8 @@ public class Recommendations {
                                     start.path("agent_policy").toString(),
                                     start.path("selection_config")
                                             .path("recommendation_target_count")
-                                            .asInt()),
+                                            .asInt(),
+                                    "en".equals(start.path("input").path("language").asText())),
                             bundle.toString());
                     return bundle.toString();
                 });

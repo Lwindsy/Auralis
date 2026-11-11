@@ -8,7 +8,13 @@ import {
   type Route,
 } from "@playwright/test";
 import type { ProductState } from "../../src/api/types.ts";
-import { FixtureBackend, idle, ready, shared } from "../fixtures.ts";
+import {
+  FixtureBackend,
+  JAZZ_GENRE_ID,
+  idle,
+  ready,
+  shared,
+} from "../fixtures.ts";
 
 async function attach(
   context: BrowserContext,
@@ -135,7 +141,7 @@ test("doors widen one at a time; genres group families, show notes and keep mark
   await expect(page.getByRole("region", { name: "正在推荐" })).toBeVisible();
   await expect(album(page, "样例专辑 1")).toBeVisible({ timeout: 10000 });
   expect(backend.state.editable_input!.liked_genres[0]).toEqual({
-    genre_id: "jazz",
+    genre_id: JAZZ_GENRE_ID,
     strength: "special",
     focused: true,
   });
@@ -170,7 +176,7 @@ test("中文／EN switches the whole page in place and sends the language with a
   ).toBeDisabled();
   await page.getByRole("button", { name: /^Genres/ }).click();
   await page.getByRole("button", { name: "Jazz", exact: true }).hover();
-  await expect(page.getByRole("tooltip")).toContainText("improvisation");
+  await expect(page.getByRole("tooltip")).toContainText("Improvisation");
   await page.getByRole("button", { name: "Like Jazz", exact: true }).click();
   await page.getByRole("button", { name: /^In your own words/ }).click();
   await page
@@ -185,6 +191,10 @@ test("中文／EN switches the whole page in place and sends the language with a
   );
   // Reviews are shown exactly as returned, whatever the page language.
   const card = album(page, "样例专辑 1");
+  await card.getByRole("button", { name: "Jazz", exact: true }).focus();
+  await expect(card.locator(".wave__note")).toContainText("Improvisation");
+  await card.getByRole("button", { name: "Rabbit Song", exact: true }).focus();
+  await expect(card.locator(".wave__note")).toContainText("Just a hint.");
   await expect(card.getByText("这是用于交互验证的合成短评")).toBeAttached();
   await expect(card.getByRole("button", { name: "Love it!" })).toBeVisible();
   await card.getByRole("button", { name: "Read the full review" }).click();
@@ -194,6 +204,8 @@ test("中文／EN switches the whole page in place and sends the language with a
   // Switching back keeps the review that was already written.
   await english.getByRole("button", { name: "中文" }).click();
   await expect(page.locator("html")).toHaveAttribute("lang", "zh-CN");
+  await card.getByRole("button", { name: "Jazz", exact: true }).focus();
+  await expect(card.locator(".wave__note")).toContainText("即兴");
   await expect(card.getByRole("button", { name: "收起长评" })).toBeVisible();
   await expect(
     card.getByText("第二段合成文字，验证多段落排版。"),

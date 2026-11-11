@@ -5,6 +5,8 @@ from typing import Any, Mapping
 from auralis_intelligence.agents import Execution
 from auralis_intelligence.contracts import ContractError, validate_definition
 
+from .prompts_en import COMPLETE_REQUEST_DESCRIPTION
+
 
 def preference_context(
     execution: Execution,
@@ -59,7 +61,9 @@ def preference_context(
                 "ref": "P0",
                 "kind": "complete_request",
                 "basis": "explicit",
-                "description": "完整诉求见request_text，包含未压缩的听感、情绪、场景、许可与避让；不要只看风格。",
+                "description": COMPLETE_REQUEST_DESCRIPTION
+                if execution.english
+                else "完整诉求见request_text，包含未压缩的听感、情绪、场景、许可与避让；不要只看风格。",
             },
         )
     return {"mode": snapshot["mode"], "request_text": text, "preferences": items}, aliases

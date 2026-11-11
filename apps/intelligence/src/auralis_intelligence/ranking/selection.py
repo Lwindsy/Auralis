@@ -12,10 +12,13 @@ from auralis_intelligence.contracts import ContractError, validate_definition
 from auralis_intelligence.providers import ModelGateway
 from jsonschema import Draft202012Validator
 
+from .prompts_en import SELECT_REPAIR_INSTRUCTION
+
 SCHEMA = json.loads(
     files(__package__).joinpath("select.v1.schema.json").read_text(encoding="utf-8")
 )
 PROMPT = files(__package__).joinpath("select.v1.txt").read_text(encoding="utf-8")
+PROMPT_EN = files(__package__).joinpath("select.v1.en.txt").read_text(encoding="utf-8")
 
 
 @dataclass(frozen=True)
@@ -124,10 +127,10 @@ class SelectStage:
                     execution,
                     role="select",
                     purpose="SELECT" if attempt == 0 else "STRUCTURE_REPAIR",
-                    system=PROMPT,
+                    system=PROMPT_EN if execution.english else PROMPT,
                     input=payload,
                     output_schema=SCHEMA,
-                    prompt_version="select.v1",
+                    prompt_version="select.v1.en" if execution.english else "select.v1",
                     read_ids=tuple(sorted(read_ids)),
                     lane=lane,
                 )
@@ -161,7 +164,9 @@ class SelectStage:
                     break
                 payload = {
                     **payload,
-                    "repair_instruction": "给出所有输入C编号的完整且无重复排列，只使用输入编号；reject必须写依据。",
+                    "repair_instruction": SELECT_REPAIR_INSTRUCTION
+                    if execution.english
+                    else "给出所有输入C编号的完整且无重复排列，只使用输入编号；reject必须写依据。",
                 }
         except asyncio.CancelledError:
             raise
