@@ -479,11 +479,13 @@ public class PostgresPublicationAuthority implements PublicationAuthority {
                 return "LENGTH_INVALID";
         }
         String expected =
-                batch.path("analysis_mode").asText().equals("PERSONALIZED")
-                        ? "SELECTED"
-                        : batch.path("analysis_mode").asText().equals("CURATED")
-                                ? "CURATED"
-                                : "SCREEN_ONLY";
+                batch.path("batch_kind").asText().equals("PROGRESSIVE")
+                        ? "INDIVIDUAL"
+                        : batch.path("analysis_mode").asText().equals("PERSONALIZED")
+                                ? "SELECTED"
+                                : batch.path("analysis_mode").asText().equals("CURATED")
+                                        ? "CURATED"
+                                        : "SCREEN_ONLY";
         return expected.equals(card.path("selection_basis").asText()) ? null : "BINDING_MISMATCH";
     }
 
@@ -528,9 +530,16 @@ public class PostgresPublicationAuthority implements PublicationAuthority {
     }
 
     private ObjectNode display(Scope s, String r, String observerRun) {
+        var info = round(s, r);
         var out =
                 JSON.createObjectNode()
-                        .put("display_seq", ((Number) round(s, r).get("display_seq")).longValue());
+                        .put("display_seq", ((Number) info.get("display_seq")).longValue());
+        if (info.get("progressive_tail_claim") instanceof String tail
+                && "SUPPLYING".equals(info.get("supply_state"))
+                && (observerRun == null || observerRun.equals(info.get("run_id"))))
+            out.putObject("progressive_tail")
+                    .put("candidate_id", tail)
+                    .put("run_id", (String) info.get("run_id"));
         var shown = out.putArray("shown_candidate_ids");
         var heard = out.putArray("heard_candidate_ids");
         for (var row :
@@ -550,7 +559,10 @@ public class PostgresPublicationAuthority implements PublicationAuthority {
                         > 0;
         waiting =
                 waiting
-                        && discovery.latestRound(s).map(info -> info.id().equals(r)).orElse(false)
+                        && discovery
+                                .latestRound(s)
+                                .map(latest -> latest.id().equals(r))
+                                .orElse(false)
                         && (observerRun == null || observerRun.equals(round(s, r).get("run_id")));
         out.put("user_waiting", waiting);
         if (waiting) out.put("run_id", (String) round(s, r).get("run_id"));
@@ -669,6 +681,15 @@ public class PostgresPublicationAuthority implements PublicationAuthority {
                                                     (String) row.get("long_state")));
             product.set("identity", json((String) row.get("identity")));
             product.set("short_review", card.path("short_review"));
+        }
+        if (info.get("progressive_start_slot") instanceof String first) {
+            String tail = batchTail(s, r, first);
+            if (tail != null
+                    && (supply.equals("SUFFICIENT")
+                            || supply.equals("SUPPLYING")
+                                    && ((Number) info.get("progressive_remaining")).intValue() > 0
+                                    && !tail.equals(info.get("progressive_tail_claim"))))
+                out.put("continuation_tail_id", tail);
         }
         if (!schema.validDefinition("ProductState", out)) fail("INVALID_PRODUCT_STATE");
         return out.toString();
@@ -804,6 +825,69 @@ public class PostgresPublicationAuthority implements PublicationAuthority {
                     String state = saveState(updated, displayRound);
                     sessions.saveCommand(updated, operation, command, hash, state, clock.instant());
                     return state;
+                });
+    }
+
+    private int lastSlotNumber(Scope s) {
+        return jdbc.queryForObject(
+                "SELECT coalesce(max(substring(slot_id from 6)::integer),0) FROM discovery.card_slot WHERE session_id=?",
+                Integer.class,
+                s.sessionId());
+    }
+
+    private String batchTail(Scope s, String r, String firstSlot) {
+        return jdbc
+                .queryForList(
+                        "SELECT candidate_id FROM discovery.card_slot WHERE session_id=? AND round_id=? AND slot_id>=? AND state='READY' ORDER BY slot_id DESC LIMIT 1",
+                        String.class,
+                        s.sessionId(),
+                        r,
+                        firstSlot)
+                .stream()
+                .findFirst()
+                .orElse(null);
+    }
+
+    @Override
+    public void continueAfterTail(Scope s, String r, String tail, Supply supply) {
+        tx.write(
+                () -> {
+                    discovery.lockRuntime();
+                    sessions.lockActive(s);
+                    var current = round(s, r);
+                    String first = (String) current.get("progressive_start_slot");
+                    if (first == null || !tail.equals(batchTail(s, r, first))) return null;
+                    if ("SUPPLYING".equals(current.get("supply_state"))) {
+                        if (((Number) current.get("progressive_remaining")).intValue() > 0
+                                && !tail.equals(current.get("progressive_tail_claim"))) {
+                            jdbc.update(
+                                    "UPDATE discovery.publication_round SET progressive_tail_claim=? WHERE round_id=?",
+                                    tail,
+                                    r);
+                            saveState(sessions.advanceRevision(s), r);
+                        }
+                        return null;
+                    }
+                    if (!"SUFFICIENT".equals(current.get("supply_state"))) return null;
+                    int last = lastSlotNumber(s);
+                    int target = ((Number) current.get("target")).intValue();
+                    var slots = new TreeSet<String>();
+                    for (int i = 1; i <= target; i++)
+                        slots.add(String.format("slot-%04d", last + i));
+                    String run = supply.enqueue(s, r, slots);
+                    if (run == null) return null;
+                    for (String slot : slots)
+                        jdbc.update(
+                                "INSERT INTO discovery.card_slot(session_id,slot_id,state) VALUES(?,?,'SUPPLYING')",
+                                s.sessionId(),
+                                slot);
+                    jdbc.update(
+                            "UPDATE discovery.publication_round SET run_id=?,status='RUNNING',supply_state='SUPPLYING',reason=NULL,progressive_start_slot=?,progressive_remaining=0,progressive_tail_claim=NULL WHERE round_id=?",
+                            run,
+                            slots.getFirst(),
+                            r);
+                    saveState(sessions.advanceRevision(s), r);
+                    return null;
                 });
     }
 
@@ -1121,8 +1205,16 @@ public class PostgresPublicationAuthority implements PublicationAuthority {
                                 "UPDATE discovery.publication_round SET display_seq=display_seq+1 WHERE round_id=?",
                                 r);
                     var updated = visibleChange ? sessions.advanceRevision(s) : s;
+                    boolean intermediate =
+                            kind.equals("CARD_BATCH")
+                                    && payload.path("batch_kind").asText().equals("PROGRESSIVE")
+                                    && payload.path("pending")
+                                            .path("supply_state")
+                                            .asText()
+                                            .equals("SUPPLYING");
                     if (((kind.equals("CARD_BATCH") || kind.equals("ORDER_UPDATE"))
-                                    && !delivery.path("run_id").isNull())
+                                    && !delivery.path("run_id").isNull()
+                                    && !intermediate)
                             || kind.equals("ROUND_REPORT")) {
                         String outcome = (String) round(updated, r).get("status");
                         if (kind.equals("ROUND_REPORT")
@@ -1205,6 +1297,14 @@ public class PostgresPublicationAuthority implements PublicationAuthority {
                 !delivery.path("run_id").isNull()
                         && delivery.path("run_id").asText().equals(row.get("run_id"));
         if (!delivery.path("run_id").isNull() && !publish) fail("BINDING_MISMATCH");
+        boolean progressive = payload.path("batch_kind").asText().equals("PROGRESSIVE");
+        String supply = payload.path("pending").path("supply_state").asText();
+        if (progressive
+                && (!publish
+                        || !payload.path("analysis_mode").asText().equals("PERSONALIZED")
+                        || !payload.path("selection").path("status").asText().equals("NOT_RUN")
+                        || payload.path("cards").size() != (supply.equals("SUPPLYING") ? 1 : 0)))
+            fail("INVALID_PAYLOAD");
         var accepted = new HashMap<String, JsonNode>();
         var seen = new HashSet<String>();
         for (var card : payload.path("cards")) {
@@ -1218,7 +1318,8 @@ public class PostgresPublicationAuthority implements PublicationAuthority {
             if (reason == null) accepted.put(candidate, card);
         }
         var order = new ArrayList<String>();
-        if (payload.path("analysis_mode").asText().equals("PERSONALIZED")
+        if (!progressive
+                && payload.path("analysis_mode").asText().equals("PERSONALIZED")
                 && !payload.path("cards").isEmpty()) {
             if (!payload.path("selection").path("status").asText().equals("COMPLETED")
                     || !budget.completed(
@@ -1243,7 +1344,8 @@ public class PostgresPublicationAuthority implements PublicationAuthority {
                                 candidate);
                 if (existing.isEmpty()) {
                     String basis =
-                            card.path("selection_basis").asText().equals("SELECTED")
+                            Set.of("SELECTED", "INDIVIDUAL")
+                                            .contains(card.path("selection_basis").asText())
                                     ? "PERSONALIZED"
                                     : card.path("selection_basis").asText().equals("CURATED")
                                             ? "CURATED"
@@ -1266,7 +1368,22 @@ public class PostgresPublicationAuthority implements PublicationAuthority {
                         candidate);
             }
         if (!publish) return;
+        if (progressive
+                && !accepted.isEmpty()
+                && !Boolean.TRUE.equals(
+                        jdbc.queryForObject(
+                                "SELECT EXISTS(SELECT 1 FROM discovery.card_slot WHERE session_id=? AND state IN ('EMPTY','SUPPLYING'))",
+                                Boolean.class,
+                                s.sessionId())))
+            jdbc.update(
+                    "INSERT INTO discovery.card_slot(session_id,slot_id,state) VALUES(?,?,'SUPPLYING')",
+                    s.sessionId(),
+                    String.format("slot-%04d", lastSlotNumber(s) + 1));
         fill(s, r, published);
+        if (progressive) {
+            finishProgressiveDelivery(s, r, row, payload, supply);
+            return;
+        }
         long count =
                 jdbc.queryForObject(
                         "SELECT count(*) FROM discovery.card_slot WHERE session_id=? AND state='READY'",
@@ -1284,6 +1401,57 @@ public class PostgresPublicationAuthority implements PublicationAuthority {
                 payload.path("pending").path("supply_state").asText(),
                 payload.path("reason_code").isNull() ? null : payload.path("reason_code").asText(),
                 payload.path("input_issues").toString(),
+                r);
+    }
+
+    private void finishProgressiveDelivery(
+            Scope s, String r, Map<String, Object> row, JsonNode payload, String supply) {
+        String first =
+                row.get("progressive_start_slot") == null
+                        ? "slot-0001"
+                        : (String) row.get("progressive_start_slot");
+        boolean pending = supply.equals("SUPPLYING");
+        if (!pending)
+            jdbc.update(
+                    "DELETE FROM discovery.card_slot WHERE session_id=? AND slot_id>=? AND state IN ('EMPTY','SUPPLYING')",
+                    s.sessionId(),
+                    first);
+        long count =
+                jdbc.queryForObject(
+                        "SELECT count(*) FROM discovery.card_slot WHERE session_id=? AND round_id=? AND slot_id>=? AND state='READY'",
+                        Long.class,
+                        s.sessionId(),
+                        r,
+                        first);
+        String status =
+                pending
+                        ? "RUNNING"
+                        : count >= ((Number) row.get("target")).intValue()
+                                ? "SUCCEEDED"
+                                : count > 0
+                                        ? "PARTIAL"
+                                        : payload.path("outcome").asText().equals("NO_MATCH")
+                                                ? "NO_MATCH"
+                                                : "FAILED";
+        if (supply.equals("SUFFICIENT")) {
+            boolean remaining =
+                    Boolean.TRUE.equals(
+                            jdbc.queryForObject(
+                                    "SELECT EXISTS(SELECT 1 FROM discovery.round_candidate WHERE round_id=? AND NOT shown AND NOT heard AND disposition NOT IN ('INELIGIBLE','BELOW_FLOOR'))",
+                                    Boolean.class,
+                                    r));
+            if (!remaining) supply = "R_EXHAUSTED";
+            else if (count == 0) supply = "PAUSED";
+        }
+        jdbc.update(
+                "UPDATE discovery.publication_round SET status=?,analysis_mode=?,supply_state=?,reason=?,progressive_start_slot=?,progressive_remaining=?,progressive_tail_claim=CASE WHEN ? THEN progressive_tail_claim ELSE NULL END WHERE round_id=?",
+                status,
+                displayMode(s),
+                supply,
+                payload.path("reason_code").asText(null),
+                first,
+                payload.path("pending").path("deferred_candidates").asInt(),
+                pending,
                 r);
     }
 

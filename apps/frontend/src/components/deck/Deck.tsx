@@ -113,6 +113,28 @@ export function Deck({
   const last = entries.length; // the tail position after the final album
   const position = Math.min(index, last);
   const current = entries[position] ?? null;
+  const viewed = useRef<string | null>(null);
+  const requestedTail = useRef<string | null>(null);
+  const tailId = state.continuation_tail_id;
+  const atCandidate = current?.candidateId;
+  const locked = controller.locked;
+  useEffect(() => {
+    if (atCandidate) viewed.current = atCandidate;
+    if (!tailId || locked || viewed.current !== tailId) return;
+    const key = `${state.session_id}:${state.round_id}:${state.run_id}:${state.supply_state}:${tailId}`;
+    if (requestedTail.current === key) return;
+    requestedTail.current = key;
+    void controller.continueAfter(tailId);
+  }, [
+    atCandidate,
+    controller,
+    locked,
+    state.round_id,
+    state.run_id,
+    state.session_id,
+    state.supply_state,
+    tailId,
+  ]);
   const nextCover = entries[position + 1]?.card.cover_url;
   useEffect(() => {
     prefetchCover(nextCover);

@@ -314,7 +314,17 @@ def _semantic(name: str, value: Any) -> None:
             ):
                 raise ContractError("MISSING_BINDING")
             _unique(cards, "candidate_id")
-            if value["payload"]["outcome"] == "DISPLAYABLE" and not cards:
+            batch = value["payload"]
+            if batch["batch_kind"] == "PROGRESSIVE":
+                pending = batch["pending"]["supply_state"] == "SUPPLYING"
+                if (
+                    len(cards) != int(pending)
+                    or batch["selection"]["status"] != "NOT_RUN"
+                    or batch["analysis_mode"] != "PERSONALIZED"
+                    or (pending and batch["outcome"] != "DISPLAYABLE")
+                ):
+                    raise ContractError("INVALID_PROGRESSIVE_BATCH")
+            elif batch["outcome"] == "DISPLAYABLE" and not cards:
                 raise ContractError("EMPTY_DISPLAYABLE")
             if (
                 value["payload"]["outcome"] != "DISPLAYABLE"

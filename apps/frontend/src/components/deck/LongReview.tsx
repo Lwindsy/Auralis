@@ -61,6 +61,10 @@ export function Reviews({
     !expanded &&
     (status === "READY" || (!!status && ACTIVE_REVIEW.includes(status)));
   const failed = open && !expanded && !waiting;
+  const reason = review.view?.message_key;
+  const materialUnavailable =
+    reason === "REVIEW_MATERIAL_INSUFFICIENT" ||
+    reason === "LONG_RESEARCH_LIMIT_REACHED";
 
   // Tracks of the long review play in turn: each starts when the one before has ended.
   const [playing, setPlaying] = useState(0);
@@ -159,10 +163,9 @@ export function Reviews({
         </button>
         {failed && status ? (
           <span className="reviews__failed" role="status">
-            {words.failures[status] ?? words.unavailable}
-            {review.view?.message_key
-              ? words.detail(message(review.view.message_key, ""))
-              : ""}
+            {materialUnavailable
+              ? message(reason)
+              : `${words.failures[status] ?? words.unavailable}${reason ? words.detail(message(reason, "")) : ""}`}
             <button
               type="button"
               className="text-link"

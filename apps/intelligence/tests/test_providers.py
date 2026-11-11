@@ -484,6 +484,38 @@ def test_actual_read_extracts_text_and_registers_receipt_after_redirect():
     asyncio.run(run())
 
 
+def test_sputnikmusic_review_uses_the_body_instead_of_the_first_comment_article():
+    async def run():
+        execution, _ = web_execution()
+        html = b"""
+            <html><body>
+              <div id="leftColumn"><h1>Carbon Based Lifeforms - Stochastic</h1>
+                <p>The drones and synthesizer patterns form a layered sound.</p></div>
+              <section id="comments"><article>First comment</article></section>
+            </body></html>
+        """
+        fetcher = FakeFetcher(
+            [
+                FetchResponse(302, {"location": "https://www.sputnikmusic.com/review/83720/"}, b""),
+                FetchResponse(200, {"content-type": "text/html"}, html),
+            ]
+        )
+        result = await ToolGateway(fetcher).read(
+            execution,
+            candidate_id="album-1",
+            url="https://one.example/start",
+            title="Stochastic",
+            artist="Carbon Based Lifeforms",
+        )
+        assert result.receipt["status"] == "READ_OK"
+        assert result.receipt["checks"] == {"mentions_title": True, "mentions_artist": True}
+        assert "The drones and synthesizer patterns" in result.text
+        assert "First comment" not in result.text
+        await execution.cleanup()
+
+    asyncio.run(run())
+
+
 @pytest.mark.parametrize(
     "url",
     [

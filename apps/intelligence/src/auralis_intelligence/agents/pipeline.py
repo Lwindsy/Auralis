@@ -169,7 +169,7 @@ class FirstBatchPipeline:
             work.first_payload = payload
         await self.deliver(execution, "CARD_BATCH", payload, run_id=execution.start["run_id"])
 
-    async def first_batch(self, execution: Execution) -> RoundWork | None:
+    async def prepare_work(self, execution: Execution) -> RoundWork | None:
         if execution.start["start_mode"] == "CONTINUE":
             raise ContractError("CONTINUATION_NOT_ASSEMBLED")
         preferences = await self.preferences(execution)
@@ -190,6 +190,13 @@ class FirstBatchPipeline:
         work.agent_t0 = utc_now()
         execution.clock.start_agent()
         execution.phase = "FOREGROUND"
+        return work
+
+    async def first_batch(self, execution: Execution) -> RoundWork | None:
+        work = await self.prepare_work(execution)
+        if work is None:
+            return None
+        preferences = work.preferences
         if not work.candidates:
             await self.fail(execution, "NO_MATCH", "RECALL_NO_COVERAGE", work=work)
             return work

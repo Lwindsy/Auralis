@@ -101,25 +101,33 @@ def serve(args):
     def factory(start):
         if "audience_min_listeners" not in start["agent_policy"]:
             raise ValueError("AUDIENCE_POLICY_REQUIRED")
-        if mode == "live":
-            from auralis_intelligence.album_reviews.cold import ColdEvidence
-
-            evidence = ColdEvidence(overlap=True, sources_per_album=1, race=True)
-            tools = ToolGateway(search_adapter=adapter, model_gateway=model)
-        else:
-            evidence = prepared
-            tools = ToolGateway(evidence, model_gateway=model)
         from auralis_intelligence.album_reviews.seed_context import SeedContext, SeededPipeline
 
         seeds = SeedContext(model, long_tools)
-        batch = BatchResearchStage(
-            seeds,
-            tools,
-            evidence,
-            genre_names={i: r["name"] for i, r in reference.genres.items()},
-            candidate_limit=start["selection_config"]["shortlist_target_count"],
-        )
-        pipeline = RoundPipeline(
+        names = {i: r["name"] for i, r in reference.genres.items()}
+        if mode == "live":
+            from auralis_intelligence.album_reviews.individual import IndividualResearchStage
+            from auralis_intelligence.album_reviews.writing import WriteStage
+            from auralis_intelligence.ranking import SelectStage
+
+            from .progressive import ProgressivePipeline
+
+            research = IndividualResearchStage(seeds, long_tools, genre_names=names)
+            writing = WriteStage(seeds, long_tools, genre_names=names)
+            selection = SelectStage(seeds, genre_names=names)
+            pipeline_type = ProgressivePipeline
+        else:
+            research = BatchResearchStage(
+                seeds,
+                ToolGateway(prepared, model_gateway=model),
+                prepared,
+                genre_names=names,
+                candidate_limit=start["selection_config"]["shortlist_target_count"],
+            )
+            writing = BatchWriteStage(seeds, long_tools, batch=research)
+            selection = BatchSelectStage(seeds, batch=research)
+            pipeline_type = RoundPipeline
+        pipeline = pipeline_type(
             FastPreferencesStage(model, reference),
             RecallStage(
                 relative("recall_snapshot"),
@@ -129,9 +137,9 @@ def serve(args):
                 min_listeners=start["agent_policy"]["audience_min_listeners"],
                 max_listeners=start["agent_policy"].get("audience_max_listeners"),
             ),
-            batch,
-            BatchWriteStage(seeds, long_tools, batch=batch),
-            BatchSelectStage(seeds, batch=batch),
+            research,
+            writing,
+            selection,
         )
 
         return SeededPipeline(pipeline, seeds)

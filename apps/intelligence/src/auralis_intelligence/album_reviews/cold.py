@@ -60,7 +60,7 @@ class ColdEvidence:
                 await asyncio.gather(state["task"], return_exceptions=True)
                 self.background.pop(identifier, None)
 
-    async def prepare(self, execution, candidates, tools):
+    async def prepare(self, execution, candidates, tools, *, lane="FOREGROUND"):
         origin = time.perf_counter()
 
         def normalize(text):
@@ -218,6 +218,7 @@ class ColdEvidence:
                 hits = await tools.search(
                     execution,
                     candidate_id=identifier,
+                    lane=lane,
                     query=f'{identity["artist_credit"]} "{identity["title"]}" album review music sound',
                 )
             except CallDenied as error:

@@ -29,6 +29,11 @@ def page_rejection(text, identity):
         return "ACCESS_PAGE"
     if len(" ".join(text.split())) < 300:
         return "TEXT_TOO_SHORT"
+    return identity_rejection(text, identity)
+
+
+def identity_rejection(text, identity):
+    """Match catalogue names in the page after normalizing case and punctuation."""
     body = " " + _words(text) + " "
     for field, reason in (("title", "TITLE_NOT_FOUND"), ("artist_credit", "ARTIST_NOT_FOUND")):
         name = _words(identity[field])
@@ -40,6 +45,8 @@ def page_rejection(text, identity):
                 else " " + name + " " not in body
             ):
                 return reason
-        elif not any(line == identity[field] for line in lines):
+        elif not any(
+            line.strip() and line.strip() == identity[field] for line in text.splitlines()
+        ):
             return reason
     return None

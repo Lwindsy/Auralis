@@ -7,7 +7,7 @@ import {
   type Page,
   type Route,
 } from "@playwright/test";
-import type { ProductState } from "../../src/api/types.ts";
+import type { LongReviewView, ProductState } from "../../src/api/types.ts";
 import {
   FixtureBackend,
   JAZZ_GENRE_ID,
@@ -479,6 +479,41 @@ test("long review unfolds in place of the short one; failures regenerate only on
   expect(posts(backend, "/regenerate")).toHaveLength(1);
 });
 
+test("long review research limit gives a specific message and keeps the retry action", async ({
+  page,
+  context,
+}) => {
+  const backend = new FixtureBackend(ready());
+  await attach(context, backend, async (route) => {
+    if (!route.request().url().endsWith("/open")) return false;
+    const request = route.request();
+    backend.reviewState = "FAILED";
+    const response = backend.handle(
+      request.method(),
+      request.url(),
+      request.postDataJSON(),
+      request.headers(),
+    );
+    await route.fulfill({
+      status: response.status,
+      json: {
+        ...(response.body as LongReviewView),
+        message_key: "LONG_RESEARCH_LIMIT_REACHED",
+      },
+    });
+    return true;
+  });
+  await page.goto("/");
+  const card = notes(page, "样例专辑 1");
+  await card.getByRole("button", { name: "读长评" }).click();
+  await expect(
+    card.getByText("已达到本次补查上限，长评暂未完成。"),
+  ).toBeVisible();
+  await expect(card.getByText("生成失败")).toHaveCount(0);
+  await expect(card.getByRole("button", { name: "重新生成" })).toBeVisible();
+  expect(posts(backend, "/regenerate")).toHaveLength(0);
+});
+
 test("after the last album: more of the same, or rethink with the old input", async ({
   page,
   context,
@@ -560,6 +595,99 @@ test("WAITING winds down into the albums without another POST", async ({
       .filter((call) => call.method === "POST")
       .map((call) => call.path),
   ).toEqual(["/v1/bootstrap"]);
+});
+
+test("first card ends the wait and the actual batch tail appends once", async ({
+  page,
+  context,
+}) => {
+  const waiting = shared<ProductState>("fourth-request-waiting");
+  const backend = new FixtureBackend(waiting);
+  const full = ready();
+  const tail = full.slots[1]!.card!.candidate_id;
+  let requests = 0;
+  await attach(context, backend, async (route) => {
+    if (!route.request().url().endsWith("/next-batch")) return false;
+    requests++;
+    expect(route.request().postDataJSON().tail_candidate_id).toBe(tail);
+    backend.state = {
+      ...full,
+      revision: 4,
+      status: "RUNNING",
+      supply_state: "SUPPLYING",
+      slots: full.slots.slice(0, 2),
+    };
+    await route.fulfill({ json: backend.state });
+    return true;
+  });
+  await page.goto("/");
+  await expect(page.getByText("排队中")).toBeVisible();
+  backend.state = {
+    ...full,
+    revision: 2,
+    status: "RUNNING",
+    supply_state: "SUPPLYING",
+    slots: full.slots.slice(0, 1),
+  };
+  await expect(album(page, "样例专辑 1")).toBeVisible();
+  expect(requests).toBe(0);
+
+  backend.state = {
+    ...full,
+    revision: 3,
+    status: "PARTIAL",
+    supply_state: "SUFFICIENT",
+    continuation_tail_id: tail,
+    slots: full.slots.slice(0, 2),
+  };
+  await expect
+    .poll(() =>
+      backend.calls.some((call) => call.path.endsWith("/current-state")),
+    )
+    .toBe(true);
+  expect(requests).toBe(0);
+  await page.getByRole("button", NEXT).click();
+  await expect(album(page, "样例专辑 2")).toBeVisible();
+  await expect.poll(() => requests).toBe(1);
+  backend.state = { ...full, revision: 5 };
+  await expect(album(page, "样例专辑 2")).toBeVisible();
+  await page.getByRole("button", NEXT).click();
+  await expect(album(page, "样例专辑 3")).toBeVisible();
+  expect(requests).toBe(1);
+});
+
+test("seeing the current last card asks for more while the run is still working", async ({
+  page,
+  context,
+}) => {
+  const full = ready();
+  const first = full.slots[0]!.card!.candidate_id;
+  const state: ProductState = {
+    ...full,
+    status: "RUNNING",
+    supply_state: "SUPPLYING",
+    continuation_tail_id: first,
+    slots: full.slots.slice(0, 1),
+  };
+  const backend = new FixtureBackend(state);
+  let requests = 0;
+  await attach(context, backend, async (route) => {
+    if (!route.request().url().endsWith("/next-batch")) return false;
+    requests++;
+    expect(route.request().postDataJSON().tail_candidate_id).toBe(first);
+    const { continuation_tail_id: tail, ...accepted } = state;
+    expect(tail).toBe(first);
+    backend.state = { ...accepted, revision: state.revision + 1 };
+    await route.fulfill({ json: backend.state });
+    return true;
+  });
+  await page.goto("/");
+  await expect(album(page, "样例专辑 1")).toBeVisible();
+  await expect.poll(() => requests).toBe(1);
+  backend.state = { ...full, revision: state.revision + 2 };
+  await page.getByRole("button", NEXT).click();
+  await expect(album(page, "样例专辑 2")).toBeVisible();
+  expect(requests).toBe(1);
 });
 
 test("lost response retains original key and prevents duplicate intents", async ({

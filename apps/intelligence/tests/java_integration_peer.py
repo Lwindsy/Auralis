@@ -83,6 +83,23 @@ class Fixtures:
                 },
                 usage=Usage(100, 100, 0),
             )
+        if request.schema_name.startswith("individual_screen"):
+            delay = faults.get("album_delay_seconds", {}).get(payload["album"]["title"], 0)
+            await asyncio.sleep(delay)
+            return CallResult(
+                {
+                    "reads": [
+                        {"ref": source["ref"], "about_target": "yes", "substantive": "yes"}
+                        for source in payload["sources"]
+                    ],
+                    "score": 4,
+                    "matches": [],
+                    "tensions": [],
+                    "unknowns": [],
+                    "summary": "合成音乐资料说明编配与音色。",
+                },
+                usage=Usage(100, 100, 0),
+            )
         if request.schema_name.startswith("batch_v7"):
             candidates = payload["candidates"]
             if faults.get("invalid_once") and "batch" not in self.repairs:
@@ -109,6 +126,29 @@ class Fixtures:
                 usage=Usage(100, 100, 0),
             )
         if request.schema_name.startswith("long_review"):
+            if faults.get("long_research_test"):
+                left = payload["research_budget"]["turns_remaining"]
+                self.event("long_research_step", remaining=left, sources=len(payload["sources"]))
+                if left:
+                    available = payload["available_sources"]
+                    ask = {
+                        "tool": "web_read" if available else "web_search",
+                        "section": "instrumentation",
+                        "url": available[0]["url"] if available else None,
+                    }
+                    return CallResult(
+                        {
+                            "status": "needs_more_research",
+                            "sections": dict.fromkeys(
+                                ("production", "instrumentation", "vocals", "mood"), ""
+                            ),
+                            "refs": [],
+                            "missing": ["instrumentation"],
+                            "tool_requests": [ask],
+                        },
+                        usage=Usage(100, 100, 0),
+                    )
+                assert len(payload["sources"]) == 2, "Supplementary page was not read"
             return CallResult(
                 {
                     "status": "ok",
@@ -194,8 +234,14 @@ class Fixtures:
         assert match, "UNKNOWN_SYNTHETIC_ALBUM"
         number = int(match[1])
         self.event("search", album=number)
+        if number in self.controls().get("empty_source_albums", []):
+            return CallResult((), usage=Usage(20, 20, 0))
+        detail = (
+            self.controls().get("long_research_test") and " instrumentation album review" in query
+        )
+        path = "details" if detail else "album"
         return CallResult(
-            (SearchHit(f"https://reviews.example/album-{number}", query),), usage=Usage(20, 20, 0)
+            (SearchHit(f"https://reviews.example/{path}-{number}", query),), usage=Usage(20, 20, 0)
         )
 
     async def fetch(self, url, max_bytes, timeout_seconds):
@@ -206,6 +252,8 @@ class Fixtures:
             + "The piano and soft drums form a quiet jazz recording with warm textures, "
             "subtle dynamics, spacious production and careful melodic development. " * 6
         )
+        if "/details-" in url:
+            text += "On the closing track, brushed cymbals mark a gentle pulse under a low piano figure."
         return FetchResponse(
             200,
             {"content-type": "text/html"},

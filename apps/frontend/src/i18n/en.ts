@@ -260,7 +260,10 @@ const en: Copy = {
     LONG_REVIEW_BUSY:
       "Full reviews are backed up. Tap “Write it again” in a moment.",
     REVIEW_MATERIAL_INSUFFICIENT:
-      "Not enough source material to write a full review yet.",
+      "The sources read so far don't support a full review.",
+    LONG_RESEARCH_LIMIT_REACHED:
+      "This attempt reached its research limit. The full review is unfinished.",
+    LONG_RESEARCH_FAILED: "The review couldn't load the extra sources.",
     MODEL_FAILED:
       "The model didn't finish this one. You can retry it yourself.",
     JSON_PARSE_FAILED:

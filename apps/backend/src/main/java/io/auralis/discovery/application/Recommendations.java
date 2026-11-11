@@ -701,7 +701,10 @@ public class Recommendations {
                     var current = owned(token, session);
                     var cached = sessions.command(current, "product:" + operation, key, hash);
                     if (cached.isPresent()) return cached.get();
-                    if (current.revision() != input.path("expected_revision").asLong())
+                    // Tail demand is guarded by the current card in the publication transaction.
+                    // A new card can advance the revision between a poll and this request.
+                    if (!input.has("tail_candidate_id")
+                            && current.revision() != input.path("expected_revision").asLong())
                         fail("REVISION_CONFLICT");
                     var round =
                             discovery
@@ -709,7 +712,24 @@ public class Recommendations {
                                     .orElseThrow(
                                             () -> new PersistenceRejected("RESOURCE_UNAVAILABLE"));
                     boolean isLong = Set.of("OPEN", "REGENERATE").contains(operation);
-                    if (operation.equals("CARD") || operation.equals("BATCH"))
+                    if (input.has("tail_candidate_id")) {
+                        if (!operation.equals("BATCH")) fail("INVALID_OPERATION");
+                        publication.continueAfterTail(
+                                current,
+                                round.id(),
+                                input.path("tail_candidate_id").asText(),
+                                (s, r, slots) ->
+                                        enqueue(
+                                                        s,
+                                                        round,
+                                                        (ObjectNode) json(round.configuration()),
+                                                        "SUPPLY",
+                                                        scopeId("tail", key),
+                                                        slots,
+                                                        true,
+                                                        actionAt)
+                                                .run());
+                    } else if (operation.equals("CARD") || operation.equals("BATCH"))
                         publication.operate(
                                 current,
                                 round.id(),
@@ -755,7 +775,8 @@ public class Recommendations {
                                                 ids));
                     else fail("INVALID_OPERATION");
                     var after = sessions.refresh(current);
-                    if (Set.of("CARD", "BATCH").contains(operation)) {
+                    if (Set.of("CARD", "BATCH").contains(operation)
+                            && !input.has("tail_candidate_id")) {
                         var activeRound = discovery.latestRound(after).orElseThrow();
                         var view = json(publication.state(after, activeRound.id()));
                         var groups = new TreeMap<String, Set<String>>();

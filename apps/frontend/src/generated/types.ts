@@ -87,6 +87,10 @@ export interface ProductState {
    * @maxItems 1000
    */
   slots: CardSlot[];
+  /**
+   * Last visible card eligible to request more work within the current recall pool.
+   */
+  continuation_tail_id?: string;
   supply_state: "SUPPLYING" | "SUFFICIENT" | "R_EXHAUSTED" | "FINAL_EXHAUSTED" | "CLOSED" | "PAUSED";
   message_key: string | null;
   /**
@@ -276,5 +280,9 @@ export interface AlbumInput {
   focused: boolean;
 }
 export interface SessionAction {
+  /**
+   * For next-batch only, fill available candidate capacity within the current recall pool.
+   */
+  tail_candidate_id?: string;
   expected_revision: number;
 }

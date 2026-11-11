@@ -45,7 +45,7 @@ const working = (state: ProductState) =>
 
 /** The request has an answer to show: cards, or a final outcome with nothing coming. */
 const answered = (state: ProductState) =>
-  !working(state) && (readyCards(state).length > 0 || !supplying(state));
+  readyCards(state).length > 0 || (!working(state) && !supplying(state));
 
 interface WaitMark {
   session: string | null;
@@ -87,7 +87,7 @@ export function App({ api, controller, review, fixture }: AppProps) {
   const settling =
     stage === "waiting" &&
     !!state &&
-    minDone &&
+    (minDone || readyCards(state).length > 0) &&
     changed &&
     !controller.pending &&
     !controller.busy &&
@@ -144,6 +144,10 @@ export function App({ api, controller, review, fixture }: AppProps) {
 
   const more = async () => {
     if (!state) return;
+    if (state.continuation_tail_id) {
+      await controller.continueAfter(state.continuation_tail_id);
+      return;
+    }
     startWait({ session, revision: state.revision });
     let ok = await controller.action("next-batch");
     if (!ok && !controller.pending && controller.state?.editable_input) {

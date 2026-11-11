@@ -60,6 +60,12 @@ public final class FileRecommendationPolicy implements RecommendationPolicy {
                 target.set("sample_listeners", binding.path("sampleListeners"));
                 target.set("snapshot_digest", binding.path("snapshotDigest"));
             }
+            // The previous online default only allowed search or read before the final answer.
+            var writing = agentPolicy.path("writing");
+            if (writing.path("long_tool_turns").isIntegralNumber()
+                    && writing.path("long_tool_turns").asInt() == 1)
+                ((com.fasterxml.jackson.databind.node.ObjectNode) writing)
+                        .put("long_tool_turns", 2);
             agentPolicy.put(
                     "digest",
                     io.auralis.contracts.CanonicalJson.contentDigest(agentPolicy, "digest"));
