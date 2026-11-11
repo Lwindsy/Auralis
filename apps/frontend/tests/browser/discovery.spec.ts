@@ -382,6 +382,19 @@ test("from the last album the sleeve flies into the group's stack", async ({
   await expect(page.locator(".cut[data-leaving]")).toHaveCount(0, {
     timeout: 2000,
   });
+  // Once the flying copy is gone its card stays put: no restarted entrance.
+  const landed = page.locator(".stack__slot").last();
+  await expect(landed).toHaveAttribute("data-landing", "true");
+  for (let i = 0; i < 6; i++) {
+    expect(
+      await landed.evaluate((node) => ({
+        opacity: getComputedStyle(node).opacity,
+        running: node.getAnimations().filter((a) => a.playState === "running")
+          .length,
+      })),
+    ).toEqual({ opacity: "1", running: 0 });
+    await page.waitForTimeout(120);
+  }
   await expect(page.getByText("这一组听完了")).toBeVisible();
 });
 

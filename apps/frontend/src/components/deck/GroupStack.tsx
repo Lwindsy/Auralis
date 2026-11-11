@@ -1,4 +1,4 @@
-import type { CSSProperties } from "react";
+import { useState, type CSSProperties } from "react";
 import { albumSeed, coverArt } from "../../lib/cover.ts";
 import type { DeckEntry } from "../../state/deck.ts";
 import { useCover } from "../../state/covers.ts";
@@ -24,6 +24,10 @@ export function GroupStack({
   /** The candidate whose sleeve is flying in, if any. */
   landing: string | null;
 }) {
+  // The sleeve that flew in keeps its own entrance for as long as the stack is shown:
+  // dropping the mark when the flying copy goes would restart the slide-in animation and
+  // make the card blink out and replay the end of the move.
+  const [landed] = useState(landing);
   const shown = entries.slice(-STACK_MAX);
   if (!shown.length) return null;
   const middle = (shown.length - 1) / 2;
@@ -35,7 +39,7 @@ export function GroupStack({
           entry={entry}
           index={i}
           offset={i - middle}
-          landing={entry.candidateId === landing}
+          landing={entry.candidateId === landed}
         />
       ))}
     </div>
