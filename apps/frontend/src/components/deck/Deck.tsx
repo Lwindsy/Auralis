@@ -1,5 +1,6 @@
 import {
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type CSSProperties,
@@ -8,6 +9,8 @@ import {
 import { ApiError } from "../../api/client.ts";
 import { message } from "../../api/messages.ts";
 import type { ProductState } from "../../api/types.ts";
+import type { Room } from "../../lib/color.ts";
+import { copy, useCopy } from "../../i18n/index.ts";
 import type { DiscoveryController } from "../../state/controller.ts";
 import {
   freshDeck,
@@ -24,8 +27,11 @@ import { Reviews } from "./LongReview.tsx";
 import { Reaction } from "./Reaction.tsx";
 import { GenreWave } from "./GenreWave.tsx";
 import { MiniWave } from "./MiniWave.tsx";
-import { SlicedCover } from "./SlicedCover.tsx";
+import { SlicedCover, type CoverExit } from "./SlicedCover.tsx";
+import { FLIGHT_MS, GroupStack, STACK_MAX } from "./GroupStack.tsx";
+import { reducedMotion } from "../../lib/motion.ts";
 import { useRoom } from "./useRoom.ts";
+import { LINER_CLOSE_MS } from "./liner.ts";
 import { prefetchCover } from "../../state/covers.ts";
 
 export type Feeling = "like" | "meh";
@@ -41,7 +47,7 @@ export interface DeckProps {
   onMore: () => void;
 }
 
-const NIGHT = { room: "#0d1220", ink: "#efe9df" };
+const NIGHT: Room = { room: "#0d1220", ink: "#efe9df", spark: "#e0714f" };
 /** After a reaction, all three rest this long before taking another press. */
 const REST_MS = 1100;
 /** Refusals that only mean "not now" (a supply or another write is still running). */
@@ -54,11 +60,12 @@ const TRANSIENT = new Set([
 const sleep = (ms: number) => new Promise((done) => setTimeout(done, ms));
 
 function emptyCopy(state: ProductState) {
-  if (state.supply_state === "FINAL_EXHAUSTED") return "这次的候选都听完了";
-  if (state.status === "NO_MATCH") return "这次没找到合适的专辑";
+  const words = copy().deck;
+  if (state.supply_state === "FINAL_EXHAUSTED") return words.exhausted;
+  if (state.status === "NO_MATCH") return words.noMatch;
   if (state.status === "FAILED" || state.status === "INTERRUPTED")
-    return message(state.message_key, "这次推荐没能完成");
-  return "这一组听完了";
+    return message(state.message_key, words.failed);
+  return words.done;
 }
 
 /**
@@ -78,12 +85,17 @@ export function Deck({
   onMore,
 }: DeckProps) {
   useStore(controller);
+  const words = useCopy().deck;
   const [entries, setEntries] = useState<DeckEntry[]>(() => freshDeck(state));
   const [index, setIndex] = useState(0);
   const [dir, setDir] = useState<"next" | "prev">("next");
-  const [ghost, setGhost] = useState<{ entry: DeckEntry; dir: string } | null>(
-    null,
-  );
+  const [ghost, setGhost] = useState<{
+    entry: DeckEntry;
+    dir: string;
+    room: Room;
+    exit: CoverExit;
+  } | null>(null);
+  const stage = useRef<HTMLDivElement>(null);
   const ghostTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
     undefined,
   );
@@ -138,19 +150,112 @@ export function Deck({
     restTimer.current = setTimeout(() => setSettling(null), REST_MS);
   };
 
+  // Moving on while the liner notes are out puts the sheet back first, then turns the
+  // record, so the album never jumps from the header straight into its exit. Presses made
+  // meanwhile add up to one move.
+  const navTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const pendingTurn = useRef<number | null>(null);
+  useEffect(() => () => clearTimeout(navTimer.current), []);
   const go = (target: number) => {
+    const bound = (value: number) => Math.max(0, Math.min(last, value));
+    if (pendingTurn.current !== null) {
+      pendingTurn.current = bound(pendingTurn.current + target - position);
+      return;
+    }
+    const reading = stage.current?.querySelector(
+      ".cut[data-reading]:not([data-leaving])",
+    );
+    if (reading && bound(target) !== position) {
+      review.close();
+      pendingTurn.current = bound(target);
+      navTimer.current = setTimeout(() => {
+        const next = pendingTurn.current;
+        pendingTurn.current = null;
+        if (next !== null) turn(next);
+      }, LINER_CLOSE_MS - 140);
+      return;
+    }
+    turn(target);
+  };
+
+  const turn = (target: number) => {
     const bounded = Math.max(0, Math.min(last, target));
     if (bounded === position) return;
     const outgoing = entries[position];
     const direction = bounded > position ? "next" : "prev";
+    // Into the finale the sleeve does not break into strips over the closing words: it
+    // flies whole into the group's stack, or just fades when there is no stack to join.
+    const stacked =
+      !!outgoing &&
+      entries
+        .slice(-STACK_MAX)
+        .some((e) => e.candidateId === outgoing.candidateId);
+    const exit: CoverExit =
+      bounded !== last
+        ? "slices"
+        : stacked && !busy && !reducedMotion()
+          ? "flight"
+          : "quiet";
     review.close();
     clearTimeout(ghostTimer.current);
-    setGhost(outgoing ? { entry: outgoing, dir: direction } : null);
-    ghostTimer.current = setTimeout(() => setGhost(null), 760);
+    // The leaving copy keeps the colours of the room it is leaving.
+    setGhost(outgoing ? { entry: outgoing, dir: direction, room, exit } : null);
+    ghostTimer.current = setTimeout(
+      () => setGhost(null),
+      exit === "flight" ? FLIGHT_MS + 40 : 760,
+    );
     setDir(direction);
     setIndex(bounded);
     ripple(1, window.innerWidth * 0.3, window.innerHeight * 0.45);
   };
+
+  // The flight into the stack: from the leaving sleeve to its own (unrotated) place in the
+  // stack, landing with that card's tilt. One element, transform only.
+  useLayoutEffect(() => {
+    if (ghost?.exit !== "flight" || !stage.current) return;
+    const sleeve = stage.current.querySelector<HTMLElement>(
+      ".cut[data-leaving] .sliced",
+    );
+    const place = stage.current.querySelector<HTMLElement>(
+      `.stack__slot[data-candidate="${CSS.escape(ghost.entry.candidateId)}"]`,
+    );
+    if (!sleeve || !place || !sleeve.animate) return;
+    const from = sleeve.getBoundingClientRect();
+    const to = place.getBoundingClientRect();
+    if (!from.width || !to.width) return;
+    const dx = to.left - from.left;
+    const dy = to.top - from.top;
+    const scale = to.width / from.width;
+    const tilt =
+      parseFloat(getComputedStyle(place).getPropertyValue("--r")) || 0;
+    // The sleeve turns about its own centre while it scales from its corner (the
+    // transform origin is the top left), so every step names the centre explicitly.
+    const step = (x: number, y: number, size: number, turn: number) => {
+      const half = (from.width * size) / 2;
+      return `translate(${x + half}px, ${y + half}px) rotate(${turn}deg) translate(${-half}px, ${-half}px) scale(${size})`;
+    };
+    const flight = sleeve.animate(
+      [
+        { transform: step(0, 0, 1, 0) },
+        {
+          transform: step(
+            dx * 0.42,
+            dy * 0.42 - 36,
+            (1 + scale) / 2,
+            tilt * 0.4,
+          ),
+          offset: 0.45,
+        },
+        { transform: step(dx, dy, scale, tilt) },
+      ],
+      {
+        duration: FLIGHT_MS,
+        easing: "cubic-bezier(0.5, 0, 0.2, 1)",
+        fill: "forwards",
+      },
+    );
+    return () => flight.cancel();
+  }, [ghost]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -269,7 +374,12 @@ export function Deck({
     void flush();
   };
 
-  const spread = (entry: DeckEntry, leaving?: string): ReactNode => {
+  const spread = (
+    entry: DeckEntry,
+    leaving?: string,
+    colours?: Room,
+    exit?: CoverExit,
+  ): ReactNode => {
     const { title, artist_credit, first_release_year } = entry.card.identity;
     const feeling = feelings.get(entry.candidateId) ?? null;
     const waiting = queued.has(entry.candidateId);
@@ -285,15 +395,26 @@ export function Deck({
         aria-label={title}
         aria-hidden={leaving ? true : undefined}
         data-leaving={leaving}
+        data-exit={leaving ? exit : undefined}
         data-dir={leaving ? undefined : dir}
         data-heard={entry.heard || undefined}
         inert={leaving ? true : undefined}
+        style={
+          (colours
+            ? {
+                "--page-room": colours.room,
+                "--page-ink": colours.ink,
+                "--spark": colours.spark,
+              }
+            : { "--spark": room.spark }) as unknown as CSSProperties
+        }
       >
         <div className="cut__sleeve">
           <SlicedCover
             title={title}
             artist={artist_credit}
             url={entry.card.cover_url}
+            leaving={leaving ? (exit ?? "slices") : false}
           />
           <div className="cut__caption">
             <h2 className="album-title">{title}</h2>
@@ -306,19 +427,20 @@ export function Deck({
           </div>
         </div>
         <div className="cut__words">
-          <GenreWave card={entry.card} />
+          <GenreWave card={entry.card} still={!!leaving} />
           {state.analysis_mode === "BASIC" ? (
-            <p className="basic-note">基础推荐 · 本次个性化未完成</p>
+            <p className="basic-note">{words.basic}</p>
           ) : null}
           <Reviews
             card={entry.card}
             review={review}
-            delay={leaving ? 0 : 1250}
+            delay={1250}
+            still={!!leaving}
           />
-          <div className="reacts" role="group" aria-label="你的感受">
+          <div className="reacts" role="group" aria-label={words.feelings}>
             <Reaction
               kind="like"
-              label="我喜欢！"
+              label={words.like}
               done={feeling === "like"}
               resting={resting}
               settling={settles("like")}
@@ -335,7 +457,7 @@ export function Deck({
             />
             <Reaction
               kind="meh"
-              label="一般般"
+              label={words.meh}
               done={feeling === "meh"}
               resting={resting}
               settling={settles("meh")}
@@ -352,7 +474,7 @@ export function Deck({
             />
             <Reaction
               kind="heard"
-              label="听过了"
+              label={words.heard}
               done={entry.heard}
               resting={resting}
               settling={settles("heard")}
@@ -360,9 +482,9 @@ export function Deck({
               title={
                 entry.heard
                   ? undoable
-                    ? "再点一次撤回"
-                    : "已记为听过"
-                  : "记为听过，之后不再推荐"
+                    ? words.undoHeard
+                    : words.heardKept
+                  : words.markHeard
               }
               onToggle={() => void heard(entry)}
             />
@@ -377,18 +499,22 @@ export function Deck({
     busy && position === last ? (
       <div className="tail tail--supply" role="status">
         <MiniWave bars={11} live className="tail__wave" />
-        <p>正在再找一张</p>
+        <p>{words.supplying}</p>
       </div>
     ) : (
-      <div className="tail finale" role="group" aria-label="接下来">
+      <div className="tail finale" role="group" aria-label={words.next}>
+        <GroupStack
+          entries={entries}
+          landing={ghost?.exit === "flight" ? ghost.entry.candidateId : null}
+        />
         <p className="finale__lead">
-          {entries.length ? "这一组听完了" : emptyCopy(state)}
+          {entries.length ? words.done : emptyCopy(state)}
         </p>
         <div className="finale__choices">
           <button type="button" className="choice" onClick={onRethink}>
             <MiniWave bars={13} calm className="choice__wave" />
-            <span className="choice__eyebrow">不满意？</span>
-            <span className="choice__title">换一些想法吧</span>
+            <span className="choice__eyebrow">{words.unhappy}</span>
+            <span className="choice__title">{words.rethink}</span>
           </button>
           <button
             type="button"
@@ -397,8 +523,8 @@ export function Deck({
             onClick={onMore}
           >
             <MiniWave bars={13} live className="choice__wave" />
-            <span className="choice__eyebrow">同样的需求</span>
-            <span className="choice__title">再给我来一些</span>
+            <span className="choice__eyebrow">{words.same}</span>
+            <span className="choice__title">{words.more}</span>
           </button>
         </div>
         {basic && entries.length ? (
@@ -411,43 +537,43 @@ export function Deck({
               void controller.action("rescreen");
             }}
           >
-            按原需求重新复筛
+            {words.rescreen}
           </button>
         ) : null}
       </div>
     );
 
   return (
-    <section className="deck" aria-label="推荐">
+    <section className="deck" aria-label={words.label}>
       <button
         type="button"
         className="edge edge--prev"
-        aria-label="上一张"
+        aria-label={words.prev}
         disabled={position === 0}
         onClick={() => go(position - 1)}
       >
         <svg viewBox="0 0 24 64" aria-hidden="true">
           <path d="M18 8 6 32l12 24" />
         </svg>
-        <span>上一张</span>
+        <span>{words.prev}</span>
       </button>
-      <div className="deck__stage" data-dir={dir}>
-        {ghost ? spread(ghost.entry, ghost.dir) : null}
+      <div className="deck__stage" data-dir={dir} ref={stage}>
+        {ghost ? spread(ghost.entry, ghost.dir, ghost.room, ghost.exit) : null}
         {current ? spread(current) : tail}
       </div>
       <button
         type="button"
         className="edge edge--next"
-        aria-label="下一张"
+        aria-label={words.forward}
         disabled={position >= last}
         onClick={() => go(position + 1)}
       >
         <svg viewBox="0 0 24 64" aria-hidden="true">
           <path d="M6 8l12 24L6 56" />
         </svg>
-        <span>下一张</span>
+        <span>{words.forward}</span>
       </button>
-      <ol className="pips" aria-label="位置">
+      <ol className="pips" aria-label={words.position}>
         {entries.map((entry, i) => (
           <li
             key={entry.candidateId}
@@ -457,7 +583,7 @@ export function Deck({
           >
             <button
               type="button"
-              aria-label={`第 ${i + 1} 张`}
+              aria-label={words.nth(i + 1)}
               aria-current={i === position || undefined}
               onClick={() => go(i)}
             />
@@ -468,7 +594,11 @@ export function Deck({
           data-tail
           style={{ "--i": entries.length } as CSSProperties}
         >
-          <button type="button" aria-label="接下来" onClick={() => go(last)} />
+          <button
+            type="button"
+            aria-label={words.next}
+            onClick={() => go(last)}
+          />
         </li>
       </ol>
     </section>

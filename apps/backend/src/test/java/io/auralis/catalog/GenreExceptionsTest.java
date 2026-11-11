@@ -102,6 +102,7 @@ class GenreExceptionsTest {
                             1,
                             new AudienceQuery.Binding("full", "0", 100, HASH),
                             50,
+                            Long.MAX_VALUE,
                             recall,
                             HASH,
                             HASH,

@@ -74,6 +74,9 @@ public final class FileRecommendationPolicy implements RecommendationPolicy {
                             .entrySet())
                 if (!schema.validDefinition(pair.getValue(), n.path(pair.getKey())))
                     throw new IllegalArgumentException();
+            if (agentPolicy.path("audience_max_listeners").asLong(Long.MAX_VALUE)
+                    < agentPolicy.path("audience_min_listeners").asInt())
+                throw new IllegalArgumentException();
             if (n.path("reference_revision").asText().isBlank()
                     || n.path("parser_revisions").isEmpty()
                     || !n.path("reference_genres").isObject()

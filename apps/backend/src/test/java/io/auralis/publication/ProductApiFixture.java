@@ -405,6 +405,9 @@ abstract class ProductApiFixture extends PublicationFixture {
                                             settings.path("agent_policy")
                                                     .path("audience_min_listeners")
                                                     .asInt(),
+                                            settings.path("agent_policy")
+                                                    .path("audience_max_listeners")
+                                                    .asLong(Long.MAX_VALUE),
                                             settings.path("recall_binding"),
                                             pref.path("input_digest").asText(),
                                             pref.path("effective_preference_digest").asText(),

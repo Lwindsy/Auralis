@@ -135,6 +135,10 @@ public final class RoundDispatcher {
                             if (next != null) send(next);
                         }
                     } catch (RuntimeException failure) {
+                        // PostgreSQL lock contention is local, not evidence of a lost Python
+                        // runtime. The transaction rolled back; retain slots and retry observation
+                        // on the next tick without disabling in-flight callbacks.
+                        if (lockBusy(failure)) return null;
                         LOG.warn("AURALIS_DISPATCH_FAILED {}", failure.getClass().getSimpleName());
                         // A failed observation cannot authorize another execution or reset a paid
                         // attempt.
@@ -142,6 +146,14 @@ public final class RoundDispatcher {
                     }
                     return null;
                 });
+    }
+
+    private static boolean lockBusy(Throwable failure) {
+        for (Throwable cause = failure; cause != null; cause = cause.getCause()) {
+            if (cause instanceof java.sql.SQLException sql && "55P03".equals(sql.getSQLState()))
+                return true;
+        }
+        return false;
     }
 
     private void send(DispatchQueue.Job job) {

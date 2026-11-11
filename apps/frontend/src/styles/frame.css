@@ -28,15 +28,19 @@
   --glass-strong: color-mix(in srgb, var(--page-room) 72%, var(--page-ink) 6%);
   --accent: #e0714f;
   --radius: 26px;
+  --room-change: 1100ms var(--ease-out-expo);
   color-scheme: dark;
-  transition:
-    --page-room 1100ms var(--ease-out-expo),
-    --page-ink 1100ms var(--ease-out-expo);
 }
 
 /* The room is never a flat fill: a warm light from the upper right, a cooler pool in
-   the lower left and a soft vignette, all derived from the room colour. */
-body {
+   the lower left and a soft vignette, all derived from the room colour.
+
+   A new room takes effect at once; the change is softened by a copy of the old room
+   (.room-fade, added by paintPage) that sits just above this background and fades out on
+   the compositor. Nothing on the page is restyled or repainted frame by frame, which a
+   transition of the room colours themselves would force on every element. */
+body,
+.room-fade {
   background:
     radial-gradient(
       90% 70% at 88% 6%,
@@ -57,6 +61,25 @@ body {
   background-attachment: fixed;
   color: var(--page-ink);
 }
+
+.room-fade {
+  position: fixed;
+  z-index: -1;
+  inset: 0;
+  pointer-events: none;
+  animation: room-fade var(--room-change) forwards;
+}
+
+@keyframes room-fade {
+  to {
+    opacity: 0;
+  }
+}
+
+/* The few parts that stay in place while the room changes (the canvas, brand, language
+   switch, edges and position pips) ease into the new colours on their own; the canvas
+   reads its line colour from its own CSS colour. Everything else is either cross-fading
+   with the album or arrives after the change. */
 
 ::selection {
   background: var(--page-ink);
@@ -83,6 +106,7 @@ body {
     #000 75%
   );
   animation: fade 2400ms ease 200ms both;
+  transition: color var(--room-change);
 }
 
 /* Scroll areas: the browser's bar is switched off entirely; QuietScroll draws a slim
@@ -179,26 +203,153 @@ body {
   font-family: var(--font-mono);
   font-size: 11px;
   white-space: nowrap;
+  transition:
+    color var(--room-change),
+    background-color var(--room-change);
+  max-width: calc(100vw - 24px);
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.brand {
+/* Top-left corner: brand, then the language switch. On the start page the brand is
+   away and the switch sits in the corner itself; when the brand comes back the switch
+   glides aside to make room. */
+.corner {
   position: fixed;
   z-index: 40;
   top: 24px;
   left: clamp(18px, 3vw, 40px);
+  display: flex;
+  align-items: center;
+  animation: fade 900ms ease 200ms both;
+}
+
+.brand {
   display: inline-flex;
+  flex: none;
   align-items: center;
   gap: 12px;
+  max-width: 180px;
+  margin-right: 22px;
+  overflow: hidden;
   color: var(--page-ink);
   text-decoration: none;
-  animation: fade 900ms ease 200ms both;
-  transition: opacity 600ms ease;
+  white-space: nowrap;
+  transition:
+    opacity 600ms ease,
+    color var(--room-change),
+    max-width 760ms var(--ease-out-expo),
+    margin-right 760ms var(--ease-out-expo);
 }
 
 .brand[data-hidden] {
-  animation: none;
+  max-width: 0;
+  margin-right: 0;
   opacity: 0;
   pointer-events: none;
+}
+
+/* Language switch ---------------------------------------------------------- */
+
+.lang {
+  --lang-pad: 3px;
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  flex: none;
+  padding: var(--lang-pad);
+  border: 1px solid var(--ink-20);
+  border-radius: 999px;
+  /* An opaque tint instead of a backdrop blur: the land behind moves every frame, and a
+     blur would have to be recomputed each time. */
+  background: color-mix(in srgb, var(--page-room) 82%, var(--page-ink) 6%);
+  transition:
+    border-color 300ms ease,
+    background-color var(--room-change);
+}
+
+.lang:hover {
+  border-color: var(--ink-40);
+}
+
+.lang__thumb {
+  position: absolute;
+  top: var(--lang-pad);
+  bottom: var(--lang-pad);
+  left: var(--lang-pad);
+  width: calc((100% - 2 * var(--lang-pad)) / 2);
+  border-radius: 999px;
+  background: var(--page-ink);
+  box-shadow: 0 2px 10px color-mix(in srgb, #000 22%, transparent);
+  transform: translateX(calc(var(--at, 0) * 100%));
+  transition:
+    transform 560ms var(--ease-spring),
+    background-color 1100ms var(--ease-out-expo);
+}
+
+.lang__option {
+  position: relative;
+  z-index: 1;
+  min-width: 42px;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 999px;
+  color: var(--ink-60);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 26px;
+  letter-spacing: 0.08em;
+  text-align: center;
+  transition:
+    color 380ms ease 80ms,
+    transform 380ms var(--ease-spring);
+}
+
+.lang__option:hover:not([aria-pressed="true"]) {
+  color: var(--page-ink);
+}
+
+.lang__option:active {
+  transform: scale(0.92);
+}
+
+.lang__option[aria-pressed="true"] {
+  color: var(--page-room);
+  cursor: default;
+}
+
+.lang__option:focus-visible {
+  outline-offset: 2px;
+}
+
+/* Without View Transitions the new copy simply eases in. */
+:root[data-refade="language"] .stage,
+:root[data-refade="language"] .toast-region {
+  animation: refade 460ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+@keyframes refade {
+  from {
+    opacity: 0.25;
+    filter: blur(3px);
+  }
+  to {
+    opacity: 1;
+    filter: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lang__thumb,
+  .lang__option,
+  .brand {
+    transition: none;
+  }
+
+  :root[data-refade="language"] .stage,
+  :root[data-refade="language"] .toast-region {
+    animation: none;
+  }
 }
 
 .brand__mark {
@@ -463,4 +614,44 @@ body {
     transform: scale(1.03);
     filter: blur(6px);
   }
+}
+
+/* A language switch is not a change of scene: the page stays put and only its words
+   change, so the two states simply dissolve into each other (matching curves, so what
+   does not change never dims). The switch is kept out of the dissolve and stays live,
+   so its thumb is seen springing across. */
+:root[data-transition="language"]::view-transition-old(root) {
+  animation: lang-out 560ms cubic-bezier(0.45, 0, 0.25, 1) both;
+}
+
+:root[data-transition="language"]::view-transition-new(root) {
+  animation: lang-in 560ms cubic-bezier(0.45, 0, 0.25, 1) both;
+}
+
+@keyframes lang-out {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes lang-in {
+  from {
+    opacity: 0;
+  }
+}
+
+:root[data-transition="language"] .lang {
+  view-transition-name: lang-switch;
+}
+
+::view-transition-group(lang-switch) {
+  animation: none;
+}
+
+::view-transition-old(lang-switch) {
+  display: none;
+}
+
+::view-transition-new(lang-switch) {
+  animation: none;
 }

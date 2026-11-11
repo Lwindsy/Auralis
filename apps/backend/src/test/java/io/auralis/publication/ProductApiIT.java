@@ -3,6 +3,7 @@ package io.auralis.publication;
 import static io.auralis.contracts.CanonicalJson.*;
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.time.Instant;
 import java.util.*;
 import org.junit.jupiter.api.*;
@@ -103,7 +104,10 @@ class ProductApiIT extends ProductApiFixture {
         input.putArray("disliked_genre_ids").add(ROCK);
         assertTrue(Set.of(200, 202).contains(b.submit(input, "curated-500").status()));
         b.awaitState(s -> s.path("status").asText().equals("NO_MATCH"));
-        input.put("audience_min_listeners", 75);
+        input.put("audience_min_listeners", 0).put("audience_max_listeners", 10);
+        assertTrue(Set.of(200, 202).contains(b.submit(input, "curated-0-10").status()));
+        b.awaitState(s -> s.path("status").asText().equals("NO_MATCH"));
+        input.put("audience_max_listeners", 1000);
         assertTrue(Set.of(200, 202).contains(b.submit(input, "curated-75").status()));
         b.awaitState(s -> s.path("status").asText().equals("SUCCEEDED"));
         assertEquals("CURATED", b.state.path("analysis_mode").asText());
@@ -112,19 +116,22 @@ class ProductApiIT extends ProductApiFixture {
     @Test
     void requestedThresholdSurvivesRestoreAndCanBeChanged() throws Exception {
         var b = browser();
-        var input = userInput("").put("audience_min_listeners", 75);
+        var input =
+                userInput("").put("audience_min_listeners", 75).put("audience_max_listeners", 500);
         assertEquals(202, b.submit(input, "threshold-75").status());
         b.awaitState(s -> s.path("status").asText().equals("SUCCEEDED"));
         b.connect();
         assertEquals(75, b.state.path("editable_input").path("audience_min_listeners").asInt());
+        assertEquals(500, b.state.path("editable_input").path("audience_max_listeners").asInt());
         input.put("audience_min_listeners", 500);
+        input.put("audience_max_listeners", 499);
+        assertEquals(400, b.submit(input, "inverted-audience-range").status());
+        input.remove("audience_max_listeners");
         assertEquals(202, b.submit(input, "threshold-500").status());
         b.awaitState(s -> s.path("status").asText().equals("NO_MATCH"));
         assertEquals(500, b.state.path("editable_input").path("audience_min_listeners").asInt());
-        for (int invalid : new int[] {0, -1}) {
-            input.put("audience_min_listeners", invalid);
-            assertEquals(400, b.submit(input, "invalid-" + invalid).status());
-        }
+        input.put("audience_min_listeners", -1);
+        assertEquals(400, b.submit(input, "negative-audience-minimum").status());
     }
 
     @Test
@@ -145,10 +152,78 @@ class ProductApiIT extends ProductApiFixture {
     }
 
     @Test
-    void interruptedPhysicalExecutionCanRegenerateLongReviewExplicitly() throws Exception {
+    void existingSessionRegenerationUsesUpdatedTokenLimitsAfterRestart() throws Exception {
         peer.failLongNext.set(true);
         var b = browser();
-        b.submit(userInput(""), "interrupted-long");
+        b.submit(userInput(""), "before-limit-update");
+        b.awaitState(
+                s ->
+                        s.path("slots")
+                                .get(0)
+                                .path("card")
+                                .path("long_review_state")
+                                .asText()
+                                .equals("INTERRUPTED"));
+        String candidate = b.state.path("slots").get(0).path("card").path("candidate_id").asText();
+        var changed = settings.deepCopy();
+        changed.path("model_bindings")
+                .forEach(
+                        binding ->
+                                ((ObjectNode) binding)
+                                        .put("max_input_tokens", 4000)
+                                        .put("max_output_tokens", 2000));
+        ((ObjectNode) changed.path("prices").path("fixture"))
+                .put("maxInput", 4000)
+                .put("maxOutput", 2000);
+        try {
+            java.nio.file.Files.writeString(configFile, changed.toPrettyString());
+            bootProduct();
+            assertEquals(
+                    200,
+                    b.action(
+                                    "long-reviews/" + candidate + "/regenerate",
+                                    null,
+                                    "after-limit-update")
+                            .status());
+            b.awaitState(
+                    s ->
+                            s.path("slots")
+                                    .get(0)
+                                    .path("card")
+                                    .path("long_review_state")
+                                    .asText()
+                                    .equals("READY"));
+            var payload =
+                    JSON.readTree(
+                            jdbc.queryForObject(
+                                    "SELECT e.start_payload::text FROM discovery.execution e JOIN discovery.discovery_intent i ON i.id=e.run_id WHERE e.session_id=? AND i.operation='RERUN' ORDER BY e.sent_at DESC LIMIT 1",
+                                    String.class,
+                                    b.state.path("session_id").asText()));
+            assertEquals(
+                    4000,
+                    payload.path("model_bindings").path("screen").path("max_input_tokens").asInt());
+            assertEquals(
+                    2000,
+                    payload.path("model_bindings")
+                            .path("screen")
+                            .path("max_output_tokens")
+                            .asInt());
+            assertEquals(
+                    1000000,
+                    payload.path("budget").path("limits").path("session_cap_microusd").asLong());
+        } finally {
+            java.nio.file.Files.writeString(configFile, settings.toPrettyString());
+            bootProduct();
+        }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"zh-CN", "en"})
+    void interruptedPhysicalExecutionCanRegenerateLongReviewExplicitly(String language)
+            throws Exception {
+        peer.failLongNext.set(true);
+        var b = browser();
+        b.submit(userInput("").put("language", language), "interrupted-long");
         b.awaitState(
                 s ->
                         s.path("slots")
@@ -172,6 +247,26 @@ class ProductApiIT extends ProductApiFixture {
                                 .asText()
                                 .equals("READY"));
         assertTrue(peer.modelCalls.get() > calls);
+        var rerun =
+                peer.jobs.values().stream()
+                        .filter(j -> j.start.path("session_id").equals(b.state.path("session_id")))
+                        .filter(j -> j.start.path("run_kind").asText().equals("RERUN"))
+                        .findFirst()
+                        .orElseThrow();
+        assertTrue(rerun.start.path("input").path("raw").isNull());
+        assertEquals(
+                language.equals("en") ? "en" : "",
+                rerun.start.path("input").path("language").asText());
+        if (language.equals("en"))
+            assertTrue(
+                    b.state
+                            .path("slots")
+                            .get(0)
+                            .path("card")
+                            .path("short_review")
+                            .path("text")
+                            .asText()
+                            .startsWith("Piano and quiet drums"));
     }
 
     @Test
@@ -291,11 +386,13 @@ class ProductApiIT extends ProductApiFixture {
         assertTrue(peer.failures.isEmpty(), peer.failures.toString());
     }
 
-    @Test
-    void replacementSupplyThenCacheAndNextRoundKeepHistoryAndNoRawReplay() throws Exception {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"zh-CN", "en"})
+    void replacementSupplyThenCacheAndNextRoundKeepHistoryAndNoRawReplay(String language)
+            throws Exception {
         peer.holdReports = true;
         var b = browser();
-        b.submit(userInput("原文只发送首轮"), "start");
+        b.submit(userInput("原文只发送首轮").put("language", language), "start");
         b.awaitState(s -> s.path("status").asText().equals("SUCCEEDED"));
         String firstRound = b.state.path("round_id").asText();
         String first = b.state.path("slots").get(0).path("card").path("candidate_id").asText();
@@ -344,13 +441,23 @@ class ProductApiIT extends ProductApiFixture {
                                         && s.path("status").asText().equals("SUCCEEDED"));
         assertTrue(
                 peer.jobs.values().stream()
-                        .filter(j -> j.start.path("round_seq").asInt() > 1)
-                        .allMatch(j -> j.start.path("input").path("raw").isNull()));
+                        .filter(j -> j.start.path("round_id").equals(next.path("round_id")))
+                        .allMatch(
+                                j ->
+                                        j.start.path("input").path("raw").isNull()
+                                                && j.start
+                                                        .path("input")
+                                                        .path("language")
+                                                        .asText()
+                                                        .equals(
+                                                                language.equals("en")
+                                                                        ? "en"
+                                                                        : "")));
         assertTrue(
                 peer.jobs.values().stream()
                         .anyMatch(
                                 j ->
-                                        j.start.path("round_seq").asInt() > 1
+                                        j.start.path("round_id").equals(next.path("round_id"))
                                                 && j.start
                                                         .path("input")
                                                         .path("exclusions")

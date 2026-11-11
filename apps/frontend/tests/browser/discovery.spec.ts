@@ -8,7 +8,13 @@ import {
   type Route,
 } from "@playwright/test";
 import type { ProductState } from "../../src/api/types.ts";
-import { FixtureBackend, idle, ready, shared } from "../fixtures.ts";
+import {
+  FixtureBackend,
+  JAZZ_GENRE_ID,
+  idle,
+  ready,
+  shared,
+} from "../fixtures.ts";
 
 async function attach(
   context: BrowserContext,
@@ -135,13 +141,263 @@ test("doors widen one at a time; genres group families, show notes and keep mark
   await expect(page.getByRole("region", { name: "正在推荐" })).toBeVisible();
   await expect(album(page, "样例专辑 1")).toBeVisible({ timeout: 10000 });
   expect(backend.state.editable_input!.liked_genres[0]).toEqual({
-    genre_id: "jazz",
+    genre_id: JAZZ_GENRE_ID,
     strength: "special",
     focused: true,
   });
   expect(backend.state.editable_input!.disliked_genre_ids).toEqual(["metal"]);
   expect(backend.state.editable_input!.mode).toBe("surprise");
   expect(backend.state.editable_input!.request_text).toBe("温暖的爵士 🎷");
+});
+
+test("中文／EN switches the whole page in place and sends the language with a new round", async ({
+  page,
+  context,
+}) => {
+  const backend = new FixtureBackend();
+  await attach(context, backend);
+  await page.goto("/");
+  const switcher = page.getByRole("group", { name: "界面语言" });
+  await expect(switcher.getByRole("button")).toHaveText(["中文", "EN"]);
+  await expect(switcher.getByRole("button", { name: "中文" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await switcher.getByRole("button", { name: "English" }).click();
+  // Same page, same state: only its words change.
+  await expect(page.locator("html")).toHaveAttribute("lang", "en");
+  await expect(page).toHaveTitle("Auralis · Find your next album");
+  const english = page.getByRole("group", { name: "Language" });
+  await expect(
+    english.getByRole("button", { name: "English" }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await expect(
+    page.getByRole("button", { name: "Start discovering" }),
+  ).toBeDisabled();
+  await page.getByRole("button", { name: /^Genres/ }).click();
+  await page.getByRole("button", { name: "Jazz", exact: true }).hover();
+  await expect(page.getByRole("tooltip")).toContainText("Improvisation");
+  await page.getByRole("button", { name: "Like Jazz", exact: true }).click();
+  await page.getByRole("button", { name: /^In your own words/ }).click();
+  await page
+    .getByLabel("What you want to hear this time")
+    .fill("rainy day jazz piano");
+  await page.getByLabel("Surprise", { exact: true }).check({ force: true });
+  await page.getByRole("button", { name: "Start discovering" }).click();
+  await expect(album(page, "样例专辑 1")).toBeVisible({ timeout: 10000 });
+  expect(backend.state.editable_input!.language).toBe("en");
+  expect(backend.state.editable_input!.request_text).toBe(
+    "rainy day jazz piano",
+  );
+  // Reviews are shown exactly as returned, whatever the page language.
+  const card = album(page, "样例专辑 1");
+  await card.getByRole("button", { name: "Jazz", exact: true }).focus();
+  await expect(card.locator(".wave__note")).toContainText("Improvisation");
+  await card.getByRole("button", { name: "Rabbit Song", exact: true }).focus();
+  await expect(card.locator(".wave__note")).toContainText("Just a hint.");
+  await expect(card.getByText("这是用于交互验证的合成短评")).toBeAttached();
+  await expect(card.getByRole("button", { name: "Love it!" })).toBeVisible();
+  await expect(card.locator(".track__text")).not.toContainText("R1");
+  await card.getByRole("button", { name: "Read the full review" }).click();
+  await expect(card.getByText("第二段合成文字，验证多段落排版。")).toBeVisible({
+    timeout: 8000,
+  });
+  await expect(card.locator(".reviews")).not.toContainText("R1");
+  // Switching back keeps the review that was already written.
+  await english.getByRole("button", { name: "中文" }).click();
+  await expect(page.locator("html")).toHaveAttribute("lang", "zh-CN");
+  await card.getByRole("button", { name: "Jazz", exact: true }).focus();
+  await expect(card.locator(".wave__note")).toContainText("即兴");
+  await expect(card.getByRole("button", { name: "收起长评" })).toBeVisible();
+  await expect(
+    card.getByText("第二段合成文字，验证多段落排版。"),
+  ).toBeVisible();
+  // Asking again in Chinese (the old input prefilled) sends zh-CN.
+  for (let i = 0; i < 3; i++) await page.getByRole("button", NEXT).click();
+  await page.getByRole("button", { name: /换一些想法吧/ }).click();
+  await start(page);
+  await expect(album(page, "样例专辑 1")).toBeVisible({ timeout: 10000 });
+  const languages = posts(backend, "/v1/discovery-sessions").map(
+    (call) => (call.body as { input: { language: string } }).input.language,
+  );
+  expect(languages).toEqual(["en", "zh-CN"]);
+  expect(
+    await page.evaluate(() => [localStorage.length, sessionStorage.length]),
+  ).toEqual([0, 0]);
+});
+
+test("a restored English discovery reopens in English", async ({
+  page,
+  context,
+}) => {
+  const state = ready();
+  state.editable_input = { ...state.editable_input!, language: "en" };
+  await attach(context, new FixtureBackend(state));
+  await page.goto("/");
+  await expect(page.locator("html")).toHaveAttribute("lang", "en");
+  await expect(
+    album(page, "样例专辑 1").getByRole("button", { name: "Heard it" }),
+  ).toBeVisible();
+});
+
+test("English layout fits on a phone", async ({ page, context }) => {
+  await attach(context, new FixtureBackend(ready()));
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  await page.getByRole("button", { name: "English" }).click();
+  await expect(page.locator("html")).toHaveAttribute("lang", "en");
+  await page.getByRole("link", { name: "Auralis home" }).click();
+  await expect(
+    page.getByRole("button", { name: "Start discovering" }),
+  ).toBeVisible();
+  const overlap = await page.evaluate(() => {
+    const box = (selector: string) =>
+      document.querySelector(selector)!.getBoundingClientRect();
+    const modes = box(".modes__row");
+    const go = box(".dock .go");
+    return modes.right > go.left && modes.bottom > go.top;
+  });
+  expect(overlap).toBe(false);
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+});
+
+test("an album at rest keeps no strips; the leaving copy is static and keeps its room", async ({
+  page,
+  context,
+}) => {
+  await attach(context, new FixtureBackend(ready()));
+  await page.goto("/");
+  await expect(album(page, "样例专辑 1")).toBeVisible();
+  // The strips exist only while the cover assembles.
+  await expect(page.locator(".slice")).toHaveCount(0, { timeout: 4000 });
+  const before = await page.evaluate(() =>
+    getComputedStyle(document.documentElement).getPropertyValue("--page-room"),
+  );
+  await page.keyboard.press("ArrowRight");
+  const ghost = page.locator(".cut[data-leaving]");
+  await expect(ghost).toHaveCount(1);
+  // Static: no per-character playback markup and the old room colours pinned inline.
+  await expect(ghost.locator(".type")).toHaveCount(0);
+  expect(
+    await ghost.evaluate((node) =>
+      getComputedStyle(node).getPropertyValue("--page-room"),
+    ),
+  ).toBe(before);
+  // The old room fades out as a single layer above the new one.
+  await expect(page.locator(".room-fade")).toHaveCount(1);
+  await expect(album(page, "样例专辑 2")).toBeVisible();
+  await expect(ghost).toHaveCount(0);
+  await expect(page.locator(".room-fade")).toHaveCount(0, { timeout: 3000 });
+  await expect(page.locator(".slice")).toHaveCount(0, { timeout: 4000 });
+});
+
+test("a genre note opens above the wave and nothing below it moves", async ({
+  page,
+  context,
+}) => {
+  await attach(context, new FixtureBackend(ready()));
+  await page.goto("/");
+  const card = notes(page, "样例专辑 1");
+  await expect(card.getByText("这是用于交互验证的合成短评")).toBeAttached();
+  await page.waitForTimeout(2600);
+  const review = card.locator(".reviews");
+  const wave = card.locator(".wave__field");
+  const before = [await review.boundingBox(), await wave.boundingBox()];
+  await card.getByRole("button", { name: "Jazz", exact: true }).focus();
+  const note = card.locator(".wave__note");
+  await expect(note).toContainText("即兴");
+  const after = [await review.boundingBox(), await wave.boundingBox()];
+  expect(after).toEqual(before);
+  const box = (await note.boundingBox())!;
+  expect(box.y + box.height).toBeLessThanOrEqual(before[1]!.y + 1);
+  // Its lead line is the album's own spark, not the fixed accent.
+  const spark = await card.evaluate((node) =>
+    getComputedStyle(node.closest(".cut")!).getPropertyValue("--spark"),
+  );
+  expect(spark).toMatch(/^#[0-9a-f]{6}$/);
+});
+
+test("the long review is printed on a sheet; the album moves into the header and back", async ({
+  page,
+  context,
+}) => {
+  await attach(context, new FixtureBackend(ready()));
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+  const card = notes(page, "样例专辑 1");
+  await page.waitForTimeout(2600);
+  const cover = card.locator(".sliced");
+  const resting = (await cover.boundingBox())!;
+  await card.getByRole("button", { name: "读长评" }).click();
+  await expect(page.locator(".cut[data-reading]")).toHaveCount(1, {
+    timeout: 8000,
+  });
+  await expect(card.getByText("第二段合成文字，验证多段落排版。")).toBeVisible({
+    timeout: 8000,
+  });
+  await page.waitForTimeout(1000);
+  const small = (await cover.boundingBox())!;
+  expect(Math.round(small.width)).toBe(84);
+  expect(Math.round(small.y)).toBe(82);
+  // The sheet covers the page below the header; the background keeps running.
+  const paper = (await card.locator(".liner__paper").boundingBox())!;
+  expect(Math.round(paper.y)).toBe(82 + 84 + 30);
+  await expect(page.locator(".contours")).toBeVisible();
+  expect(
+    await page.evaluate(() => document.documentElement.style.overflow),
+  ).toBe("hidden");
+  // Reactions stay usable on the sheet's foot.
+  await card.getByRole("button", { name: "我喜欢！" }).click();
+  await expect(card.getByRole("button", { name: "收起长评" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.locator(".cut[data-reading]")).toHaveCount(0);
+  await page.waitForTimeout(1200);
+  expect(await cover.boundingBox()).toEqual(resting);
+  expect(
+    await page.evaluate(() => document.documentElement.style.overflow),
+  ).toBe("");
+});
+
+test("from the last album the sleeve flies into the group's stack", async ({
+  page,
+  context,
+}) => {
+  await attach(context, new FixtureBackend(ready()));
+  await page.goto("/");
+  for (const title of ["样例专辑 1", "样例专辑 2"]) {
+    await expect(album(page, title)).toBeVisible();
+    await page.getByRole("button", NEXT).click();
+  }
+  await expect(album(page, "样例专辑 3")).toBeVisible();
+  await page.getByRole("button", NEXT).click();
+  // No strips over the finale: the sleeve leaves whole and lands in the stack.
+  await expect(
+    page.locator('.cut[data-leaving] .sliced[data-exit="flight"]'),
+  ).toHaveCount(1);
+  await expect(page.locator(".cut[data-leaving] .slice")).toHaveCount(0);
+  await expect(page.locator(".finale__stack .stack__slot")).toHaveCount(3);
+  await expect(page.locator(".stack__slot[data-landing]")).toHaveCount(1);
+  await expect(page.locator(".cut[data-leaving]")).toHaveCount(0, {
+    timeout: 2000,
+  });
+  // Once the flying copy is gone its card stays put: no restarted entrance.
+  const landed = page.locator(".stack__slot").last();
+  await expect(landed).toHaveAttribute("data-landing", "true");
+  for (let i = 0; i < 6; i++) {
+    expect(
+      await landed.evaluate((node) => ({
+        opacity: getComputedStyle(node).opacity,
+        running: node.getAnimations().filter((a) => a.playState === "running")
+          .length,
+      })),
+    ).toEqual({ opacity: "1", running: 0 });
+    await page.waitForTimeout(120);
+  }
+  await expect(page.getByText("这一组听完了")).toBeVisible();
 });
 
 test("one album at a time: edges and keys move, 听过了 records and can be taken back", async ({
@@ -432,4 +688,10 @@ test("visual baselines for start page, room and mobile", async ({
   await page.setViewportSize({ width: 390, height: 844 });
   await page.waitForTimeout(400);
   await page.screenshot({ path: "test-results/mobile.png", fullPage: true });
+  await page.getByRole("button", { name: "English" }).click();
+  await page.waitForTimeout(900);
+  await page.screenshot({ path: "test-results/mobile-en.png", fullPage: true });
+  await page.setViewportSize({ width: 1360, height: 900 });
+  await page.waitForTimeout(600);
+  await page.screenshot({ path: "test-results/entry-en.png" });
 });

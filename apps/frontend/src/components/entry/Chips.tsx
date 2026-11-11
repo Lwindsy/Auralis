@@ -1,4 +1,5 @@
 import type { Strength } from "../../api/types.ts";
+import { copy, useCopy } from "../../i18n/index.ts";
 import { albumSeed } from "../../lib/cover.ts";
 import { genreName } from "../../lib/text.ts";
 import { useStore } from "../../state/hooks.ts";
@@ -34,6 +35,7 @@ interface ChipName {
 }
 
 function nameOf(item: ChipItem): ChipName {
+  const words = copy().chips;
   if (item.list === "liked_albums") {
     const label = labels.album(item.id);
     return label
@@ -43,13 +45,13 @@ function nameOf(item: ChipItem): ChipName {
           parts: { title: label.title, artist: label.artist, year: label.year },
         }
       : {
-          name: `专辑 ${shortId(item.id)}`,
+          name: words.album(shortId(item.id)),
           seed: item.id,
-          parts: { title: `专辑 ${shortId(item.id)}` },
+          parts: { title: words.album(shortId(item.id)) },
         };
   }
   const known = labels.genre(item.id)?.name;
-  const name = known ? genreName(known) : "已选风格";
+  const name = known ? genreName(known) : words.genre;
   return { name, seed: null, parts: { title: name } };
 }
 
@@ -67,6 +69,7 @@ export function Chips({
   label: string;
 }) {
   useStore(labels);
+  const words = useCopy().chips;
   if (!items.length) return null;
   return (
     <QuietScroll className="chips-frame">
@@ -87,7 +90,7 @@ export function Chips({
               {seed ? (
                 <Cover seed={seed} title={name} size="mini" albumId={item.id} />
               ) : null}
-              {avoid ? <span className="chip__lead">避开</span> : null}
+              {avoid ? <span className="chip__lead">{words.avoid}</span> : null}
               <span className="chip__name" title={name}>
                 <span className="chip__title">{parts.title}</span>
                 {parts.artist ? (
@@ -103,8 +106,8 @@ export function Chips({
                     type="button"
                     className="chip__mark"
                     aria-pressed={item.strength === "special"}
-                    aria-label={`${name}特别喜欢`}
-                    title="特别喜欢"
+                    aria-label={words.specialName(name)}
+                    title={words.special}
                     disabled={handlers.locked}
                     onClick={() =>
                       handlers.setStrength(
@@ -124,8 +127,8 @@ export function Chips({
                     type="button"
                     className="chip__mark"
                     aria-pressed={!!item.focused}
-                    aria-label={`${name}本次重点`}
-                    title="本次重点"
+                    aria-label={words.focusedName(name)}
+                    title={words.focused}
                     disabled={handlers.locked}
                     onClick={() =>
                       handlers.setFocused(liked, item.id, !item.focused)
@@ -138,8 +141,8 @@ export function Chips({
               <button
                 type="button"
                 className="chip__mark"
-                aria-label={`移除${name}`}
-                title="移除"
+                aria-label={words.removeName(name)}
+                title={words.remove}
                 disabled={handlers.locked}
                 onClick={() => handlers.remove(item.list, item.id)}
               >

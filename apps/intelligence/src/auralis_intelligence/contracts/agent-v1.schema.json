@@ -257,6 +257,9 @@
         },
         "audience_min_listeners": {
           "$ref": "#/$defs/AudienceMinimum"
+        },
+        "audience_max_listeners": {
+          "$ref": "#/$defs/AudienceMaximum"
         }
       },
       "required": [
@@ -2013,6 +2016,9 @@
         "audience_min_listeners": {
           "$ref": "#/$defs/AudienceMinimum"
         },
+        "audience_max_listeners": {
+          "$ref": "#/$defs/AudienceMaximum"
+        },
         "audience_binding": {
           "$ref": "#/$defs/AudienceBinding"
         }
@@ -2031,6 +2037,9 @@
       "dependentRequired": {
         "audience_min_listeners": [
           "audience_binding"
+        ],
+        "audience_max_listeners": [
+          "audience_min_listeners"
         ]
       }
     },
@@ -2214,6 +2223,7 @@
             "INSUFFICIENT_REVIEWS",
             "READ_FAILED",
             "AUDIENCE_BELOW_MINIMUM",
+            "AUDIENCE_ABOVE_MAXIMUM",
             "AUDIENCE_UNKNOWN",
             "EVIDENCE_NOT_PREPARED",
             "DEFERRED"
@@ -2656,6 +2666,10 @@
         "input": {
           "type": "object",
           "properties": {
+            "language": {
+              "const": "en",
+              "description": "Selects English model prompts for this execution, including starts without raw input. An omitted value keeps the Chinese runtime."
+            },
             "raw": {
               "anyOf": [
                 {
@@ -6354,6 +6368,9 @@
         },
         "audience_min_listeners": {
           "$ref": "#/$defs/AudienceMinimum"
+        },
+        "audience_max_listeners": {
+          "$ref": "#/$defs/AudienceMaximum"
         }
       },
       "required": [
@@ -6364,7 +6381,10 @@
         "request_text",
         "language"
       ],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "dependentRequired": {
+        "audience_max_listeners": ["audience_min_listeners"]
+      }
     },
     "ProductCard": {
       "type": "object",
@@ -8000,9 +8020,14 @@
     },
     "AudienceMinimum": {
       "type": "integer",
-      "minimum": 1,
+      "minimum": 0,
       "maximum": 2147483647,
       "default": 50
+    },
+    "AudienceMaximum": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 2147483647
     }
   }
 }

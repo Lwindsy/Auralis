@@ -178,8 +178,17 @@ public class PostgresBudgetAuthority implements BudgetAuthority {
         if (!Objects.equals(row.get("session_id"), c.evidence().scope().sessionId())
                 || !Objects.equals(row.get("parent_scope_id"), parent)
                 || ((Number) row.get("cap_microusd")).longValue() != cap
-                || !digest(json((String) row.get("policy"))).equals(digest(policy)))
-            fail("BUDGET_BINDING_MISMATCH");
+                || !digest(financialPolicy(json((String) row.get("policy"))))
+                        .equals(digest(financialPolicy(policy)))) fail("BUDGET_BINDING_MISMATCH");
+    }
+
+    private JsonNode financialPolicy(JsonNode policy) {
+        var value = policy.deepCopy();
+        // Token ceilings belong to each issued execution, not to the amount or tariff
+        // fixed for the round. Existing reservations and settled charges remain unchanged.
+        value.path("prices")
+                .forEach(price -> ((ObjectNode) price).remove(List.of("maxInput", "maxOutput")));
+        return value;
     }
 
     private void lock(List<String> ids) {
@@ -199,7 +208,9 @@ public class PostgresBudgetAuthority implements BudgetAuthority {
                         String.class,
                         c.roundScope(),
                         c.evidence().scope().sessionId());
-        if (rows.size() != 1 || !digest(json(rows.getFirst())).equals(digest(policy(c))))
+        if (rows.size() != 1
+                || !digest(financialPolicy(json(rows.getFirst())))
+                        .equals(digest(financialPolicy(policy(c)))))
             fail("BUDGET_BINDING_MISMATCH");
     }
 

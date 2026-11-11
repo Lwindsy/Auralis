@@ -23,6 +23,40 @@ import org.springframework.boot.*;
 @EnabledIfEnvironmentVariable(named = "AURALIS_TEST_POSTGRES_URL", matches = ".+")
 class PublicationDisplayIT extends PublicationFixture {
     @Test
+    void candidateRegistrationChecksIdentityAndAudienceInBatches() throws Exception {
+        var catalog = app.getBean(CatalogQuery.class);
+        var audience = app.getBean(AudienceQuery.class);
+        var checkedCatalog =
+                org.mockito.Mockito.mock(
+                        CatalogQuery.class, org.mockito.AdditionalAnswers.delegatesTo(catalog));
+        var checkedAudience =
+                org.mockito.Mockito.mock(
+                        AudienceQuery.class, org.mockito.AdditionalAnswers.delegatesTo(audience));
+        org.springframework.test.util.ReflectionTestUtils.setField(
+                publication, "catalog", checkedCatalog);
+        org.springframework.test.util.ReflectionTestUtils.setField(
+                publication, "audience", checkedAudience);
+        try {
+            flow(3);
+            org.mockito.Mockito.verify(checkedCatalog, org.mockito.Mockito.times(1))
+                    .albums(
+                            org.mockito.ArgumentMatchers.eq(dataset),
+                            org.mockito.ArgumentMatchers.argThat(ids -> ids.size() == 4));
+            org.mockito.Mockito.verify(checkedAudience, org.mockito.Mockito.times(1))
+                    .audience(
+                            org.mockito.ArgumentMatchers.eq(dataset),
+                            org.mockito.ArgumentMatchers.eq(population),
+                            org.mockito.ArgumentMatchers.argThat(ids -> ids.size() == 4));
+            org.mockito.Mockito.verifyNoMoreInteractions(checkedCatalog, checkedAudience);
+        } finally {
+            org.springframework.test.util.ReflectionTestUtils.setField(
+                    publication, "catalog", catalog);
+            org.springframework.test.util.ReflectionTestUtils.setField(
+                    publication, "audience", audience);
+        }
+    }
+
+    @Test
     void endedResearchIsRetryableAndTechnicalFailureIsNotMaterialShortage() throws Exception {
         var f = flow(1);
         publish(f, 1);

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError } from "../../api/client.ts";
-import { message } from "../../api/messages.ts";
+import { note } from "../../api/messages.ts";
 
 export interface Page<T> {
   items: T[];
@@ -11,6 +11,7 @@ export interface PagedState<T> {
   items: T[];
   next: number | null;
   status: "idle" | "loading" | "ready" | "error";
+  /** Message key of the last failure; views show it in the current language. */
   error: string | null;
   loadingMore: boolean;
 }
@@ -23,11 +24,14 @@ const initial = <T>(): PagedState<T> => ({
   loadingMore: false,
 });
 
+/** The message key that explains a failed page load (unknown keys fall back). */
 function describe(error: unknown, fallback: string): string {
   if (error instanceof DOMException && error.name === "TimeoutError")
-    return message("CATALOG_TIMEOUT");
-  if (error instanceof ApiError)
-    return message(error.details?.message_key ?? error.message, fallback);
+    return "CATALOG_TIMEOUT";
+  if (error instanceof ApiError) {
+    const key = error.details?.message_key ?? error.message;
+    return note(key) ? key : fallback;
+  }
   return fallback;
 }
 
@@ -38,7 +42,7 @@ function describe(error: unknown, fallback: string): string {
 export function usePaged<T>(
   key: string | null,
   load: (offset: number, signal: AbortSignal) => Promise<Page<T>>,
-  fallback = "目录服务暂时不可用，请稍后重试。",
+  fallback = "CATALOG_UNAVAILABLE",
 ) {
   const [state, setState] = useState<PagedState<T>>(initial);
   const controller = useRef<AbortController | null>(null);

@@ -38,6 +38,7 @@ class Execution:
         self.receipt_timeout_seconds = receipt_timeout_seconds
         self._receipt_backoff_until = 0.0
         self.start = deepcopy(start)
+        self.english = start["input"].get("language") == "en"
         self.id = start["execution_id"]
         self.control = control
         self.clock = AgentClock(monotonic)

@@ -146,6 +146,11 @@
   margin-right: -0.24em;
 }
 
+.waiting__title:lang(en) {
+  letter-spacing: 0.1em;
+  margin-right: -0.1em;
+}
+
 .waiting__title span {
   display: inline-block;
   animation: letter-in 900ms var(--ease-out-expo) both;

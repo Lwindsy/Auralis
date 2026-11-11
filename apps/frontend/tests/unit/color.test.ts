@@ -35,6 +35,22 @@ describe("room colour", () => {
     }
   });
 
+  test("the spark is the sleeve's own hue and reads on its room (APCA |Lc| ≥ 60)", () => {
+    for (const seed of seeds) {
+      const art = coverArt(seed);
+      const { room, spark } = roomFor(
+        placeholderSwatches(art.base, art.accent, art.markShare),
+      );
+      expect(Math.abs(apcaContrast(spark, room))).toBeGreaterThanOrEqual(60);
+    }
+    const warm = roomFor(placeholderSwatches("#141414", "#d94f30", 0.25));
+    const { a, b } = hexToOklab(warm.spark);
+    expect(Math.hypot(a, b)).toBeGreaterThan(0.08);
+    expect(a).toBeGreaterThan(0);
+    const grey = roomFor(placeholderSwatches("#3a3a3a", "#9a9a9a", 0.3));
+    expect(grey.spark).toBe(grey.ink);
+  });
+
   test("the room keeps the hue of a vivid accent on a grey field", () => {
     const { room } = roomFor(placeholderSwatches("#141414", "#d94f30", 0.25));
     const { a, b } = hexToOklab(room);
@@ -52,12 +68,17 @@ describe("names and scales", () => {
     expect(genreName("Madchester")).toBe("Madchester");
   });
 
-  test("传播度 maps linearly onto 0–500 listeners", () => {
-    expect(reachToListeners(0)).toBe(1);
-    expect(reachToListeners(10)).toBe(50);
-    expect(reachToListeners(40)).toBe(200);
-    expect(reachToListeners(100)).toBe(500);
-    expect(listenersToReach(50)).toBe(10);
+  test("传播度 maps onto three inclusive listener bands", () => {
+    expect(reachToListeners(0)).toEqual({ min: 0, max: 100 });
+    expect(reachToListeners(1)).toEqual({ min: 3, max: 103 });
+    expect(reachToListeners(40)).toEqual({ min: 100, max: 200 });
+    expect(reachToListeners(41)).toEqual({ min: 223, max: 273 });
+    expect(reachToListeners(70)).toEqual({ min: 310, max: 360 });
+    expect(reachToListeners(71)).toEqual({ min: 442 });
+    expect(reachToListeners(100)).toEqual({ min: 500 });
+    for (let reach = 0; reach <= 100; reach++) {
+      expect(listenersToReach(reachToListeners(reach).min)).toBe(reach);
+    }
     expect(listenersToReach(5000)).toBe(100);
   });
 });

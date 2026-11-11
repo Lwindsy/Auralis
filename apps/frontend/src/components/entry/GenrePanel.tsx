@@ -9,8 +9,10 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import type { Api } from "../../api/client.ts";
+import { message } from "../../api/messages.ts";
 import type { GenreNode, GenreSearchResult } from "../../api/types.ts";
 import { genreNote } from "../../content/genreNotes.ts";
+import { copy, useCopy } from "../../i18n/index.ts";
 import { genreName } from "../../lib/text.ts";
 import { useDebounced } from "../../state/hooks.ts";
 import { labels } from "../../state/labels.ts";
@@ -91,13 +93,14 @@ type HoverHandlers = {
 };
 
 function relation(node: GenreNode, parent: GenreNode | null) {
-  if (parent) return `「${genreName(parent.name)}」的子风格`;
+  const words = copy().genres;
+  if (parent) return words.childOf(genreName(parent.name));
   const parents = node.parent_ids
     .map((id) => labels.genre(id)?.name)
     .filter((name): name is string => !!name)
     .map(genreName);
-  if (parents.length) return `属于「${parents.join("」「")}」`;
-  return node.has_children ? "风格家族 · 点开看子风格" : "独立风格";
+  if (parents.length) return words.partOf(parents);
+  return node.has_children ? words.family : words.standalone;
 }
 
 /**
@@ -114,6 +117,7 @@ export function GenrePanel({
 }) {
   const [query, setQuery] = useState("");
   const [immediate, setImmediate] = useState<string | null>(null);
+  const words = useCopy().genres;
   const debounced = useDebounced(query.trim(), 220);
   const effective = immediate ?? debounced;
   const pages = useGenrePages(api, `q:${effective}`, effective, null);
@@ -137,8 +141,8 @@ export function GenrePanel({
     <div className="genres">
       <SearchField
         id="genres-query"
-        label="查找风格"
-        placeholder="搜索风格，如 jazz、shoegaze、爵士"
+        label={words.search}
+        placeholder={words.placeholder}
         value={query}
         onChange={(value) => {
           setQuery(value);
@@ -160,7 +164,7 @@ export function GenrePanel({
               handlers={handlers}
               hover={hoverHandlers}
               parent={null}
-              empty="没有匹配的风格。"
+              empty={words.noMatch}
             />
           ) : (
             <Families
@@ -184,7 +188,8 @@ export function GenrePanel({
  * it near the edge of the screen), never at the cursor.
  */
 function HoverCard({ hover }: { hover: Hover }) {
-  const note = genreNote(hover.node.name);
+  useCopy();
+  const note = genreNote(hover.node.genre_id);
   const width = 288;
   const { anchor } = hover;
   const mid = (anchor.top + anchor.bottom) / 2;
@@ -256,6 +261,7 @@ function Families({
   hover: HoverHandlers;
 }) {
   const [uniqueOpen, setUniqueOpen] = useState(false);
+  const words = useCopy().genres;
   if (pages.status !== "ready" || !pages.items.length)
     return (
       <GenreList
@@ -264,7 +270,7 @@ function Families({
         handlers={handlers}
         hover={hover}
         parent={null}
-        empty="暂时没有可选的风格。"
+        empty={words.none}
       />
     );
   const families = pages.items.filter((node) => node.has_children);
@@ -272,7 +278,7 @@ function Families({
   const complete = pages.next === null;
   return (
     <>
-      <ul className="tree" role="list" aria-label="风格家族">
+      <ul className="tree" role="list" aria-label={words.families}>
         {families.map((node, index) => (
           <GenreRow
             key={node.genre_id}
@@ -291,7 +297,11 @@ function Families({
                 type="button"
                 className="tree__toggle"
                 aria-expanded={uniqueOpen}
-                aria-label={`${uniqueOpen ? "收起" : "展开"}${UNIQUE_GROUP}`}
+                aria-label={
+                  uniqueOpen
+                    ? words.collapse(UNIQUE_GROUP)
+                    : words.expand(UNIQUE_GROUP)
+                }
                 onClick={() => setUniqueOpen((value) => !value)}
               >
                 <Icon name="chevronRight" size={15} />
@@ -308,10 +318,8 @@ function Families({
             </div>
             {uniqueOpen ? (
               <div className="branch">
-                <p className="branch__note">
-                  目录里没有上下级关系的风格，Unique 只是归类，不是一种风格。
-                </p>
-                <ul className="tree" role="list" aria-label="独立风格">
+                <p className="branch__note">{words.uniqueNote}</p>
+                <ul className="tree" role="list" aria-label={words.loners}>
                   {loners.map((node, index) => (
                     <GenreRow
                       key={node.genre_id}
@@ -331,14 +339,14 @@ function Families({
       </ul>
       {pages.error ? (
         <p className="genres__message" role="alert">
-          {pages.error}{" "}
+          {message(pages.error)}{" "}
           <button type="button" className="text-link" onClick={pages.loadMore}>
-            继续加载
+            {words.loadMore}
           </button>
         </p>
       ) : !complete ? (
         <p className="genres__message" role="status">
-          正在载入全部风格…
+          {words.loadingAll}
         </p>
       ) : null}
     </>
@@ -360,9 +368,14 @@ function GenreList({
   parent: GenreNode | null;
   empty: string;
 }) {
+  const words = useCopy().genres;
   if (pages.status === "loading" || pages.status === "idle")
     return (
-      <div className="genres__skeleton" role="status" aria-label="正在查询…">
+      <div
+        className="genres__skeleton"
+        role="status"
+        aria-label={words.searching}
+      >
         {Array.from({ length: parent ? 3 : 6 }, (_, i) => (
           <span key={i} style={{ width: `${70 - i * 8}%` }} />
         ))}
@@ -371,9 +384,9 @@ function GenreList({
   if (pages.status === "error")
     return (
       <p className="genres__message" role="alert">
-        {pages.error}{" "}
+        {message(pages.error)}{" "}
         <button type="button" className="text-link" onClick={pages.retry}>
-          重试
+          {words.retry}
         </button>
       </p>
     );
@@ -395,19 +408,19 @@ function GenreList({
       </ul>
       {pages.next !== null && pages.error ? (
         <p className="genres__message" role="alert">
-          {pages.error}{" "}
+          {message(pages.error)}{" "}
           <button
             type="button"
             className="text-link"
             onClick={pages.loadMore}
             disabled={pages.loadingMore}
           >
-            继续加载
+            {words.loadMore}
           </button>
         </p>
       ) : pages.next !== null ? (
         <p className="genres__more" role="status">
-          正在载入…
+          {words.loading}
         </p>
       ) : null}
     </>
@@ -430,6 +443,7 @@ function GenreRow({
   index: number;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const words = useCopy().genres;
   const liked = handlers.liked.has(node.genre_id);
   const disliked = handlers.disliked.has(node.genre_id);
   // Notes follow a mouse or the keyboard; a finger tap selects without a card in the way.
@@ -465,7 +479,9 @@ function GenreRow({
             type="button"
             className="tree__toggle"
             aria-expanded={expanded}
-            aria-label={`${expanded ? "收起" : "展开"}${node.name}`}
+            aria-label={
+              expanded ? words.collapse(node.name) : words.expand(node.name)
+            }
             onClick={() => setExpanded((value) => !value)}
           >
             <Icon name="chevronRight" size={15} />
@@ -495,8 +511,8 @@ function GenreRow({
             type="button"
             className="tree__pill"
             aria-pressed={liked}
-            aria-label={`喜欢${node.name}`}
-            title="喜欢"
+            aria-label={words.likeName(node.name)}
+            title={words.like}
             disabled={handlers.locked}
             onClick={() => handlers.onToggleLike(node)}
           >
@@ -506,8 +522,8 @@ function GenreRow({
             type="button"
             className="tree__pill tree__pill--avoid"
             aria-pressed={disliked}
-            aria-label={`不喜欢${node.name}`}
-            title="不喜欢"
+            aria-label={words.dislikeName(node.name)}
+            title={words.dislike}
             disabled={handlers.locked}
             onClick={() => handlers.onToggleDislike(node)}
           >
@@ -534,6 +550,7 @@ function Children({
   hover: HoverHandlers;
 }) {
   const pages = useGenrePages(api, `p:${parent.genre_id}`, "", parent.genre_id);
+  const words = useCopy().genres;
   useLoadAll(pages);
   return (
     <div className="branch" data-ready={pages.status === "ready" || undefined}>
@@ -543,7 +560,7 @@ function Children({
         handlers={handlers}
         hover={hover}
         parent={parent}
-        empty="没有子风格。"
+        empty={words.noChildren}
       />
     </div>
   );

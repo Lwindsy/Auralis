@@ -6,6 +6,7 @@ import type { DiscoveryInput, ProductState } from "./api/types.ts";
 import { Deck, type Feeling } from "./components/deck/Deck.tsx";
 import { Entry } from "./components/entry/Entry.tsx";
 import { Icon } from "./components/Icon.tsx";
+import { LangSwitch } from "./components/LangSwitch.tsx";
 import { Drum } from "./components/motion/Drum.tsx";
 import {
   Contours,
@@ -14,6 +15,7 @@ import {
   setTerrain,
 } from "./components/motion/Contours.tsx";
 import { Waiting } from "./components/motion/Waiting.tsx";
+import { useCopy, withLanguage } from "./i18n/index.ts";
 import { paintPage, withViewTransition } from "./lib/motion.ts";
 import type { DiscoveryController } from "./state/controller.ts";
 import { readyCards } from "./state/deck.ts";
@@ -52,6 +54,7 @@ interface WaitMark {
 
 export function App({ api, controller, review, fixture }: AppProps) {
   useStore(controller);
+  const words = useCopy();
   const state = controller.state;
   const [requested, setRequested] = useState<Stage | null>(null);
   const [waitSince, setWaitSince] = useState(() => Date.now());
@@ -131,7 +134,7 @@ export function App({ api, controller, review, fixture }: AppProps) {
     const mark = { session, revision: state.revision };
     setRequested("leaving");
     const leave = new Promise((resolve) => setTimeout(resolve, LEAVE_MS));
-    const ok = await controller.submit(input);
+    const ok = await controller.submit(withLanguage(input));
     await leave;
     if (ok || controller.pending) {
       drafts.discard();
@@ -146,7 +149,9 @@ export function App({ api, controller, review, fixture }: AppProps) {
     if (!ok && !controller.pending && controller.state?.editable_input) {
       // Nothing left to swap in place: ask again with the same input.
       controller.clearError();
-      ok = await controller.submit(controller.state.editable_input);
+      ok = await controller.submit(
+        withLanguage(controller.state.editable_input),
+      );
     }
     if (!ok && !controller.pending) setRequested("deck");
   };
@@ -182,27 +187,28 @@ export function App({ api, controller, review, fixture }: AppProps) {
   return (
     <>
       <Contours />
-      {fixture ? (
-        <p className="fixture-banner">
-          契约样例模式 · 合成数据，不是真实推荐服务
-        </p>
-      ) : null}
-      <a
-        className="brand"
-        data-hidden={stage === "entry" || stage === "leaving" || undefined}
-        aria-hidden={stage === "entry" || stage === "leaving" || undefined}
-        tabIndex={stage === "entry" || stage === "leaving" ? -1 : undefined}
-        href="/"
-        aria-label="Auralis 首页"
-        onClick={(event) => {
-          if (!state || event.metaKey || event.ctrlKey) return;
-          event.preventDefault();
-          if (stage === "deck") toEntry(false);
-        }}
-      >
-        <span className="brand__mark" aria-hidden="true" />
-        <span className="brand__name">Auralis</span>
-      </a>
+      {fixture ? <p className="fixture-banner">{words.app.fixture}</p> : null}
+      {/* Top-left corner: the brand (away from the start page) and the language switch,
+          which glides aside as the brand comes in. */}
+      <div className="corner">
+        <a
+          className="brand"
+          data-hidden={stage === "entry" || stage === "leaving" || undefined}
+          aria-hidden={stage === "entry" || stage === "leaving" || undefined}
+          tabIndex={stage === "entry" || stage === "leaving" ? -1 : undefined}
+          href="/"
+          aria-label={words.app.home}
+          onClick={(event) => {
+            if (!state || event.metaKey || event.ctrlKey) return;
+            event.preventDefault();
+            if (stage === "deck") toEntry(false);
+          }}
+        >
+          <span className="brand__mark" aria-hidden="true" />
+          <span className="brand__name">Auralis</span>
+        </a>
+        <LangSwitch />
+      </div>
 
       <main className="stage" data-stage={stage}>
         {stage === "connecting" ? (
@@ -210,17 +216,17 @@ export function App({ api, controller, review, fixture }: AppProps) {
             {controller.busy ? (
               <>
                 <Drum settling={false} />
-                <p role="status">正在恢复你的发现…</p>
+                <p role="status">{words.app.restoring}</p>
               </>
             ) : (
               <>
-                <p>暂时无法连接到 Auralis。</p>
+                <p>{words.app.offline}</p>
                 <button
                   type="button"
                   className="text-link"
                   onClick={() => void controller.connect()}
                 >
-                  重新连接
+                  {words.app.reconnect}
                 </button>
               </>
             )}
@@ -289,7 +295,7 @@ export function App({ api, controller, review, fixture }: AppProps) {
                 disabled={controller.busy}
                 onClick={() => void controller.refresh()}
               >
-                刷新状态
+                {words.app.refresh}
               </button>
             ) : null}
             {controller.pending ? (
@@ -299,7 +305,7 @@ export function App({ api, controller, review, fixture }: AppProps) {
                 disabled={controller.busy}
                 onClick={() => void controller.retry()}
               >
-                重试原操作
+                {words.app.retry}
               </button>
             ) : null}
           </div>

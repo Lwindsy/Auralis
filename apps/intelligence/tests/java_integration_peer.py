@@ -52,9 +52,12 @@ class Fixtures:
             self.event("provider_429", schema=request.schema_name)
             return CallResult(outcome="NOT_PROCESSED", finish="ERROR", provider_http_status=429)
         payload = request.input
+        english = "_en" in request.schema_name
+        jazz = "Jazz" if english else "爵士"
+        gentle = "Gentle" if english else "轻柔"
         if request.schema_name.startswith("genre_pass1"):
             return CallResult(
-                {"branches": [{"id": "branch-jazz", "quote": "爵士"}]}, usage=Usage(100, 100, 0)
+                {"branches": [{"id": "branch-jazz", "quote": jazz}]}, usage=Usage(100, 100, 0)
             )
         if request.schema_name.startswith("genre_pass2"):
             return CallResult(
@@ -64,23 +67,23 @@ class Fixtures:
                             "id": "00000000-0000-0000-0000-000000000065",
                             "kind": "prefer",
                             "basis": "explicit",
-                            "quote": "爵士",
+                            "quote": jazz,
                         }
                     ],
                     "constraints": [],
                     "unresolved_constraints": [],
                     "soft_preferences": [
                         {
-                            "description": "轻柔",
+                            "description": gentle,
                             "kind": "context",
                             "basis": "explicit",
-                            "quote": "轻柔",
+                            "quote": gentle,
                         }
                     ],
                 },
                 usage=Usage(100, 100, 0),
             )
-        if request.schema_name.startswith("batch_v6"):
+        if request.schema_name.startswith("batch_v7"):
             candidates = payload["candidates"]
             if faults.get("invalid_once") and "batch" not in self.repairs:
                 self.repairs.add("batch")
@@ -88,6 +91,11 @@ class Fixtures:
             if faults.get("unknown_usage"):
                 return CallResult(outcome="UNCERTAIN", finish="ERROR")
             text = "这张合成测试专辑以舒缓钢琴和轻柔鼓点为主，演奏之间保留清晰的空间，旋律自然展开，适合想安静聆听的时刻，具体音色描述来自本次读取的测试资料[R1]。"
+            if english:
+                text = (
+                    "Soft piano and gentle drums leave space between phrases, so the melody can develop at an unhurried pace [R1]. "
+                    "The recording keeps the instruments distinct even when the percussion grows busier near the end of a passage."
+                )
             return CallResult(
                 {
                     "assessments": [
@@ -105,10 +113,16 @@ class Fixtures:
                 {
                     "status": "ok",
                     "sections": {
-                        "production": "合成资料描述清晰而克制的录音，乐器之间留有足够空间[R1]。",
-                        "instrumentation": "钢琴与鼓的互动缓慢推进，音色柔和，节奏富有呼吸感[R1]。",
+                        "production": "The recording leaves space between the instruments [R1]."
+                        if english
+                        else "合成资料描述清晰而克制的录音，乐器之间留有足够空间[R1]。",
+                        "instrumentation": "Piano and quiet drums move at an unhurried pace [R1]."
+                        if english
+                        else "钢琴与鼓的互动缓慢推进，音色柔和，节奏富有呼吸感[R1]。",
                         "vocals": "",
-                        "mood": "整体安静舒缓，适合慢慢聆听[R1]。",
+                        "mood": "The pace invites close listening [R1]."
+                        if english
+                        else "整体安静舒缓，适合慢慢聆听[R1]。",
                     },
                     "refs": ["R1"],
                     "missing": [],
@@ -119,7 +133,12 @@ class Fixtures:
         if request.schema_name.startswith("short_review"):
             return CallResult(
                 {
-                    "text": "这张合成专辑的钢琴与鼓点轻柔交织，录音清晰而克制，旋律在宽松空间里自然展开，适合安静聆听，具体描述来自本次读取的测试资料[R1]。",
+                    "text": (
+                        "The piano and drums take turns shaping the melody, leaving quiet gaps in the recording where the decay of each note is audible [R1]. "
+                        "The arrangement builds gradually and gives the slower passages a sense of movement, while keeping the volume low enough that the details are easy to follow."
+                    )
+                    if english
+                    else "这张合成专辑的钢琴与鼓点轻柔交织，录音清晰而克制，旋律在宽松空间里自然展开，适合安静聆听，具体描述来自本次读取的测试资料[R1]。",
                     "refs": ["R1"],
                 },
                 usage=Usage(100, 100, 0),

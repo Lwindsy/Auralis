@@ -29,6 +29,7 @@ public final class CandidateValidation {
             long catalogDataset,
             AudienceQuery.Binding audienceBinding,
             int audienceMinimum,
+            long audienceMaximum,
             JsonNode recallBinding,
             String inputDigest,
             String preferenceDigest,
@@ -138,6 +139,8 @@ public final class CandidateValidation {
                 else if (!counts.containsKey(album.id())) reason = "AUDIENCE_UNKNOWN";
                 else if (counts.get(album.id()) < context.audienceMinimum())
                     reason = "AUDIENCE_BELOW_MINIMUM";
+                else if (counts.get(album.id()) > context.audienceMaximum())
+                    reason = "AUDIENCE_ABOVE_MAXIMUM";
             }
             if (reason != null) {
                 rejected.addObject().put("release_group_id", original).put("reason", reason);

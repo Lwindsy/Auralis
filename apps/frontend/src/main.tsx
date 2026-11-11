@@ -11,6 +11,7 @@ import "./styles/waiting.css";
 import "./styles/deck.css";
 import { Api } from "./api/client.ts";
 import { App } from "./App.tsx";
+import { i18n } from "./i18n/index.ts";
 import { DiscoveryController } from "./state/controller.ts";
 import { LongReviewController } from "./state/review.ts";
 
@@ -22,6 +23,11 @@ const review = new LongReviewController(
   () => controller.refresh(),
 );
 const fixture = !!document.querySelector('meta[name="auralis-fixture"]');
+
+// A restored discovery reopens in the language it was asked for (until one is picked).
+controller.subscribe(() =>
+  i18n.adopt(controller.state?.editable_input?.language),
+);
 
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden && controller.state) void controller.refresh();

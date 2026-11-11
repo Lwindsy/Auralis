@@ -2,13 +2,13 @@
 
 import asyncio
 import math
-import re
 from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from fractions import Fraction
 from typing import Any, Callable
 
+from auralis_intelligence.album_reviews.validation import valid_short_length
 from auralis_intelligence.contracts import (
     ContractError,
     IdempotencyLedger,
@@ -865,7 +865,8 @@ class JavaControlDouble:
             and audience == card["admission"].get("audience")
             and matches_policy(audience, policy)
             and audience["listeners"] is not None
-            and audience["listeners"] >= entry["start"]["agent_policy"]["audience_min_listeners"]
+            and audience["listeners"] >= policy["audience_min_listeners"]
+            and audience["listeners"] <= policy.get("audience_max_listeners", float("inf"))
         )
 
     def _deliver(self, execution_id: str, delivery: dict[str, Any]) -> dict[str, Any]:
@@ -921,9 +922,9 @@ class JavaControlDouble:
                     reason = "NOT_IN_BUNDLE"
                 elif card["candidate_id"] in entry["display"]["heard_candidate_ids"]:
                     reason = "EXCLUDED"
-                elif entry["start"]["agent_policy"].get(
-                    "audience_min_listeners"
-                ) and not self._audience_permits(entry, card):
+                elif "audience_min_listeners" in entry["start"][
+                    "agent_policy"
+                ] and not self._audience_permits(entry, card):
                     reason = "ADMISSION_UNVERIFIED"
                 elif any(
                     item is None or item["receipt"]["candidate_id"] != card["candidate_id"]
@@ -954,12 +955,10 @@ class JavaControlDouble:
                     ]
                 ):
                     reason = "SCORE_BELOW_THRESHOLD"
-                elif (
-                    not entry["start"]["agent_policy"]["writing"]["short_min_han"]
-                    <= len(
-                        re.findall(r"[\u3400-\u4dbf\u4e00-\u9fff]", card["short_review"]["text"])
-                    )
-                    <= entry["start"]["agent_policy"]["writing"]["short_max_han"]
+                elif not valid_short_length(
+                    card["short_review"]["text"],
+                    entry["start"]["agent_policy"]["writing"],
+                    english=entry["start"]["input"].get("language") == "en",
                 ):
                     reason = "LENGTH_INVALID"
                 elif any(

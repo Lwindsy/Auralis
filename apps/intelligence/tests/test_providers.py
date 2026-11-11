@@ -3,6 +3,8 @@
 import asyncio
 import json
 import socket
+from dataclasses import replace
+from pathlib import Path
 
 import httpx
 import pytest
@@ -303,6 +305,54 @@ def web_execution():
     request["payload_digest"] = content_digest(request)
     _, control = setup(request)
     return Execution(request, control), control
+
+
+def test_screen_limits_accept_large_research_input_and_reach_provider():
+    configured = json.loads(
+        (Path(__file__).parents[1] / "autonomous-bindings.example.json").read_text()
+    )["screen"]
+    binding = replace(
+        BINDING,
+        max_input_tokens=configured["max_input_tokens"],
+        max_output_tokens=configured["max_output_tokens"],
+    )
+
+    async def run():
+        request = start()
+        request["model_bindings"]["screen"] = binding.wire()
+        limits = request["budget"]["limits"]
+        limits.update(session_cap_microusd=1000000, round_cap_microusd=1000000)
+        limits["lane_caps"].update(FOREGROUND=500000, BACKGROUND=500000)
+        request["payload_digest"] = content_digest(request)
+        _, control = setup(request)
+        execution = Execution(request, control)
+        seen = []
+
+        async def handler(request):
+            payload = json.loads(request.content)
+            seen.append(payload)
+            assert payload["max_output_tokens"] == 2048
+            return httpx.Response(200, json=response())
+
+        async with OpenAIResponsesAdapter(
+            "synthetic-key", transport=httpx.MockTransport(handler), test_transport=True
+        ) as adapter:
+            gateway = ModelGateway(adapter, {binding.ref: binding})
+            result = await gateway.generate(
+                execution,
+                role="screen",
+                purpose="SCREEN",
+                system=REQUEST.system,
+                input={"sources": "research excerpt " * 2500},
+                output_schema=OUTPUT_SCHEMA,
+                prompt_version="screen.v1",
+            )
+        assert len(seen) == 1
+        assert result.finish == "COMPLETE"
+        assert control.invocations[result.invocation_id]["settled"]
+        await execution.cleanup()
+
+    asyncio.run(run())
 
 
 @pytest.mark.parametrize("failed", [False, True])

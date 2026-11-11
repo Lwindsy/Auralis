@@ -16,12 +16,16 @@ import io.auralis.session.api.SessionStore;
 import io.auralis.session.api.SessionStore.Scope;
 import java.time.Clock;
 import java.util.*;
+import java.util.regex.Pattern;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 /** Atomic result admission and display consumption; external work is delegated after commit. */
 @Service
 public class PostgresPublicationAuthority implements PublicationAuthority {
+    private static final Pattern CITATION_MARKER = Pattern.compile("\\[[A-Za-z][0-9]+\\]");
+    private static final Pattern ENGLISH_WORD =
+            Pattern.compile("[A-Za-z0-9]+(?:['’-][A-Za-z0-9]+)*");
     private final JdbcTemplate jdbc;
     private final ShortTransactions tx;
     private final SessionStore sessions;
@@ -126,7 +130,8 @@ public class PostgresPublicationAuthority implements PublicationAuthority {
                 c.preferenceResolution(),
                 c.audience(),
                 c.policy(),
-                c.target());
+                c.target(),
+                c.english());
     }
 
     private void guard(Context c) {
@@ -281,10 +286,22 @@ public class PostgresPublicationAuthority implements PublicationAuthority {
                         saveRunBinding(s, r, c.execution().budget().run(), bundle.path("binding"));
                         return null;
                     }
+                    var requested = new ArrayList<UUID>();
+                    for (var candidate : bundle.path("accepted"))
+                        requested.add(UUID.fromString(candidate.path("release_group_id").asText()));
+                    var albums =
+                            catalog.albums(c.execution().evidence().catalogDataset(), requested);
+                    var counts =
+                            audience.audience(
+                                    c.execution().evidence().catalogDataset(),
+                                    c.audience(),
+                                    requested);
                     var ids = new HashSet<String>();
                     for (var candidate : bundle.path("accepted")) {
                         String id = candidate.path("release_group_id").asText();
-                        if (!ids.add(id) || !identityValid(c, candidate))
+                        var uuid = UUID.fromString(id);
+                        if (!ids.add(id)
+                                || !identityValid(c, candidate, albums.get(uuid), counts.get(uuid)))
                             fail("ADMISSION_UNVERIFIED");
                         store.addCandidate(
                                 s,
@@ -317,6 +334,18 @@ public class PostgresPublicationAuthority implements PublicationAuthority {
             return false;
         }
         var album = catalog.albums(c.execution().evidence().catalogDataset(), List.of(id)).get(id);
+        Long listeners =
+                audience.audience(
+                                c.execution().evidence().catalogDataset(),
+                                c.audience(),
+                                List.of(id))
+                        .get(id);
+        return identityValid(c, candidate, album, listeners);
+    }
+
+    private boolean identityValid(
+            Context c, JsonNode candidate, CatalogQuery.Album album, Long listeners) {
+        var id = UUID.fromString(candidate.path("release_group_id").asText());
         if (album == null || !album.id().equals(id)) return false;
         var identity =
                 JSON.createObjectNode()
@@ -330,17 +359,13 @@ public class PostgresPublicationAuthority implements PublicationAuthority {
         album.genres()
                 .forEach(
                         g -> genres.addObject().put("genre_id", g.genreId()).put("name", g.name()));
-        Long listeners =
-                audience.audience(
-                                c.execution().evidence().catalogDataset(),
-                                c.audience(),
-                                List.of(id))
-                        .get(id);
         var a = candidate.path("audience");
+        var policy = json(c.policy());
         return same(identity, candidate.path("identity"))
                 && listeners != null
-                && json(c.policy()).has("audience_min_listeners")
-                && listeners >= json(c.policy()).path("audience_min_listeners").asInt()
+                && policy.has("audience_min_listeners")
+                && listeners >= policy.path("audience_min_listeners").asInt()
+                && listeners <= policy.path("audience_max_listeners").asLong(Long.MAX_VALUE)
                 && a.path("listeners").asLong() == listeners
                 && a.path("dataset_id").asText().equals(c.audience().dataset())
                 && a.path("window").asText().equals(c.audience().window())
@@ -433,15 +458,26 @@ public class PostgresPublicationAuthority implements PublicationAuthority {
         }
         for (var citation : review.path("citations"))
             if (!used.contains(citation.path("read_id").asText())) return "CITATION_INVALID";
-        long han =
-                review.path("text")
-                        .asText()
-                        .codePoints()
-                        .filter(n -> (n >= 0x3400 && n <= 0x4dbf) || (n >= 0x4e00 && n <= 0x9fff))
-                        .count();
-        if (han < policy.path("writing").path("short_min_han").asInt()
-                || han > policy.path("writing").path("short_max_han").asInt())
-            return "LENGTH_INVALID";
+        String text = review.path("text").asText();
+        if (c.english()) {
+            long words =
+                    ENGLISH_WORD
+                            .matcher(CITATION_MARKER.matcher(text).replaceAll(""))
+                            .results()
+                            .count();
+            if (words < 30 || words > 110) return "LENGTH_INVALID";
+        } else {
+            long han =
+                    text.codePoints()
+                            .filter(
+                                    n ->
+                                            (n >= 0x3400 && n <= 0x4dbf)
+                                                    || (n >= 0x4e00 && n <= 0x9fff))
+                            .count();
+            if (han < policy.path("writing").path("short_min_han").asInt()
+                    || han > policy.path("writing").path("short_max_han").asInt())
+                return "LENGTH_INVALID";
+        }
         String expected =
                 batch.path("analysis_mode").asText().equals("PERSONALIZED")
                         ? "SELECTED"
@@ -1316,16 +1352,14 @@ public class PostgresPublicationAuthority implements PublicationAuthority {
                         } catch (java.io.IOException e) {
                             throw new IllegalStateException(e);
                         }
-                    String policy =
-                            json(queue.startPayload(execution.evidence().execution()))
-                                    .path("agent_policy")
-                                    .toString();
+                    var start = json(queue.startPayload(execution.evidence().execution()));
                     return new Context(
                             execution,
                             (String) row.get("preference_resolution"),
                             binding,
-                            policy,
-                            ((Number) row.get("target")).intValue());
+                            start.path("agent_policy").toString(),
+                            ((Number) row.get("target")).intValue(),
+                            "en".equals(start.path("input").path("language").asText()));
                 });
     }
 

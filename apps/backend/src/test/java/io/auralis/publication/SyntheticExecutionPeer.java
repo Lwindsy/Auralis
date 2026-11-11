@@ -519,7 +519,11 @@ final class SyntheticExecutionPeer implements AutoCloseable {
                                     mode.equals("BASIC") ? "SCREEN_ONLY" : "SELECTED")
                             .put("long_review_state", n < target ? "GENERATING" : "NOT_STARTED");
             card.putObject("short_review")
-                    .put("text", "这张专辑以细腻的节奏和清晰的旋律展开，层次之间保持自然的呼吸感，适合在安静的环境里从头听到结尾。")
+                    .put(
+                            "text",
+                            "en".equals(j.start.path("input").path("language").asText())
+                                    ? "Piano and quiet drums leave room around the melody, with a close vocal sound that keeps the arrangement intimate [R1]. The unhurried pace suits a late evening when a dense or loud record would be distracting."
+                                    : "这张专辑以细腻的节奏和清晰的旋律展开，层次之间保持自然的呼吸感，适合在安静的环境里从头听到结尾。")
                     .put("invocation_id", written)
                     .put("prompt_version", "synthetic")
                     .putArray("citations")

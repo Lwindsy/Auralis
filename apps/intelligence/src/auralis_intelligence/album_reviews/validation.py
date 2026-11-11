@@ -6,6 +6,8 @@ from typing import Any
 from auralis_intelligence.contracts import ContractError
 
 SECTIONS = ("production", "instrumentation", "vocals", "mood")
+CITATION_MARKER = re.compile(r"\[[A-Za-z][0-9]+\]")
+ENGLISH_WORD = re.compile(r"[A-Za-z0-9]+(?:['’-][A-Za-z0-9]+)*")
 
 
 def han_count(text: str) -> int:
@@ -16,7 +18,19 @@ def citation_refs(text: str) -> set[str]:
     return set(re.findall(r"\[([A-Za-z][0-9]+)\]", text))
 
 
-def validate_short(output: Any, available: set[str], policy: dict[str, Any]) -> None:
+def word_count(text: str) -> int:
+    return len(ENGLISH_WORD.findall(CITATION_MARKER.sub("", text)))
+
+
+def valid_short_length(text: str, policy: dict[str, Any], *, english: bool) -> bool:
+    if english:
+        return 30 <= word_count(text) <= 110
+    return policy["short_min_han"] <= han_count(text) <= policy["short_max_han"]
+
+
+def validate_short(
+    output: Any, available: set[str], policy: dict[str, Any], *, english: bool = False
+) -> None:
     if (
         not isinstance(output, dict)
         or set(output) != {"text", "refs"}
@@ -33,10 +47,11 @@ def validate_short(output: Any, available: set[str], policy: dict[str, Any]) -> 
         or not set(refs).issubset(available)
     ):
         raise ContractError("CITATION_INVALID")
-    if not policy["short_min_han"] <= han_count(output["text"]) <= policy["short_max_han"]:
+    if not valid_short_length(output["text"], policy, english=english):
         raise ContractError("LENGTH_INVALID")
-    without_markers = re.sub(r"\[[A-Za-z][0-9]+\]", "", output["text"])
-    sentences = [part.strip() for part in re.split(r"[。！？!?]+", without_markers) if part.strip()]
+    without_markers = CITATION_MARKER.sub("", output["text"])
+    stops = r"[。！？.!?]+(?=\s|$)" if english else r"[。！？!?]+"
+    sentences = [part.strip() for part in re.split(stops, without_markers) if part.strip()]
     if not 1 <= len(sentences) <= 3 or re.search(r"https?://|www\.", output["text"], re.I):
         raise ContractError("SHORT_FORM_INVALID")
 

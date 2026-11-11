@@ -1,14 +1,7 @@
-import { MODE_COPY } from "../../api/messages.ts";
 import type { Mode } from "../../api/types.ts";
+import { useCopy } from "../../i18n/index.ts";
 
 const MODES: Mode[] = ["familiar", "explore", "surprise"];
-
-/** What each position means, in one plain sentence. */
-export const MODE_LINE: Record<Mode, string> = {
-  familiar: "就在你给的方向里找，稳一点。",
-  explore: "主线不变，顺手带你去相邻的风格。",
-  surprise: "允许走远一点，可能遇到意想不到的。",
-};
 
 /**
  * Three words; the chosen one stands out. The real feedback is the landscape behind the
@@ -23,9 +16,10 @@ export function ModeWords({
   onChange: (mode: Mode) => void;
   disabled: boolean;
 }) {
+  const words = useCopy().modes;
   return (
     <div className="modes">
-      <div className="modes__row" role="radiogroup" aria-label="探索方式">
+      <div className="modes__row" role="radiogroup" aria-label={words.group}>
         {MODES.map((mode) => (
           <label
             key={mode}
@@ -38,15 +32,16 @@ export function ModeWords({
               value={mode}
               checked={value === mode}
               disabled={disabled}
-              aria-label={MODE_COPY[mode].label}
+              aria-label={words[mode].label}
               onChange={() => onChange(mode)}
             />
-            <span>{MODE_COPY[mode].label}</span>
+            <span>{words[mode].label}</span>
           </label>
         ))}
       </div>
+      {/* One sentence on what the chosen position means (it replays on a new choice). */}
       <p className="modes__say" key={value} aria-live="polite">
-        {MODE_LINE[value]}
+        {words[value].line}
       </p>
     </div>
   );

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import type { ProductCard } from "../../api/types.ts";
 import { genreNote } from "../../content/genreNotes.ts";
+import { useCopy } from "../../i18n/index.ts";
 import { hash } from "../../lib/cover.ts";
 import { genreName } from "../../lib/text.ts";
 
@@ -28,8 +29,16 @@ function lens(x: number, focus: number, power: number) {
  * short note unfolds below. Without a pointer (or on a keyboard) the tags are also plain
  * buttons that do the same.
  */
-export function GenreWave({ card }: { card: ProductCard }) {
+export function GenreWave({
+  card,
+  still = false,
+}: {
+  card: ProductCard;
+  /** Laid out once and never animated: the leaving copy of an album. */
+  still?: boolean;
+}) {
   const tags = card.identity.primary_genres.slice(0, 4);
+  const words = useCopy();
   const svg = useRef<SVGSVGElement>(null);
   const names = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState<number | null>(null);
@@ -73,6 +82,16 @@ export function GenreWave({ card }: { card: ProductCard }) {
     let frame = 0;
     let last = performance.now();
     const draw = (now: number) => {
+      // At rest only the slow breathing moves, so it is drawn at about 24 frames a second;
+      // the lens and the names run at full rate while the pointer is on the wave.
+      const resting =
+        activeRef.current === null &&
+        target.current.power === 0 &&
+        state.power < 0.002;
+      if (resting && now - last < 40) {
+        frame = requestAnimationFrame(draw);
+        return;
+      }
       const dt = Math.min(0.05, (now - last) / 1000);
       last = now;
       state.t += dt;
@@ -130,14 +149,15 @@ export function GenreWave({ card }: { card: ProductCard }) {
       labels.forEach((label, i) => {
         label.style.transform = `translate3d(${lefts[i]!.toFixed(1)}px,0,0) scale(${scales[i]!.toFixed(3)})`;
       });
-      frame = requestAnimationFrame(draw);
+      if (!still) frame = requestAnimationFrame(draw);
     };
-    frame = requestAnimationFrame(draw);
+    if (still) draw(last + 16);
+    else frame = requestAnimationFrame(draw);
     return () => {
       cancelAnimationFrame(frame);
       observer.disconnect();
     };
-  }, [seed, tags.length]);
+  }, [seed, tags.length, still]);
 
   if (!tags.length) return null;
   const segmentOf = (u: number) =>
@@ -150,9 +170,7 @@ export function GenreWave({ card }: { card: ProductCard }) {
         : { focus: (index + 0.5) / tags.length, power: POWER };
   };
   const tag = active === null ? null : tags[active];
-  const note = tag
-    ? (genreNote(tag.name) ?? "音乐目录给这张专辑标的风格，只是线索。")
-    : null;
+  const note = tag ? (genreNote(tag.genre_id) ?? words.wave.fallback) : null;
 
   return (
     <div className="wave" data-active={active !== null || undefined}>
@@ -209,7 +227,7 @@ export function GenreWave({ card }: { card: ProductCard }) {
           ))}
         </div>
       </div>
-      <ul className="wave__keys" role="list" aria-label="目录风格标签">
+      <ul className="wave__keys" role="list" aria-label={words.wave.tags}>
         {tags.map((item, i) => (
           <li key={item.genre_id}>
             <button

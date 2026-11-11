@@ -13,14 +13,6 @@ export const ACTIVE_REVIEW: LongReviewStatus[] = [
   "NEEDS_MORE_RESEARCH",
 ];
 
-export const FAILURE_LABELS: Partial<Record<LongReviewStatus, string>> = {
-  FAILED: "生成失败",
-  TIMED_OUT: "生成超时",
-  INTERRUPTED: "生成中断",
-  CANCELLED: "生成已取消",
-  BUDGET_EXHAUSTED: "本轮额度不足",
-};
-
 export interface ReviewError {
   code: string;
   messageKey: string | null;

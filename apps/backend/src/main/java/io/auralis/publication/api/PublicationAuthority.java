@@ -13,7 +13,8 @@ public interface PublicationAuthority {
             String preferenceResolution,
             AudienceQuery.Binding audience,
             String policy,
-            int target) {}
+            int target,
+            boolean english) {}
 
     @FunctionalInterface
     interface Supply {
