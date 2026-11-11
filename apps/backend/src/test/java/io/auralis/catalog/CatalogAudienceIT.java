@@ -201,6 +201,7 @@ class CatalogAudienceIT {
                 1,
                 binding,
                 50,
+                Long.MAX_VALUE,
                 recall,
                 HASH,
                 HASH,

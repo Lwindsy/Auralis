@@ -9,11 +9,10 @@ const ZONES = [
   { from: 70, to: 100 },
 ] as const;
 
-const zoneOf = (value: number) => (value < 40 ? 0 : value < 70 ? 1 : 2);
+const zoneOf = (value: number) => (value <= 40 ? 0 : value <= 70 ? 1 : 2);
 
 /**
- * 传播度: how widely an album must have been heard, as a share of a 500-listener scale
- * (0% = nobody needs to have heard it, 100% = at least 500 listeners). A thin rail with a
+ * 传播度 maps the slider to an inclusive range of sample listeners. A thin rail with a
  * filled run and two marks at 40% and 70%. While the thumb is being moved the three bands
  * fold out underneath, the current one lit; they fold away shortly after letting go.
  */
@@ -39,7 +38,7 @@ export function Reach({
     timer.current = setTimeout(() => setActive(false), delay);
   };
   const zone = zoneOf(value);
-  const listeners = reachToListeners(value);
+  const { min, max } = reachToListeners(value);
   return (
     <div
       className="reach"
@@ -67,7 +66,9 @@ export function Reach({
           value={value}
           disabled={disabled}
           aria-valuetext={
-            value === 0 ? words.anyone(value) : words.atLeast(value, listeners)
+            max === undefined
+              ? words.atLeast(value, min)
+              : words.between(value, min, max)
           }
           onChange={(event) => onChange(Number(event.target.value))}
           onPointerDown={show}
@@ -99,7 +100,7 @@ export function Reach({
             }
           >
             <span className="mono">
-              {item.from} – {item.to}%
+              {index === 0 ? item.from : item.from + 1} – {item.to}%
             </span>
             <span>{words.zones[index]}</span>
           </li>

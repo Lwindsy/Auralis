@@ -865,7 +865,8 @@ class JavaControlDouble:
             and audience == card["admission"].get("audience")
             and matches_policy(audience, policy)
             and audience["listeners"] is not None
-            and audience["listeners"] >= entry["start"]["agent_policy"]["audience_min_listeners"]
+            and audience["listeners"] >= policy["audience_min_listeners"]
+            and audience["listeners"] <= policy.get("audience_max_listeners", float("inf"))
         )
 
     def _deliver(self, execution_id: str, delivery: dict[str, Any]) -> dict[str, Any]:
@@ -921,9 +922,9 @@ class JavaControlDouble:
                     reason = "NOT_IN_BUNDLE"
                 elif card["candidate_id"] in entry["display"]["heard_candidate_ids"]:
                     reason = "EXCLUDED"
-                elif entry["start"]["agent_policy"].get(
-                    "audience_min_listeners"
-                ) and not self._audience_permits(entry, card):
+                elif "audience_min_listeners" in entry["start"][
+                    "agent_policy"
+                ] and not self._audience_permits(entry, card):
                     reason = "ADMISSION_UNVERIFIED"
                 elif any(
                     item is None or item["receipt"]["candidate_id"] != card["candidate_id"]

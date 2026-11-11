@@ -63,9 +63,10 @@ const zhCN = {
   reach: {
     label: "传播度",
     zones: ["除非你真的很小众", "来点小火的", "没人听的我也不听"],
-    anyone: (value: number) => `${value}%，不限听众数`,
+    between: (value: number, min: number, max: number) =>
+      `${value}%，${min}–${max} 位听众`,
     atLeast: (value: number, listeners: number) =>
-      `${value}%，至少约 ${listeners} 位听众`,
+      `${value}%，至少 ${listeners} 位听众`,
   },
   genres: {
     search: "查找风格",
@@ -170,7 +171,6 @@ const zhCN = {
     } as Record<string, string>,
     progress: (label: string | null) => `${label ?? "评论"}播放进度，可拖动`,
     scrub: "拖动或用方向键调整阅读进度",
-    source: (marker: string) => `资料 ${marker}`,
   },
   cover: { alt: (title: string) => `${title} 封面` },
   wave: {

@@ -1,5 +1,4 @@
 import {
-  Fragment,
   useEffect,
   useMemo,
   useRef,
@@ -8,30 +7,10 @@ import {
   type PointerEvent,
 } from "react";
 import { useCopy } from "../../i18n/index.ts";
+import { reviewProse } from "./ReviewText.tsx";
 
-const MARKER = /\[(R[1-9][0-9]*)\]/g;
 /** Characters per second used for the "length" shown at the end of the line. */
 const READ_RATE = 7;
-
-type Part = string | { marker: string };
-
-function split(text: string): Part[] {
-  const parts: Part[] = [];
-  let last = 0;
-  for (const match of text.matchAll(MARKER)) {
-    if (match.index > last) parts.push(text.slice(last, match.index));
-    parts.push({ marker: match[1] ?? "" });
-    last = match.index + match[0].length;
-  }
-  if (last < text.length) parts.push(text.slice(last));
-  return parts;
-}
-
-export const charCount = (text: string) =>
-  split(text).reduce(
-    (sum, part) => sum + (typeof part === "string" ? [...part].length : 1),
-    0,
-  );
 
 const clock = (seconds: number) =>
   `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
@@ -83,8 +62,9 @@ export function Playback({
   onEnd?: () => void;
 }) {
   const words = useCopy().review;
-  const parts = useMemo(() => split(text), [text]);
-  const total = charCount(text);
+  const prose = useMemo(() => reviewProse(text), [text]);
+  const characters = useMemo(() => [...prose], [prose]);
+  const total = characters.length;
   const root = useRef<HTMLDivElement>(null);
   const engine = useRef<Engine | null>(null);
   const ended = useRef(onEnd);
@@ -157,7 +137,7 @@ export function Playback({
       cancelAnimationFrame(frame);
       engine.current = null;
     };
-  }, [parts, pace, still]);
+  }, [characters, pace, still]);
 
   useEffect(() => {
     if (!autoplay) return;
@@ -166,7 +146,7 @@ export function Playback({
       if (control && !control.started) control.play();
     }, startDelay);
     return () => clearTimeout(timer);
-  }, [autoplay, startDelay, parts]);
+  }, [autoplay, startDelay, characters]);
 
   const dragging = useRef(false);
   const shareAt = (event: PointerEvent<HTMLElement>) => {
@@ -243,29 +223,13 @@ export function Playback({
         </span>
       </div>
       <p className="track__text">
-        {parts.map((part, i) =>
-          typeof part === "string" ? (
-            still ? (
-              <Fragment key={i}>{part}</Fragment>
-            ) : (
-              <Fragment key={i}>
-                {[...part].map((char, j) => (
-                  <span key={j} className="type">
-                    {char}
-                  </span>
-                ))}
-              </Fragment>
-            )
-          ) : (
-            <sup
-              key={i}
-              className={still ? "cite" : "cite type"}
-              title={words.source(part.marker)}
-            >
-              {part.marker}
-            </sup>
-          ),
-        )}
+        {still
+          ? prose
+          : characters.map((char, index) => (
+              <span key={index} className="type">
+                {char}
+              </span>
+            ))}
       </p>
     </div>
   );

@@ -214,8 +214,9 @@ public class Recommendations {
         var batch = curated.candidates(scope, round, preferences);
         var raw = json(sessions.current(scope.subjectId()).orElseThrow().rawInput());
         if (!raw.has("audience_min_listeners")) return batch;
-        int minimum =
-                config.path("settings").path("agent_policy").path("audience_min_listeners").asInt();
+        var agentPolicy = config.path("settings").path("agent_policy");
+        int minimum = agentPolicy.path("audience_min_listeners").asInt();
+        long maximum = agentPolicy.path("audience_max_listeners").asLong(Long.MAX_VALUE);
         var ids = batch.items().stream().map(item -> UUID.fromString(item.id())).toList();
         var counts =
                 audience.audience(config.path("catalog_dataset").asLong(), population(config), ids);
@@ -225,14 +226,18 @@ public class Recommendations {
                         json(batch.diagnostics()).deepCopy();
         for (var item : batch.items()) {
             var count = counts.get(UUID.fromString(item.id()));
-            if (count != null && count >= minimum) accepted.add(item);
+            if (count != null && count >= minimum && count <= maximum) accepted.add(item);
             else
                 diagnostics
                         .addObject()
                         .put("release_group_id", item.id())
                         .put(
                                 "decision",
-                                count == null ? "AUDIENCE_UNKNOWN" : "AUDIENCE_BELOW_MINIMUM");
+                                count == null
+                                        ? "AUDIENCE_UNKNOWN"
+                                        : count < minimum
+                                                ? "AUDIENCE_BELOW_MINIMUM"
+                                                : "AUDIENCE_ABOVE_MAXIMUM");
         }
         return new CuratedRecommendations.Batch(batch.revision(), accepted, diagnostics.toString());
     }
@@ -467,10 +472,19 @@ public class Recommendations {
             fail("INPUT_REQUIRED");
         if (!subjects.validCsrf(token, csrf)) fail("FORBIDDEN");
         var settings = json(policy.snapshot());
-        if (request.path("input").has("audience_min_listeners")) {
+        var requestedInput = request.path("input");
+        if (requestedInput.has("audience_min_listeners")) {
             var agentPolicy = (ObjectNode) settings.path("agent_policy");
             agentPolicy.set(
-                    "audience_min_listeners", request.path("input").path("audience_min_listeners"));
+                    "audience_min_listeners", requestedInput.path("audience_min_listeners"));
+            if (requestedInput.has("audience_max_listeners")) {
+                var maximum = requestedInput.path("audience_max_listeners");
+                if (maximum.asInt() < requestedInput.path("audience_min_listeners").asInt())
+                    fail("INVALID_PAYLOAD");
+                agentPolicy.set("audience_max_listeners", maximum);
+            } else {
+                agentPolicy.remove("audience_max_listeners");
+            }
             agentPolicy.put("digest", contentDigest(agentPolicy, "digest"));
         }
         long dataset = versions.current();
@@ -856,6 +870,9 @@ public class Recommendations {
                                     start.path("agent_policy")
                                             .path("audience_min_listeners")
                                             .asInt(),
+                                    start.path("agent_policy")
+                                            .path("audience_max_listeners")
+                                            .asLong(Long.MAX_VALUE),
                                     start.path("recall_binding"),
                                     pref.path("input_digest").asText(),
                                     pref.path("effective_preference_digest").asText(),

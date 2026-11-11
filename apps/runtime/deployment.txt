@@ -51,6 +51,9 @@ GitHub变量：PRODUCT_URL（无末尾斜杠）。SSH主机密钥须独立核验
 - /etc/auralis/config/models.json的screen：max_input_tokens=180000、max_output_tokens=2048。
 - recommendation.json的model_bindings.screen同步上述值；prices中对应ref的
   maxInput=180000、maxOutput=2048。模型、ref、版本、费率与金额预算不变。
+- 长评提示词v1.4配套更新：models.json的long_write与recommendation.json的
+  model_bindings.long_write均设max_output_tokens=12000，prices.long-write-terra
+  同步maxOutput=12000。上线前按现有后台车道与轮次预算核对预留金额。
 - 先按发布流程停止网页接纳并排空旧执行，在双端停止后备份并同步两份配置，
   再启动同版Java／Python。不要在仍有旧绑定执行时只改一端。
 - 旧会话后续新执行采用更新后的技术额度；历史执行、已预留及已结算费用保留。

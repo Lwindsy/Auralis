@@ -72,9 +72,10 @@ const en: Copy = {
   reach: {
     label: "Reach",
     zones: ["Deep-cut territory", "A little buzz", "Crowd-tested only"],
-    anyone: (value: number) => `${value}%, no listener minimum`,
+    between: (value: number, min: number, max: number) =>
+      `${value}%, ${min}–${max} listeners`,
     atLeast: (value: number, listeners: number) =>
-      `${value}%, at least about ${listeners} listeners`,
+      `${value}%, at least ${listeners} listeners`,
   },
   genres: {
     search: "Find a genre",
@@ -182,7 +183,6 @@ const en: Copy = {
     progress: (label: string | null) =>
       `${label ?? "Review"} playback position, draggable`,
     scrub: "Drag or use the arrow keys to move through the text",
-    source: (marker: string) => `Source ${marker}`,
   },
   cover: { alt: (title: string) => `${title} cover` },
   wave: {

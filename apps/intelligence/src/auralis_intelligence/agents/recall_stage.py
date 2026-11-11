@@ -71,7 +71,8 @@ class RecallStage:
         weights: WeightConfig,
         source_dependencies: tuple[str, ...] = (),
         engine: RecallEngine | None = None,
-        min_listeners: int = 0,
+        min_listeners: int | None = None,
+        max_listeners: int | None = None,
     ) -> None:
         validate_definition("RecallBinding", binding)
         if binding["weights_digest"] != digest(asdict(weights)):
@@ -79,11 +80,15 @@ class RecallStage:
         self.snapshot = Path(snapshot)
         self.binding = deepcopy(binding)
         self.weights = weights
-        self.source_dependencies = tuple(source_dependencies) + (
-            (f"listenbrainz-distinct-listeners>={min_listeners}",) if min_listeners else ()
-        )
+        self.source_dependencies = tuple(source_dependencies)
+        self.audience_bounds: dict[str, int] = {}
+        if min_listeners is not None:
+            self.audience_bounds["min_listeners"] = min_listeners
+            self.source_dependencies += (f"listenbrainz-distinct-listeners>={min_listeners}",)
+        if max_listeners is not None:
+            self.audience_bounds["max_listeners"] = max_listeners
+            self.source_dependencies += (f"listenbrainz-distinct-listeners<={max_listeners}",)
         self.engine = engine
-        self.min_listeners = min_listeners
 
     def _compute(self, request: RecallRequest):
         if self.engine is None:
@@ -92,11 +97,7 @@ class RecallStage:
             except (OSError, ValueError, KeyError, TypeError, MemoryError):
                 return "UNAVAILABLE", "artifact_unavailable", None
         try:
-            result = (
-                self.engine.recall(request, min_listeners=self.min_listeners)
-                if self.min_listeners
-                else self.engine.recall(request)
-            )
+            result = self.engine.recall(request, **self.audience_bounds)
         except ValueError:
             return "UNSUPPORTED_INPUT", "unsupported_input", None
         except TimeoutError:
@@ -119,11 +120,7 @@ class RecallStage:
                     required_tags=tuple(dict.fromkeys((*request.required_tags, tag.id))),
                 )
                 try:
-                    one = (
-                        self.engine.recall(constrained, min_listeners=self.min_listeners)
-                        if self.min_listeners
-                        else self.engine.recall(constrained)
-                    )
+                    one = self.engine.recall(constrained, **self.audience_bounds)
                 except ValueError:
                     continue  # A genre absent from this snapshot cannot add a candidate.
                 except TimeoutError:
@@ -167,18 +164,17 @@ class RecallStage:
         if execution.start["start_mode"] == "CONTINUE":
             raise ContractError("RECALL_NOT_ALLOWED")
         require_binding(self.binding, execution.start["recall_binding"])
-        if self.min_listeners:
+        if self.audience_bounds:
             if self.engine is None or self.engine.audience_binding is None:
                 raise ContractError("FULL_AUDIENCE_REQUIRED")
+            policy = execution.start["agent_policy"]
             require_binding(
                 self.engine.audience_binding,
-                execution.start["agent_policy"].get("audience_binding"),
+                policy.get("audience_binding"),
             )
-        if (
-            self.min_listeners
-            and execution.start["agent_policy"].get("audience_min_listeners") != self.min_listeners
-        ):
-            raise ContractError("BINDING_MISMATCH")
+            for key in ("min_listeners", "max_listeners"):
+                if policy.get(f"audience_{key}") != self.audience_bounds.get(key):
+                    raise ContractError("BINDING_MISMATCH")
         require_binding(asdict(self.weights), execution.start["agent_policy"]["recall"]["weights"])
         if execution.start["input"]["accepted_preferences"] is None:
             raise ContractError("MISSING_PREFERENCES")
@@ -238,7 +234,7 @@ class RecallStage:
             )
             + (
                 ["audience:" + self.engine.audience_binding["snapshot_digest"]]
-                if self.min_listeners
+                if self.audience_bounds
                 else []
             ),
         }

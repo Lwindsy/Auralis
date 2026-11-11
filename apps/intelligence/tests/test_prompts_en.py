@@ -19,7 +19,7 @@ HAN = re.compile(r"[一-鿿]")
 PAIRS = [
     ("auralis_intelligence.album_reviews", "batch.v7"),
     ("auralis_intelligence.album_reviews", "research.v2"),
-    ("auralis_intelligence.album_reviews", "writing.v1.3"),
+    ("auralis_intelligence.album_reviews", "writing.v1.4"),
     ("auralis_intelligence.ranking", "select.v1"),
 ]
 
@@ -55,10 +55,10 @@ def test_recommendation_uses_one_language_for_every_model_stage(tmp_path, englis
                 "genre_pass2_v0_8": edition.PASS_TWO_PROMPT,
                 "research_v2": research.RESEARCH_PROMPT_EN if english else research.RESEARCH_PROMPT,
                 "select_v1": selection.PROMPT_EN if english else selection.PROMPT,
-                "short_review_v1_3": writing.WRITING_PROMPT_EN
+                "short_review_v1_4": writing.WRITING_PROMPT_EN
                 if english
                 else writing.WRITING_PROMPT,
-                "long_review_v1_3": writing.WRITING_PROMPT_EN
+                "long_review_v1_4": writing.WRITING_PROMPT_EN
                 if english
                 else writing.WRITING_PROMPT,
             }
@@ -99,17 +99,19 @@ def test_english_prompts_name_english_output_and_word_lengths():
     album = "auralis_intelligence.album_reviews"
     assert "English cards" in text(album, "batch.v7.en.txt")
     assert "about 40 words" in text(album, "batch.v7.en.txt")
-    assert "original English reviews" in text(album, "writing.v1.3.en.txt")
-    assert "50 to 110 words" in text(album, "writing.v1.3.en.txt")
+    assert "original English reviews" in text(album, "writing.v1.4.en.txt")
+    assert "50 to 110 words" in text(album, "writing.v1.4.en.txt")
+    assert "350 to 600 English words" in text(album, "writing.v1.4.en.txt")
+    assert "400至800个汉字" in text(album, "writing.v1.4.txt")
     assert "{measured} words" in prompts_en.LONG_LENGTH_NOTE
     assert prompts_en.LONG_LENGTH_NOTE.format(measured=12).startswith(
-        "The previous long review was only about 12 words"
+        "The previous long review contained about 12 words"
     )
 
 
 REVIEW_PROMPTS = [
     ("batch.v7.txt", "batch.v7.en.txt"),
-    ("writing.v1.3.txt", "writing.v1.3.en.txt"),
+    ("writing.v1.4.txt", "writing.v1.4.en.txt"),
 ]
 
 

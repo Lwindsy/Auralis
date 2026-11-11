@@ -1,17 +1,30 @@
 import type { DiscoveryInput } from "../api/types.ts";
 
-/** Listeners that 100% 传播度 stands for; the scale is linear from 0. */
-export const REACH_FULL = 500;
-/** What the server assumes when no threshold is sent (50 listeners), as 传播度. */
 export const REACH_DEFAULT = 10;
 
-/** 传播度 (0–100) → the listener threshold sent to the server (which accepts 1 and up). */
-export const reachToListeners = (reach: number) =>
-  Math.max(1, Math.round((reach / 100) * REACH_FULL));
+/** Inclusive ListenBrainz sample bounds for an integer slider percentage. */
+export function reachToListeners(reach: number): { min: number; max?: number } {
+  if (reach <= 40) {
+    const offset = Math.ceil(reach * 2.5);
+    return { min: offset, max: 100 + offset };
+  }
+  if (reach <= 70) return { min: 100 + reach * 3, max: 150 + reach * 3 };
+  return { min: 300 + reach * 2 };
+}
 
-/** A listener threshold → 传播度, clamped to the slider. */
-export const listenersToReach = (listeners: number) =>
-  Math.max(0, Math.min(100, Math.round((listeners / REACH_FULL) * 100)));
+/** Restore the slider from its lower bound, including older lower-only inputs. */
+export function listenersToReach(listeners: number) {
+  let nearest = 0;
+  for (let reach = 1; reach <= 100; reach++) {
+    if (
+      Math.abs(reachToListeners(reach).min - listeners) <
+      Math.abs(reachToListeners(nearest).min - listeners)
+    ) {
+      nearest = reach;
+    }
+  }
+  return nearest;
+}
 
 /** Unsubmitted input on the entry page, with 传播度 kept as the slider's percentage. */
 export interface EntryDraft {

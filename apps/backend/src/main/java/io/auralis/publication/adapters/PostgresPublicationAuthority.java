@@ -360,10 +360,12 @@ public class PostgresPublicationAuthority implements PublicationAuthority {
                 .forEach(
                         g -> genres.addObject().put("genre_id", g.genreId()).put("name", g.name()));
         var a = candidate.path("audience");
+        var policy = json(c.policy());
         return same(identity, candidate.path("identity"))
                 && listeners != null
-                && json(c.policy()).has("audience_min_listeners")
-                && listeners >= json(c.policy()).path("audience_min_listeners").asInt()
+                && policy.has("audience_min_listeners")
+                && listeners >= policy.path("audience_min_listeners").asInt()
+                && listeners <= policy.path("audience_max_listeners").asLong(Long.MAX_VALUE)
                 && a.path("listeners").asLong() == listeners
                 && a.path("dataset_id").asText().equals(c.audience().dataset())
                 && a.path("window").asText().equals(c.audience().window())

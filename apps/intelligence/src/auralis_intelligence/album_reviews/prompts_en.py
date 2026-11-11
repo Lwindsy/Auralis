@@ -20,11 +20,11 @@ BATCH_REPAIR = (
 
 # writing.py retry note for a long review; `measured` is the previous review's length.
 LONG_LENGTH_NOTE = (
-    "The previous long review was only about {measured} words; write only what the "
-    "actual material supports, and don't pad it out."
+    "The previous long review contained about {measured} words. Use the existing material "
+    "to keep the prose within 350 to 600 words without padding."
 )
 
-# writing.py repair instruction after a reply failed validation (writing.v1.3).
+# writing.py repair instruction after a reply failed validation (writing.v1.4).
 WRITE_REPAIR = (
     "The previous output failed the completeness, length, citation or structure check. "
     "Rewrite the complete output using only the existing material; don't guess new facts."

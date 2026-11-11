@@ -24,8 +24,8 @@ SHORT_SCHEMA = json.loads(
 LONG_SCHEMA = json.loads(
     files(__package__).joinpath("long_review.v1.schema.json").read_text(encoding="utf-8")
 )
-WRITING_PROMPT = files(__package__).joinpath("writing.v1.3.txt").read_text(encoding="utf-8")
-WRITING_PROMPT_EN = files(__package__).joinpath("writing.v1.3.en.txt").read_text(encoding="utf-8")
+WRITING_PROMPT = files(__package__).joinpath("writing.v1.4.txt").read_text(encoding="utf-8")
+WRITING_PROMPT_EN = files(__package__).joinpath("writing.v1.4.en.txt").read_text(encoding="utf-8")
 
 
 @dataclass(frozen=True)
@@ -67,7 +67,7 @@ class WriteStage:
 
     @staticmethod
     def _version(execution: Execution, form: str) -> str:
-        return f"{form}_review.v1.3" + (".en" if execution.english else "")
+        return f"{form}_review.v1.4" + (".en" if execution.english else "")
 
     def start(
         self,
@@ -173,7 +173,7 @@ class WriteStage:
                     length_note = (
                         prompts_en.LONG_LENGTH_NOTE.format(measured=measured)
                         if execution.english
-                        else f"上一条长评只有约{measured}个汉字；只写有实际资料支持的内容，不凑字数。"
+                        else f"上一条长评正文约{measured}个汉字。请用已有资料将正文写在400至800个汉字内，不凑字数。"
                     )
             repair = (
                 prompts_en.WRITE_REPAIR

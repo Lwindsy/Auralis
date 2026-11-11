@@ -241,7 +241,10 @@ export function Entry({
   const submit = () => {
     if (locked || !canSubmit) return;
     const input = structuredClone(draft);
-    input.audience_min_listeners = reachToListeners(form.reach);
+    const { min, max } = reachToListeners(form.reach);
+    input.audience_min_listeners = min;
+    if (max === undefined) delete input.audience_max_listeners;
+    else input.audience_max_listeners = max;
     onSubmit(input);
   };
 

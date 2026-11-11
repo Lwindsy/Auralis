@@ -777,15 +777,6 @@
   animation: none;
 }
 
-.cite {
-  margin: 0 1px;
-  font-family: var(--font-mono);
-  font-size: 0.62em;
-  color: var(--ink-60);
-  vertical-align: super;
-  line-height: 1;
-}
-
 .reviews__bar {
   display: flex;
   flex-wrap: wrap;

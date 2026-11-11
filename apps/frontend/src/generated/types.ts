@@ -9,6 +9,7 @@ export type PrimaryGenres = {
   name: string;
 }[];
 export type AudienceMinimum = number;
+export type AudienceMaximum = number;
 export type RunStatus =
   | "WAITING"
   | "DISPATCHING"
@@ -166,6 +167,7 @@ export interface DiscoveryInput {
   request_text: string;
   language: string;
   audience_min_listeners?: AudienceMinimum;
+  audience_max_listeners?: AudienceMaximum;
 }
 export interface AlbumChoice {
   mb_release_group_id: string;

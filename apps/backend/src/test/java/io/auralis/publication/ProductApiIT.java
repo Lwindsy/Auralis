@@ -104,7 +104,10 @@ class ProductApiIT extends ProductApiFixture {
         input.putArray("disliked_genre_ids").add(ROCK);
         assertTrue(Set.of(200, 202).contains(b.submit(input, "curated-500").status()));
         b.awaitState(s -> s.path("status").asText().equals("NO_MATCH"));
-        input.put("audience_min_listeners", 75);
+        input.put("audience_min_listeners", 0).put("audience_max_listeners", 10);
+        assertTrue(Set.of(200, 202).contains(b.submit(input, "curated-0-10").status()));
+        b.awaitState(s -> s.path("status").asText().equals("NO_MATCH"));
+        input.put("audience_max_listeners", 1000);
         assertTrue(Set.of(200, 202).contains(b.submit(input, "curated-75").status()));
         b.awaitState(s -> s.path("status").asText().equals("SUCCEEDED"));
         assertEquals("CURATED", b.state.path("analysis_mode").asText());
@@ -113,19 +116,22 @@ class ProductApiIT extends ProductApiFixture {
     @Test
     void requestedThresholdSurvivesRestoreAndCanBeChanged() throws Exception {
         var b = browser();
-        var input = userInput("").put("audience_min_listeners", 75);
+        var input =
+                userInput("").put("audience_min_listeners", 75).put("audience_max_listeners", 500);
         assertEquals(202, b.submit(input, "threshold-75").status());
         b.awaitState(s -> s.path("status").asText().equals("SUCCEEDED"));
         b.connect();
         assertEquals(75, b.state.path("editable_input").path("audience_min_listeners").asInt());
+        assertEquals(500, b.state.path("editable_input").path("audience_max_listeners").asInt());
         input.put("audience_min_listeners", 500);
+        input.put("audience_max_listeners", 499);
+        assertEquals(400, b.submit(input, "inverted-audience-range").status());
+        input.remove("audience_max_listeners");
         assertEquals(202, b.submit(input, "threshold-500").status());
         b.awaitState(s -> s.path("status").asText().equals("NO_MATCH"));
         assertEquals(500, b.state.path("editable_input").path("audience_min_listeners").asInt());
-        for (int invalid : new int[] {0, -1}) {
-            input.put("audience_min_listeners", invalid);
-            assertEquals(400, b.submit(input, "invalid-" + invalid).status());
-        }
+        input.put("audience_min_listeners", -1);
+        assertEquals(400, b.submit(input, "negative-audience-minimum").status());
     }
 
     @Test

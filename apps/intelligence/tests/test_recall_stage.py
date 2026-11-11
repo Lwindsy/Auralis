@@ -5,6 +5,7 @@ import json
 import threading
 from dataclasses import asdict
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from auralis_intelligence.agents import Execution
@@ -53,6 +54,7 @@ def setup(
     dataset="synthetic-code-check-v1",
     window="synthetic",
     engine=None,
+    **audience_bounds,
 ):
     request = start()
     request["input"].update(
@@ -73,7 +75,11 @@ def setup(
     request["payload_digest"] = content_digest(request)
     execution = Execution(request, JavaControlDouble("java-test"))
     return execution, RecallStage(
-        snapshot, binding=request["recall_binding"], weights=WEIGHTS, engine=engine
+        snapshot,
+        binding=request["recall_binding"],
+        weights=WEIGHTS,
+        engine=engine,
+        **audience_bounds,
     )
 
 
@@ -141,6 +147,18 @@ def test_artifact_failure_does_not_emit_candidates(tmp_path):
         assert (await stage(execution, value))["execution_status"] == "UNAVAILABLE"
 
     asyncio.run(run())
+
+
+def test_audience_range_filters_before_top_result_is_selected():
+    engine = load_a_v2(SNAPSHOT, weights=WEIGHTS)
+    engine.bind_full_audience(SimpleNamespace(counts={"a1": 101, "a2": 100}))
+    request = RecallRequest(limit=1, seeds=(Preference("a0"),))
+
+    result = engine.recall(request, min_listeners=0, max_listeners=100)
+    assert [candidate.album_id for candidate in result.candidates] == ["a2"]
+
+    result = engine.recall(request, min_listeners=101)
+    assert [candidate.album_id for candidate in result.candidates] == ["a1"]
 
 
 def test_binding_checks_and_continuation_recall_prohibition():
@@ -344,8 +362,7 @@ def test_tag_only_pool_covers_directions_without_changing_scorer_or_hard_constra
             )
 
     engine = Engine()
-    _, stage = setup(preferences(), engine=engine)
-    stage.min_listeners = 50
+    _, stage = setup(preferences(), engine=engine, min_listeners=0, max_listeners=100)
     query = RecallRequest(
         limit=5,
         tags=tuple(Preference(i) for i in ["hyper", "post", "trip"]),
@@ -367,5 +384,5 @@ def test_tag_only_pool_covers_directions_without_changing_scorer_or_hard_constra
         assert request.forbidden_tags == ("blocked",)
         assert request.disliked_tags == ("avoid",)
         assert request.excluded_ids == ("heard",)
-        assert options == {"min_listeners": 50}
+        assert options == {"min_listeners": 0, "max_listeners": 100}
     assert all(request.tags[0].id in request.required_tags for request, _ in engine.calls[1:])

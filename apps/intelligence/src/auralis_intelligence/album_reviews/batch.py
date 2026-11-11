@@ -134,7 +134,9 @@ class BatchResearchStage:
 
     async def _evaluate(self, execution, preferences):
         self.order = []
-        minimum = execution.start["agent_policy"].get("audience_min_listeners")
+        policy = execution.start["agent_policy"]
+        minimum = policy.get("audience_min_listeners")
+        maximum = policy.get("audience_max_listeners", float("inf"))
         if minimum is None:
             raise ContractError("AUDIENCE_POLICY_REQUIRED")
         excluded = (
@@ -154,8 +156,8 @@ class BatchResearchStage:
             eligible_sources = [
                 c
                 for c in candidates
-                if matches_policy(c.get("audience"), execution.start["agent_policy"])
-                and c["audience"]["listeners"] >= minimum
+                if matches_policy(c.get("audience"), policy)
+                and minimum <= c["audience"]["listeners"] <= maximum
             ]
             searchable = self._research_window(eligible_sources, preferences)
             await self.evidence.prepare(execution, searchable, self.tools)
@@ -174,10 +176,12 @@ class BatchResearchStage:
                     if identifier in self.evidence.failed_ids
                     else "INSUFFICIENT_REVIEWS"
                 )
-            if not matches_policy(audience, execution.start["agent_policy"]):
+            if not matches_policy(audience, policy):
                 reason = "AUDIENCE_UNKNOWN"
             elif audience["listeners"] < minimum:
                 reason = "AUDIENCE_BELOW_MINIMUM"
+            elif audience["listeners"] > maximum:
+                reason = "AUDIENCE_ABOVE_MAXIMUM"
             else:
                 audience_passed += 1
                 sources = self.evidence.sources(identifier)

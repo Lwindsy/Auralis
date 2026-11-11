@@ -197,10 +197,12 @@ test("中文／EN switches the whole page in place and sends the language with a
   await expect(card.locator(".wave__note")).toContainText("Just a hint.");
   await expect(card.getByText("这是用于交互验证的合成短评")).toBeAttached();
   await expect(card.getByRole("button", { name: "Love it!" })).toBeVisible();
+  await expect(card.locator(".track__text")).not.toContainText("R1");
   await card.getByRole("button", { name: "Read the full review" }).click();
   await expect(card.getByText("第二段合成文字，验证多段落排版。")).toBeVisible({
     timeout: 8000,
   });
+  await expect(card.locator(".reviews")).not.toContainText("R1");
   // Switching back keeps the review that was already written.
   await english.getByRole("button", { name: "中文" }).click();
   await expect(page.locator("html")).toHaveAttribute("lang", "zh-CN");

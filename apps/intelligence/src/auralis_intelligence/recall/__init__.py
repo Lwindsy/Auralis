@@ -39,16 +39,25 @@ class RecallEngine:
     def audience_binding(self) -> dict | None:
         return self._full_audience.binding_copy() if self._full_audience is not None else None
 
-    def recall(self, request: RecallRequest, *, min_listeners: int = 0) -> RecallResult:
-        if min_listeners < 0:
-            raise ValueError("negative audience threshold")
+    def recall(
+        self,
+        request: RecallRequest,
+        *,
+        min_listeners: int | None = None,
+        max_listeners: int | None = None,
+    ) -> RecallResult:
         mask = None
-        if min_listeners:
+        if min_listeners is not None or max_listeners is not None:
+            minimum = min_listeners if min_listeners is not None else 0
+            maximum = max_listeners if max_listeners is not None else float("inf")
+            if not 0 <= minimum <= maximum:
+                raise ValueError("invalid audience range")
             if self._full_audience is None:
                 raise ValueError("FULL_AUDIENCE_REQUIRED")
+            counts = self._full_audience.counts
             mask = np.fromiter(
                 (
-                    self._full_audience.counts.get(identifier, -1) >= min_listeners
+                    minimum <= counts.get(identifier, -1) <= maximum
                     for identifier in self._model.data.album_ids
                 ),
                 dtype=bool,

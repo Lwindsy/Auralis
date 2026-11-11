@@ -127,6 +127,7 @@ def serve(args):
                 weights=WeightConfig(),
                 engine=engine,
                 min_listeners=start["agent_policy"]["audience_min_listeners"],
+                max_listeners=start["agent_policy"].get("audience_max_listeners"),
             ),
             batch,
             BatchWriteStage(seeds, long_tools, batch=batch),
