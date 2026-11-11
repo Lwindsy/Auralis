@@ -1,6 +1,7 @@
 """Stage-facing gateways; every paid operation runs through Execution.invoke."""
 
 import json
+import logging
 from dataclasses import asdict
 from datetime import datetime, timezone
 from hashlib import sha256
@@ -135,4 +136,32 @@ class ModelGateway:
             output=result.output,
             usage=asdict(result.usage),
         )
+        if result.finish != "COMPLETE":
+            detail = result.diagnostic or {"category": "MODEL_FAILED"}
+            logging.getLogger(__name__).warning(
+                "AURALIS_MODEL_DIAGNOSTIC %s",
+                json.dumps(
+                    {
+                        "invocation_id": plan["invocation_id"],
+                        "purpose": purpose,
+                        "finish": result.finish,
+                        "outcome": result.outcome,
+                        "http_status": result.provider_http_status,
+                        **{
+                            k: detail[k]
+                            for k in (
+                                "category",
+                                "validator",
+                                "schema_path",
+                                "schema_errors",
+                                "line",
+                                "column",
+                                "output_text_chars",
+                            )
+                            if k in detail
+                        },
+                    },
+                    ensure_ascii=True,
+                ),
+            )
         return result

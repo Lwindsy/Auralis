@@ -4,6 +4,7 @@ import asyncio
 from copy import deepcopy
 from datetime import datetime, timedelta, timezone
 from fractions import Fraction
+from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
@@ -16,6 +17,48 @@ from auralis_intelligence.contracts import (
     digest,
     validate_definition,
 )
+
+
+@pytest.mark.parametrize(
+    "code,screen,status,reason",
+    [
+        ("JSON_PARSE_FAILED", "FAILED", "FAILED", "JSON_PARSE_FAILED"),
+        ("SCHEMA_VALIDATION_FAILED", "FAILED", "FAILED", "SCHEMA_VALIDATION_FAILED"),
+        ("MODEL_FAILED", "FAILED", "FAILED", "MODEL_FAILED"),
+        (None, "NOT_RUN", "NEEDS_MORE_RESEARCH", "REVIEW_MATERIAL_INSUFFICIENT"),
+    ],
+)
+def test_regeneration_distinguishes_technical_failure_from_material(code, screen, status, reason):
+    async def run():
+        from auralis_intelligence.album_reviews import AlbumDossier, ResearchResult
+
+        pipeline = RoundPipeline(None, None, None, None, None)
+
+        async def hydrate(*args, **kwargs):
+            return ResearchResult(
+                {"screen": {"status": screen}}, AlbumDossier("album", {}), False, code
+            )
+
+        pipeline.hydrate = hydrate
+        execution = SimpleNamespace(
+            prioritize_long=lambda _: None, spawn=lambda fn: asyncio.create_task(fn())
+        )
+        work = SimpleNamespace(
+            shown={"album"},
+            existing_ready=set(),
+            cards={},
+            jobs={},
+            long_states={},
+            long_delivered=set(),
+            preferences={},
+        )
+        pipeline.regenerate(execution, work, "album")
+        result = await work.jobs["album"].long
+        assert result["status"] == status
+        assert result["reason_code"] == reason
+        validate_definition("LongReview", result)
+
+    asyncio.run(run())
 
 
 def make(tmp_path, *, r=6, k=3, n=1, idle=80, watermark=1):

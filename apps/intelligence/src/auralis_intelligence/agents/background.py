@@ -649,9 +649,12 @@ class RoundPipeline(FirstBatchPipeline):
         async def regenerate():
             result = await self.hydrate(execution, work, identifier, qualification_only=True)
             if not result.eligible:
+                technical_failure = result.error_code or (
+                    "RESEARCH_FAILED" if result.screening["screen"]["status"] == "FAILED" else None
+                )
                 return {
                     "candidate_id": identifier,
-                    "status": "NEEDS_MORE_RESEARCH",
+                    "status": "FAILED" if technical_failure else "NEEDS_MORE_RESEARCH",
                     "sections": None,
                     "citations": [],
                     "han_char_count": 0,
@@ -659,7 +662,7 @@ class RoundPipeline(FirstBatchPipeline):
                     "missing_sections": ["production", "instrumentation", "vocals", "mood"],
                     "invocation_ids": [],
                     "prompt_version": "long_review.v1.1",
-                    "reason_code": "REVIEW_MATERIAL_INSUFFICIENT",
+                    "reason_code": technical_failure or "REVIEW_MATERIAL_INSUFFICIENT",
                 }
             return await self.writing.long(execution, result.dossier, work.preferences, priority=1)
 

@@ -207,7 +207,12 @@ class ResearchStage:
                         }
                     )
                     continue
-                return self._failed(candidate, dossier, "SCREEN_FAILED")
+                return self._failed(
+                    candidate,
+                    dossier,
+                    "SCREEN_FAILED",
+                    (reply.diagnostic or {}).get("category", "MODEL_FAILED"),
+                )
             step = reply.output
             action = step["action"]
             if action == "abandon":
