@@ -102,6 +102,22 @@ class OpenAIResponsesAdapter:
             for part in self._parts(raw)
             if part.get("type") == "output_text" and isinstance(part.get("text"), str)
         )
+        all_texts = [
+            p["text"]
+            for p in self._parts(raw, all_messages=True)
+            if p.get("type") == "output_text" and isinstance(p.get("text"), str)
+        ]
+        shape = {
+            "output_text_parts": len(all_texts),
+            "output_text_lengths": [len(value) for value in all_texts[:8]],
+            "message_phases": [
+                item.get("phase")
+                if item.get("phase") in (None, "commentary", "final_answer")
+                else "other"
+                for item in (raw.get("output") or [])
+                if isinstance(item, dict) and item.get("type") == "message"
+            ][:8],
+        }
         try:
             output = json.loads(text)
         except (ValueError, TypeError) as error:
@@ -116,6 +132,8 @@ class OpenAIResponsesAdapter:
                     "line": getattr(error, "lineno", None),
                     "column": getattr(error, "colno", None),
                     "output_text_chars": len(text),
+                    "parse_error": getattr(error, "msg", "INVALID_JSON")[:80],
+                    **shape,
                 },
             )
         error = next(Draft202012Validator(request.output_schema).iter_errors(output), None)
@@ -144,6 +162,17 @@ class OpenAIResponsesAdapter:
                     ],
                 },
             )
+        phase_diagnostic = None
+        if "".join(all_texts) != text:
+            try:
+                json.loads("".join(all_texts))
+            except json.JSONDecodeError as error:
+                phase_diagnostic = {
+                    "category": "OUTPUT_PHASE_SELECTED",
+                    "legacy_parse_error": error.msg[:80],
+                    "selected_text_chars": len(text),
+                    **shape,
+                }
         return CallResult(
             output,
             reply.outcome,
@@ -151,6 +180,7 @@ class OpenAIResponsesAdapter:
             reply.usage,
             reply.provider_request_ref,
             service_tier=reply.service_tier,
+            diagnostic=phase_diagnostic,
         )
 
     async def search(
@@ -265,13 +295,23 @@ class OpenAIResponsesAdapter:
         # CancelledError deliberately propagates after the HTTP context closes.
 
     @staticmethod
-    def _parts(raw: dict[str, Any]) -> list[dict[str, Any]]:
+    def _parts(raw: dict[str, Any], *, all_messages: bool = False) -> list[dict[str, Any]]:
         output = raw.get("output")
         if not isinstance(output, list):
             return []
+        messages = [
+            item for item in output if isinstance(item, dict) and item.get("type") == "message"
+        ]
+        if not all_messages:
+            finals = [item for item in messages if item.get("phase") == "final_answer"]
+            messages = (
+                finals[-1:]
+                if finals
+                else [item for item in messages if item.get("phase") != "commentary"]
+            )
         return [
             part
-            for item in output
+            for item in messages
             if isinstance(item, dict)
             and item.get("type") == "message"
             and isinstance(item.get("content"), list)

@@ -112,6 +112,55 @@ def test_model_normal_structured_truncated_refused_and_invalid(raw, finish):
 
 
 @pytest.mark.parametrize(
+    "final_text,finish", [('{"score": 4}', "COMPLETE"), ('{"score": 9}', "ERROR")]
+)
+def test_structured_result_uses_final_phase_not_concatenated_commentary(final_text, finish):
+    async def run():
+        raw = response(text=final_text)
+        raw["output"][0]["phase"] = "final_answer"
+        commentary = response(text='{"score": 1}')["output"][0]
+        commentary["phase"] = "commentary"
+        raw["output"].insert(0, commentary)
+        with pytest.raises(json.JSONDecodeError, match="Extra data"):
+            json.loads('{"score": 1}' + final_text)
+
+        async def handler(request):
+            return httpx.Response(200, json=raw)
+
+        async with OpenAIResponsesAdapter(
+            "synthetic-key", transport=httpx.MockTransport(handler), test_transport=True
+        ) as adapter:
+            result = await adapter.complete(BINDING, REQUEST)
+        assert result.finish == finish
+        if finish == "COMPLETE":
+            assert result.output == {"score": 4}
+            assert result.diagnostic["legacy_parse_error"] == "Extra data"
+            assert result.diagnostic["message_phases"] == ["commentary", "final_answer"]
+        else:
+            assert result.diagnostic["category"] == "SCHEMA_VALIDATION_FAILED"
+
+    asyncio.run(run())
+
+
+def test_commentary_without_final_is_not_a_structured_answer():
+    async def run():
+        raw = response()
+        raw["output"][0]["phase"] = "commentary"
+
+        async def handler(request):
+            return httpx.Response(200, json=raw)
+
+        async with OpenAIResponsesAdapter(
+            "synthetic-key", transport=httpx.MockTransport(handler), test_transport=True
+        ) as adapter:
+            result = await adapter.complete(BINDING, REQUEST)
+        assert result.finish == "ERROR"
+        assert result.diagnostic["output_text_chars"] == 0
+
+    asyncio.run(run())
+
+
+@pytest.mark.parametrize(
     "status,outcome", [(429, "NOT_PROCESSED"), (401, "NOT_PROCESSED"), (500, "UNCERTAIN")]
 )
 def test_http_errors_are_single_attempt_and_never_expose_error_body(status, outcome):
