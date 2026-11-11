@@ -281,10 +281,22 @@ public class PostgresPublicationAuthority implements PublicationAuthority {
                         saveRunBinding(s, r, c.execution().budget().run(), bundle.path("binding"));
                         return null;
                     }
+                    var requested = new ArrayList<UUID>();
+                    for (var candidate : bundle.path("accepted"))
+                        requested.add(UUID.fromString(candidate.path("release_group_id").asText()));
+                    var albums =
+                            catalog.albums(c.execution().evidence().catalogDataset(), requested);
+                    var counts =
+                            audience.audience(
+                                    c.execution().evidence().catalogDataset(),
+                                    c.audience(),
+                                    requested);
                     var ids = new HashSet<String>();
                     for (var candidate : bundle.path("accepted")) {
                         String id = candidate.path("release_group_id").asText();
-                        if (!ids.add(id) || !identityValid(c, candidate))
+                        var uuid = UUID.fromString(id);
+                        if (!ids.add(id)
+                                || !identityValid(c, candidate, albums.get(uuid), counts.get(uuid)))
                             fail("ADMISSION_UNVERIFIED");
                         store.addCandidate(
                                 s,
@@ -317,6 +329,18 @@ public class PostgresPublicationAuthority implements PublicationAuthority {
             return false;
         }
         var album = catalog.albums(c.execution().evidence().catalogDataset(), List.of(id)).get(id);
+        Long listeners =
+                audience.audience(
+                                c.execution().evidence().catalogDataset(),
+                                c.audience(),
+                                List.of(id))
+                        .get(id);
+        return identityValid(c, candidate, album, listeners);
+    }
+
+    private boolean identityValid(
+            Context c, JsonNode candidate, CatalogQuery.Album album, Long listeners) {
+        var id = UUID.fromString(candidate.path("release_group_id").asText());
         if (album == null || !album.id().equals(id)) return false;
         var identity =
                 JSON.createObjectNode()
@@ -330,12 +354,6 @@ public class PostgresPublicationAuthority implements PublicationAuthority {
         album.genres()
                 .forEach(
                         g -> genres.addObject().put("genre_id", g.genreId()).put("name", g.name()));
-        Long listeners =
-                audience.audience(
-                                c.execution().evidence().catalogDataset(),
-                                c.audience(),
-                                List.of(id))
-                        .get(id);
         var a = candidate.path("audience");
         return same(identity, candidate.path("identity"))
                 && listeners != null

@@ -398,6 +398,37 @@ public class Recommendations {
             Set<String> targets,
             boolean continuing,
             Instant accepted) {
+        // A new execution may use updated technical token limits for the same model and
+        // tariff. Keep the round's business policy, monetary caps and historical executions.
+        config = config.deepCopy();
+        var configured = json(policy.snapshot());
+        var settings = (ObjectNode) config.path("settings");
+        settings.path("model_bindings")
+                .fields()
+                .forEachRemaining(
+                        entry -> {
+                            var prior = entry.getValue();
+                            var current = configured.path("model_bindings").path(entry.getKey());
+                            if (!current.isObject()) return;
+                            var oldIdentity = (ObjectNode) prior.deepCopy();
+                            var newIdentity = (ObjectNode) current.deepCopy();
+                            oldIdentity.remove(List.of("max_input_tokens", "max_output_tokens"));
+                            newIdentity.remove(List.of("max_input_tokens", "max_output_tokens"));
+                            if (!oldIdentity.equals(newIdentity)) return;
+                            String ref = prior.path("ref").asText();
+                            var oldPrice =
+                                    (ObjectNode) settings.path("prices").path(ref).deepCopy();
+                            var newPrice =
+                                    (ObjectNode) configured.path("prices").path(ref).deepCopy();
+                            oldPrice.remove(List.of("maxInput", "maxOutput"));
+                            newPrice.remove(List.of("maxInput", "maxOutput"));
+                            if (oldPrice.equals(newPrice)) {
+                                ((ObjectNode) settings.path("model_bindings"))
+                                        .set(entry.getKey(), current.deepCopy());
+                                ((ObjectNode) settings.path("prices"))
+                                        .set(ref, configured.path("prices").path(ref).deepCopy());
+                            }
+                        });
         discovery.extendDeadline(
                 scope, round.id(), accepted.plusSeconds(limits.executionSeconds()));
         var start = plan(scope, round, config, operation, targets, continuing, accepted);

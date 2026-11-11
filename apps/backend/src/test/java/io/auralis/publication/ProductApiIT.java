@@ -3,6 +3,7 @@ package io.auralis.publication;
 import static io.auralis.contracts.CanonicalJson.*;
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.time.Instant;
 import java.util.*;
 import org.junit.jupiter.api.*;
@@ -138,6 +139,72 @@ class ProductApiIT extends ProductApiFixture {
             var b = browser();
             assertEquals(202, b.submit(userInput(""), "configured-500").status());
             b.awaitState(s -> s.path("status").asText().equals("NO_MATCH"));
+        } finally {
+            java.nio.file.Files.writeString(configFile, settings.toPrettyString());
+            bootProduct();
+        }
+    }
+
+    @Test
+    void existingSessionRegenerationUsesUpdatedTokenLimitsAfterRestart() throws Exception {
+        peer.failLongNext.set(true);
+        var b = browser();
+        b.submit(userInput(""), "before-limit-update");
+        b.awaitState(
+                s ->
+                        s.path("slots")
+                                .get(0)
+                                .path("card")
+                                .path("long_review_state")
+                                .asText()
+                                .equals("INTERRUPTED"));
+        String candidate = b.state.path("slots").get(0).path("card").path("candidate_id").asText();
+        var changed = settings.deepCopy();
+        changed.path("model_bindings")
+                .forEach(
+                        binding ->
+                                ((ObjectNode) binding)
+                                        .put("max_input_tokens", 4000)
+                                        .put("max_output_tokens", 2000));
+        ((ObjectNode) changed.path("prices").path("fixture"))
+                .put("maxInput", 4000)
+                .put("maxOutput", 2000);
+        try {
+            java.nio.file.Files.writeString(configFile, changed.toPrettyString());
+            bootProduct();
+            assertEquals(
+                    200,
+                    b.action(
+                                    "long-reviews/" + candidate + "/regenerate",
+                                    null,
+                                    "after-limit-update")
+                            .status());
+            b.awaitState(
+                    s ->
+                            s.path("slots")
+                                    .get(0)
+                                    .path("card")
+                                    .path("long_review_state")
+                                    .asText()
+                                    .equals("READY"));
+            var payload =
+                    JSON.readTree(
+                            jdbc.queryForObject(
+                                    "SELECT e.start_payload::text FROM discovery.execution e JOIN discovery.discovery_intent i ON i.id=e.run_id WHERE e.session_id=? AND i.operation='RERUN' ORDER BY e.sent_at DESC LIMIT 1",
+                                    String.class,
+                                    b.state.path("session_id").asText()));
+            assertEquals(
+                    4000,
+                    payload.path("model_bindings").path("screen").path("max_input_tokens").asInt());
+            assertEquals(
+                    2000,
+                    payload.path("model_bindings")
+                            .path("screen")
+                            .path("max_output_tokens")
+                            .asInt());
+            assertEquals(
+                    1000000,
+                    payload.path("budget").path("limits").path("session_cap_microusd").asLong());
         } finally {
             java.nio.file.Files.writeString(configFile, settings.toPrettyString());
             bootProduct();

@@ -333,6 +333,60 @@ class AdmissionQueueIT {
     }
 
     @Test
+    void busyRuntimeDefersWithoutMaintenanceOrResend() throws Exception {
+        queue.accept(input(), LIMITS);
+        dispatcher.tick();
+        var job = queue.active().getFirst();
+        try (var connection = app.getBean(javax.sql.DataSource.class).getConnection()) {
+            connection.setAutoCommit(false);
+            try (var statement = connection.createStatement()) {
+                statement
+                        .executeQuery(
+                                "SELECT singleton FROM discovery.runtime_control WHERE singleton FOR UPDATE")
+                        .close();
+            }
+            assertDoesNotThrow(dispatcher::tick);
+            assertTrue(queue.ready("java-1"));
+            assertEquals(1, peer.sends.get(job.execution()));
+            assertEquals(1, queue.active().size());
+            connection.rollback();
+        }
+        peer.complete(job.execution());
+        dispatcher.tick();
+        assertTrue(queue.active().isEmpty());
+        assertEquals(1, peer.sends.get(job.execution()));
+    }
+
+    @Test
+    void busySubjectDefersClaimWithoutMaintenanceOrLosingQueuedRun() throws Exception {
+        var in = input();
+        var accepted = queue.accept(in, LIMITS);
+        try (var connection = app.getBean(javax.sql.DataSource.class).getConnection()) {
+            connection.setAutoCommit(false);
+            try (var statement =
+                    connection.prepareStatement(
+                            "SELECT id FROM discovery.subject WHERE id=? FOR UPDATE")) {
+                statement.setString(1, in.scope().subjectId());
+                statement.executeQuery().close();
+            }
+            assertDoesNotThrow(dispatcher::tick);
+            assertTrue(queue.ready("java-1"));
+            assertTrue(peer.sends.isEmpty());
+            assertTrue(queue.active().isEmpty());
+            assertEquals(
+                    "WAITING",
+                    jdbc.queryForObject(
+                            "SELECT status FROM discovery.discovery_intent WHERE id=?",
+                            String.class,
+                            accepted.run()));
+            connection.rollback();
+        }
+        dispatcher.tick();
+        assertEquals("RUNNING", queue.status(in.scope(), accepted.run()).status());
+        assertEquals(1, peer.sends.values().iterator().next());
+    }
+
+    @Test
     void busyExecutionObservationDefersWithoutMaintenanceOrResend() throws Exception {
         queue.accept(input(), LIMITS);
         dispatcher.tick();

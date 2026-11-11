@@ -321,6 +321,70 @@ class BudgetAuthorityIT {
     }
 
     @Test
+    void tokenCeilingsCanChangeWithoutResettingBudgetOrChangingTariff() throws Exception {
+        var c = context(100000, 100000, 50000, 50000, 10);
+        assertEquals(
+                "GRANTED",
+                grants(c, plan(c, "before", "FOREGROUND", "SELECT"))
+                        .get(0)
+                        .path("decision")
+                        .asText());
+        long remaining = state(c).path("session_remaining_microusd").asLong();
+        var ref = c.prices().keySet().iterator().next();
+        var old = c.prices().get(ref);
+        var raised =
+                new BudgetAuthority.Price(
+                        old.revision(),
+                        old.input(),
+                        old.cachedInput(),
+                        old.output(),
+                        old.search(),
+                        20000,
+                        20000);
+        var updated =
+                new Context(
+                        c.evidence(),
+                        c.run(),
+                        c.sessionScope(),
+                        c.roundScope(),
+                        c.sessionCap(),
+                        c.roundCap(),
+                        c.foregroundCap(),
+                        c.backgroundCap(),
+                        c.modelCalls(),
+                        c.searchCalls(),
+                        Map.of(ref, raised));
+        budget.register(updated);
+        assertEquals(remaining, state(updated).path("session_remaining_microusd").asLong());
+        var large = plan(updated, "larger", "FOREGROUND", "SELECT").put("max_input_tokens", 10001);
+        assertEquals("GRANTED", grants(updated, large).get(0).path("decision").asText());
+        assertTrue(state(updated).path("session_remaining_microusd").asLong() < remaining);
+        var repriced =
+                new Context(
+                        c.evidence(),
+                        c.run(),
+                        c.sessionScope(),
+                        c.roundScope(),
+                        c.sessionCap(),
+                        c.roundCap(),
+                        c.foregroundCap(),
+                        c.backgroundCap(),
+                        c.modelCalls(),
+                        c.searchCalls(),
+                        Map.of(
+                                ref,
+                                new BudgetAuthority.Price(
+                                        old.revision(),
+                                        old.input() + 1,
+                                        old.cachedInput(),
+                                        old.output(),
+                                        old.search(),
+                                        20000,
+                                        20000)));
+        assertThrows(PersistenceRejected.class, () -> budget.register(repriced));
+    }
+
+    @Test
     void configuredPolicyCannotBeReboundAndOldBootIsRejected() throws Exception {
         var c = context(100, 100, 50, 50, 10);
         var changed =
