@@ -158,9 +158,14 @@ test("中文／EN switches the whole page in place and sends the language with a
   await attach(context, backend);
   await page.goto("/");
   const switcher = page.getByRole("group", { name: "界面语言" });
-  const dataNotice = page.getByRole("contentinfo");
-  await expect(dataNotice).toContainText("Cookie 只保存匿名会话凭证");
-  await expect(dataNotice).toContainText("30 天");
+  const privacy = page.getByRole("contentinfo", { name: "隐私说明" });
+  await expect(privacy).toContainText("记录保留 30 天");
+  const details = privacy.getByRole("button", { name: "详情" });
+  await expect(details).toHaveAttribute("aria-expanded", "false");
+  await details.click();
+  await expect(privacy.getByText(/Cookie 只保存匿名会话凭证/)).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(privacy.getByText(/Cookie 只保存匿名会话凭证/)).toBeHidden();
   await expect(switcher.getByRole("button")).toHaveText(["中文", "EN"]);
   await expect(switcher.getByRole("button", { name: "中文" })).toHaveAttribute(
     "aria-pressed",
@@ -170,8 +175,16 @@ test("中文／EN switches the whole page in place and sends the language with a
   // Same page, same state: only its words change.
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
   await expect(page).toHaveTitle("Auralis · Find your next album");
-  await expect(dataNotice).toContainText("anonymous session credential");
-  await expect(dataNotice).toContainText("OpenAI may process relevant input");
+  const privacyEn = page.getByRole("contentinfo", { name: "Privacy" });
+  await expect(privacyEn).toContainText("May be processed by OpenAI");
+  await privacyEn.getByRole("button", { name: "Details" }).click();
+  await expect(
+    privacyEn.getByText(/anonymous session credential/),
+  ).toBeVisible();
+  await page.mouse.click(10, 300);
+  await expect(
+    privacyEn.getByText(/anonymous session credential/),
+  ).toBeHidden();
   const english = page.getByRole("group", { name: "Language" });
   await expect(
     english.getByRole("button", { name: "English" }),

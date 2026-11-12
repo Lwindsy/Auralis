@@ -7,6 +7,7 @@ import { Deck, type Feeling } from "./components/deck/Deck.tsx";
 import { Entry } from "./components/entry/Entry.tsx";
 import { Icon } from "./components/Icon.tsx";
 import { LangSwitch } from "./components/LangSwitch.tsx";
+import { PrivacyNote } from "./components/PrivacyNote.tsx";
 import { Drum } from "./components/motion/Drum.tsx";
 import {
   Contours,
@@ -287,7 +288,7 @@ export function App({ api, controller, review, fixture }: AppProps) {
         )}
       </main>
 
-      <footer className="data-notice">{words.app.dataNotice}</footer>
+      <PrivacyNote />
 
       {errorText && error?.message !== "EXPIRED" ? (
         <div className="toast-region">

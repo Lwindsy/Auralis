@@ -15,8 +15,17 @@ const zhCN = {
     reconnect: "重新连接",
     refresh: "刷新状态",
     retry: "重试原操作",
-    dataNotice:
-      "无需登录。Cookie 只保存匿名会话凭证。你提交的偏好、文字和推荐记录由 Auralis 保存至最后一次主动操作后 30 天。生成个性化推荐和乐评时，相关输入可能由 OpenAI 处理。",
+    privacy: {
+      label: "隐私说明",
+      points: [
+        "无需登录",
+        "仅存匿名 Cookie",
+        "记录保留 30 天",
+        "可能经 OpenAI 处理",
+      ],
+      more: "详情",
+      full: "无需登录。Cookie 只保存匿名会话凭证。你提交的偏好、文字和推荐记录由 Auralis 保存至最后一次主动操作后 30 天。生成个性化推荐和乐评时，相关输入可能由 OpenAI 处理。",
+    },
   },
   entry: {
     doors: {
