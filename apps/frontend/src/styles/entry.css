@@ -1734,14 +1734,25 @@
   }
   .doors {
     grid-template-columns: 1fr;
-    grid-template-rows: var(--c1) var(--c2) var(--c3);
+    /* A folded door never gets shorter than its one-line face. */
+    grid-template-rows:
+      minmax(48px, var(--c1)) minmax(48px, var(--c2))
+      minmax(48px, var(--c3));
     height: 360px;
     transition:
       grid-template-rows 860ms var(--ease-out-expo),
       height 860ms var(--ease-out-expo);
   }
+  /* Phones: an open door leaves the go button's row on screen. The title steps aside
+     while a door is open, and the door takes the height that is left above the row. */
+  .entry[data-active] {
+    padding-top: 72px;
+  }
+  .entry[data-active] .entry__head {
+    display: none;
+  }
   .entry[data-active] .doors {
-    height: min(78dvh, 640px);
+    height: clamp(280px, 100dvh - 72px - var(--gap) - 84px, 640px);
   }
   .door {
     animation-name: door-in-y;
@@ -1816,5 +1827,58 @@
   }
   .mode:lang(en) {
     font-size: 17px;
+  }
+}
+
+/* The narrowest phones: the three mode words stay on one line beside the go button. */
+@media (max-width: 380px) {
+  .modes__row {
+    column-gap: 14px;
+  }
+  .mode {
+    font-size: 16px;
+    letter-spacing: 0.12em;
+  }
+  .modes__row:lang(en) {
+    column-gap: 10px;
+  }
+  .mode:lang(en) {
+    font-size: 14px;
+    letter-spacing: 0;
+  }
+}
+
+/* Touch screens keep :hover after a tap; there the hover looks would stick to whatever
+   was last touched, so they are put back to rest. Mouse and trackpad are unaffected. */
+@media (hover: none) {
+  .door[data-state="idle"]:hover {
+    transform: none;
+    border-color: var(--ink-12);
+    box-shadow: none;
+  }
+  .door[data-state="folded"]:hover {
+    border-color: var(--ink-12);
+  }
+  .door:hover .glyph--genres,
+  .door:hover .glyph--albums circle {
+    transform: none;
+  }
+  .sleeve__button:hover:not(:disabled, :focus-visible) .sleeve__art {
+    transform: none;
+    box-shadow: 0 10px 22px -16px rgb(0 0 0 / 0.6);
+  }
+  .sleeve__button:hover:not(:disabled) .sleeve__art .cover {
+    transform: none;
+  }
+  .sleeve__button:hover:not(:disabled) .sleeve__art::after {
+    transform: translateX(-120%);
+  }
+  .sleeve:not([data-added]) .sleeve__button:hover .sleeve__stamp {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  .go[data-ready]:hover,
+  .go[data-ready]:hover .go__arrow {
+    transform: none;
   }
 }

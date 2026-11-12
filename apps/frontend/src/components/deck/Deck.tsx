@@ -4,6 +4,7 @@ import {
   useRef,
   useState,
   type CSSProperties,
+  type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from "react";
 import { ApiError } from "../../api/client.ts";
@@ -22,11 +23,14 @@ import { useStore } from "../../state/hooks.ts";
 import { supplying } from "../../state/input.ts";
 import { labels } from "../../state/labels.ts";
 import type { LongReviewController } from "../../state/review.ts";
+import { isTouchDevice, pageState, writePageState } from "../../lib/touch.ts";
 import { ripple } from "../motion/Contours.tsx";
 import { Reviews } from "./LongReview.tsx";
 import { Reaction } from "./Reaction.tsx";
 import { GenreWave } from "./GenreWave.tsx";
+import { FinaleGlyph } from "./FinaleGlyph.tsx";
 import { MiniWave } from "./MiniWave.tsx";
+import { AlbumTitle } from "./AlbumTitle.tsx";
 import { SlicedCover, type CoverExit } from "./SlicedCover.tsx";
 import { FLIGHT_MS, GroupStack } from "./GroupStack.tsx";
 import { reducedMotion } from "../../lib/motion.ts";
@@ -60,6 +64,11 @@ const TRANSIENT = new Set([
 ]);
 const sleep = (ms: number) => new Promise((done) => setTimeout(done, ms));
 
+/** The finale's place in the page state (it has no candidate of its own). */
+const TAIL = "tail";
+/** A sideways swipe turns the album once the finger has travelled this far. */
+const SWIPE_PX = 64;
+
 function emptyCopy(state: ProductState) {
   const words = copy().deck;
   if (state.supply_state === "FINAL_EXHAUSTED") return words.exhausted;
@@ -89,7 +98,16 @@ export function Deck({
   useStore(controller);
   const words = useCopy().deck;
   const [entries, setEntries] = useState<DeckEntry[]>(() => freshDeck(state));
-  const [index, setIndex] = useState(0);
+  // Phones come back to the album that was on screen when the page reloaded.
+  const [index, setIndex] = useState(() => {
+    const saved = isTouchDevice() ? pageState().auralisAlbum : undefined;
+    if (!saved) return 0;
+    if (saved === TAIL) return entries.length;
+    return Math.max(
+      0,
+      entries.findIndex((entry) => entry.candidateId === saved),
+    );
+  });
   const [dir, setDir] = useState<"next" | "prev">("next");
   const [ghost, setGhost] = useState<{
     entry: DeckEntry;
@@ -114,7 +132,31 @@ export function Deck({
   const busy = supplying(state) || controller.continuing;
   const last = entries.length; // the tail position after the final album
   const position = Math.min(index, last);
+  // A new album (or the finale) starts at its top. Only phones scroll the page; there a
+  // step taken from the reviews further down brings the new cover back into view.
+  useEffect(() => {
+    if (window.scrollY <= 0) return;
+    const still = window.matchMedia?.(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
+    window.scrollTo({ top: 0, behavior: still ? "auto" : "smooth" });
+  }, [position]);
   const current = entries[position] ?? null;
+  // Phones remember the album on screen in the page's own history entry. Written a moment
+  // later, so a history step that closes the long review lands first.
+  const shown = current?.candidateId ?? TAIL;
+  // A reload never comes back with the long review open, so a step it left is dropped.
+  useEffect(() => {
+    if (pageState().auralisLiner) writePageState({ auralisLiner: false });
+  }, []);
+  useEffect(() => {
+    if (!isTouchDevice()) return;
+    const timer = setTimeout(
+      () => writePageState({ auralisAlbum: shown }),
+      350,
+    );
+    return () => clearTimeout(timer);
+  }, [shown]);
   const viewed = useRef<string | null>(null);
   const requestedTail = useRef<string | null>(null);
   const tailId = state.continuation_tail_id;
@@ -437,7 +479,7 @@ export function Deck({
             leaving={leaving ? (exit ?? "slices") : false}
           />
           <div className="cut__caption">
-            <h2 className="album-title">{title}</h2>
+            <AlbumTitle title={title} />
             <p className="album-artist">
               {artist_credit}
               {first_release_year ? (
@@ -536,7 +578,7 @@ export function Deck({
         </p>
         <div className="finale__choices">
           <button type="button" className="choice" onClick={onRethink}>
-            <MiniWave bars={13} calm className="choice__wave" />
+            <FinaleGlyph kind="doors" />
             <span className="choice__title">{words.rethink}</span>
           </button>
           <button
@@ -545,7 +587,7 @@ export function Deck({
             disabled={controller.locked}
             onClick={onMore}
           >
-            <MiniWave bars={13} live className="choice__wave" />
+            <FinaleGlyph kind="fan" />
             <span className="choice__title">{words.more}</span>
           </button>
         </div>
@@ -565,6 +607,99 @@ export function Deck({
       </div>
     );
 
+  // Phones: a sideways swipe on the room turns the album, and the room follows the finger
+  // a little (barely, at either end). Vertical drags stay the page's scroll; the wave, the
+  // review scrubber and the open long review keep their own gestures. Mice, trackpads and
+  // touch-screen laptops (which have a mouse too) never swipe.
+  const swipe = useRef<{
+    id: number;
+    x: number;
+    y: number;
+    dx: number;
+    axis: "x" | "y" | null;
+  } | null>(null);
+  const follow = (dx: number | null) => {
+    const element = stage.current;
+    if (!element) return;
+    if (dx === null) {
+      element.style.transform = "";
+      element.style.transition = "";
+      element.style.opacity = "";
+      return;
+    }
+    element.style.transition = "none";
+    element.style.transform = `translateX(${dx.toFixed(1)}px)`;
+    element.style.opacity = (1 - Math.min(Math.abs(dx) / 360, 0.3)).toFixed(3);
+  };
+  const settle = () => {
+    const element = stage.current;
+    if (!element) return;
+    element.style.transition =
+      "transform 320ms var(--ease-out-expo), opacity 320ms ease";
+    element.style.transform = "translateX(0)";
+    element.style.opacity = "1";
+    setTimeout(() => {
+      if (!swipe.current) follow(null);
+    }, 340);
+  };
+  const swipeHandlers = {
+    onPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => {
+      if (event.pointerType !== "touch" || swipe.current || !isTouchDevice())
+        return;
+      const target = event.target as Element;
+      if (
+        target.closest(
+          '.wave__field, .track__line, [role="slider"], input, textarea',
+        ) ||
+        stage.current?.querySelector(".cut[data-reading]")
+      )
+        return;
+      swipe.current = {
+        id: event.pointerId,
+        x: event.clientX,
+        y: event.clientY,
+        dx: 0,
+        axis: null,
+      };
+    },
+    onPointerMove: (event: ReactPointerEvent<HTMLDivElement>) => {
+      const gesture = swipe.current;
+      if (!gesture || gesture.id !== event.pointerId) return;
+      const dx = event.clientX - gesture.x;
+      const dy = event.clientY - gesture.y;
+      if (!gesture.axis) {
+        if (Math.hypot(dx, dy) < 10) return;
+        gesture.axis = Math.abs(dx) > Math.abs(dy) * 1.2 ? "x" : "y";
+      }
+      if (gesture.axis !== "x") return;
+      gesture.dx = dx;
+      const end = (dx > 0 && position === 0) || (dx < 0 && position >= last);
+      follow(dx * (end ? 0.12 : 0.35));
+    },
+    onPointerUp: (event: ReactPointerEvent<HTMLDivElement>) => {
+      const gesture = swipe.current;
+      if (!gesture || gesture.id !== event.pointerId) return;
+      swipe.current = null;
+      if (gesture.axis !== "x") return;
+      const target =
+        gesture.dx <= -SWIPE_PX
+          ? position + 1
+          : gesture.dx >= SWIPE_PX
+            ? position - 1
+            : position;
+      if (target !== position && target >= 0 && target <= last) {
+        follow(null);
+        go(target);
+      } else settle();
+    },
+    onPointerCancel: (event: ReactPointerEvent<HTMLDivElement>) => {
+      const gesture = swipe.current;
+      if (!gesture || gesture.id !== event.pointerId) return;
+      swipe.current = null;
+      if (gesture.axis === "x") settle();
+    },
+  };
+
   return (
     <section className="deck" aria-label={words.label}>
       <button
@@ -579,7 +714,12 @@ export function Deck({
         </svg>
         <span>{words.prev}</span>
       </button>
-      <div className="deck__stage" data-dir={dir} ref={stage}>
+      <div
+        className="deck__stage"
+        data-dir={dir}
+        ref={stage}
+        {...swipeHandlers}
+      >
         {ghost ? spread(ghost.entry, ghost.dir, ghost.room, ghost.exit) : null}
         {current ? spread(current) : tail}
       </div>
@@ -595,34 +735,61 @@ export function Deck({
         </svg>
         <span>{words.forward}</span>
       </button>
-      <ol className="pips" aria-label={words.position}>
-        {entries.map((entry, i) => (
+      {/* On phones the pips become a bar at the bottom of the screen with the two steps
+          beside them (the side edges are hidden there); elsewhere the steps stay hidden
+          and the wrapper does not take part in the layout. */}
+      <div className="deck__nav">
+        <button
+          type="button"
+          className="deck__step"
+          aria-label={words.prev}
+          disabled={position === 0}
+          onClick={() => go(position - 1)}
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M15 5 8 12l7 7" />
+          </svg>
+        </button>
+        <ol className="pips" aria-label={words.position}>
+          {entries.map((entry, i) => (
+            <li
+              key={entry.candidateId}
+              data-current={i === position || undefined}
+              data-heard={entry.heard || undefined}
+              style={{ "--i": i } as CSSProperties}
+            >
+              <button
+                type="button"
+                aria-label={words.nth(i + 1)}
+                aria-current={i === position || undefined}
+                onClick={() => go(i)}
+              />
+            </li>
+          ))}
           <li
-            key={entry.candidateId}
-            data-current={i === position || undefined}
-            data-heard={entry.heard || undefined}
-            style={{ "--i": i } as CSSProperties}
+            data-current={position === last || undefined}
+            data-tail
+            style={{ "--i": entries.length } as CSSProperties}
           >
             <button
               type="button"
-              aria-label={words.nth(i + 1)}
-              aria-current={i === position || undefined}
-              onClick={() => go(i)}
+              aria-label={words.next}
+              onClick={() => go(last)}
             />
           </li>
-        ))}
-        <li
-          data-current={position === last || undefined}
-          data-tail
-          style={{ "--i": entries.length } as CSSProperties}
+        </ol>
+        <button
+          type="button"
+          className="deck__step"
+          aria-label={words.forward}
+          disabled={position >= last}
+          onClick={() => go(position + 1)}
         >
-          <button
-            type="button"
-            aria-label={words.next}
-            onClick={() => go(last)}
-          />
-        </li>
-      </ol>
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="m9 5 7 7-7 7" />
+          </svg>
+        </button>
+      </div>
     </section>
   );
 }

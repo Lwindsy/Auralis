@@ -90,7 +90,12 @@ interface Hover {
 type HoverHandlers = {
   show: (node: GenreNode, parent: GenreNode | null, anchor: Anchor) => void;
   hide: () => void;
+  /** Touch has no hover: a tap shows the card at once for a few seconds instead. */
+  peek: (node: GenreNode, parent: GenreNode | null, anchor: Anchor) => void;
 };
+
+/** How long a tapped genre's card stays up on a touch screen. */
+const PEEK_MS = 4000;
 
 function relation(node: GenreNode, parent: GenreNode | null) {
   const words = copy().genres;
@@ -134,6 +139,11 @@ export function GenrePanel({
     hide: () => {
       clearTimeout(timer.current);
       timer.current = setTimeout(() => setHover(null), 90);
+    },
+    peek: (node, parent, anchor) => {
+      clearTimeout(timer.current);
+      setHover({ node, parent, anchor });
+      timer.current = setTimeout(() => setHover(null), PEEK_MS);
     },
   };
 
@@ -190,11 +200,14 @@ export function GenrePanel({
 function HoverCard({ hover }: { hover: Hover }) {
   useCopy();
   const note = genreNote(hover.node.genre_id);
-  const width = 288;
+  // Narrow phones get a card that still fits between 16px margins.
+  const width = Math.min(288, window.innerWidth - 32);
   const { anchor } = hover;
   const mid = (anchor.top + anchor.bottom) / 2;
   const side = anchor.right + 44 + width < window.innerWidth - 16;
-  const left = side ? anchor.right + 40 : Math.max(16, anchor.left - 8);
+  const left = side
+    ? anchor.right + 40
+    : Math.min(Math.max(16, anchor.left - 8), window.innerWidth - 16 - width);
   const top = side
     ? Math.max(16, Math.min(mid - 40, window.innerHeight - 220))
     : anchor.bottom + 14;
@@ -446,7 +459,8 @@ function GenreRow({
   const words = useCopy().genres;
   const liked = handlers.liked.has(node.genre_id);
   const disliked = handlers.disliked.has(node.genre_id);
-  // Notes follow a mouse or the keyboard; a finger tap selects without a card in the way.
+  // Notes follow a mouse or the keyboard. A finger tap selects the genre and shows its
+  // card for a few seconds (the card lets taps through, so it never blocks the list).
   const anchorOf = (button: HTMLElement): Anchor => {
     const label = button.querySelector(".tree__label") ?? button;
     const rect = label.getBoundingClientRect();
@@ -457,6 +471,7 @@ function GenreRow({
       bottom: rect.bottom,
     };
   };
+  const touched = useRef(false);
   const onEnter = (event: ReactPointerEvent<HTMLElement>) => {
     if (event.pointerType === "touch") return;
     hover.show(node, parent, anchorOf(event.currentTarget));
@@ -497,11 +512,18 @@ function GenreRow({
           className="tree__name"
           disabled={handlers.locked}
           onPointerEnter={onEnter}
-          onPointerLeave={hover.hide}
+          onPointerLeave={(event) => {
+            if (event.pointerType !== "touch") hover.hide();
+          }}
+          onPointerDown={(event) => {
+            touched.current = event.pointerType === "touch";
+          }}
           onFocus={onFocus}
           onBlur={hover.hide}
-          onClick={() => {
+          onClick={(event) => {
             if (handlers.onPick(node) && node.has_children) setExpanded(true);
+            if (touched.current)
+              hover.peek(node, parent, anchorOf(event.currentTarget));
           }}
         >
           <span className="tree__label">{genreName(node.name)}</span>

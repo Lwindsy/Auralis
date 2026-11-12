@@ -178,3 +178,35 @@ svg {
     scroll-behavior: auto !important;
   }
 }
+
+/* Touch screens only (phones, tablets; never a mouse or trackpad):
+   - no pull-to-refresh and no rubber-band at the page's ends, so a quick flick back to
+     the top does not reload the page and drop the listener back at the first album;
+   - no double-tap zoom, so taps answer at once (pinch zoom stays);
+   - no copy/save callout or text selection on a long press over pictures and controls. */
+@media (hover: none) and (pointer: coarse) {
+  html,
+  body {
+    overscroll-behavior-y: none;
+  }
+
+  html {
+    touch-action: manipulation;
+  }
+
+  img,
+  svg,
+  button,
+  .sliced,
+  .sleeve {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  input,
+  textarea {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+}
