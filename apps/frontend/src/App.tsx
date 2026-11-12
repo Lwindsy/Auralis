@@ -283,6 +283,8 @@ export function App({ api, controller, review, fixture }: AppProps) {
         )}
       </main>
 
+      <footer className="data-notice">{words.app.dataNotice}</footer>
+
       {errorText && error?.message !== "EXPIRED" ? (
         <div className="toast-region">
           <div className="toast" role="alert">

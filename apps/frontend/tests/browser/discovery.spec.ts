@@ -158,6 +158,9 @@ test("中文／EN switches the whole page in place and sends the language with a
   await attach(context, backend);
   await page.goto("/");
   const switcher = page.getByRole("group", { name: "界面语言" });
+  const dataNotice = page.getByRole("contentinfo");
+  await expect(dataNotice).toContainText("Cookie 只保存匿名会话凭证");
+  await expect(dataNotice).toContainText("30 天");
   await expect(switcher.getByRole("button")).toHaveText(["中文", "EN"]);
   await expect(switcher.getByRole("button", { name: "中文" })).toHaveAttribute(
     "aria-pressed",
@@ -167,6 +170,8 @@ test("中文／EN switches the whole page in place and sends the language with a
   // Same page, same state: only its words change.
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
   await expect(page).toHaveTitle("Auralis · Find your next album");
+  await expect(dataNotice).toContainText("anonymous session credential");
+  await expect(dataNotice).toContainText("OpenAI may process relevant input");
   const english = page.getByRole("group", { name: "Language" });
   await expect(
     english.getByRole("button", { name: "English" }),
