@@ -1,7 +1,20 @@
 import genreIntros from "./genre-intros.json";
 import { i18n, type Locale } from "../i18n/index.ts";
+import { genreName } from "../lib/text.ts";
 
 const notesById = new Map(genreIntros.map((note) => [note.id, note]));
+
+function localizedName(genreId: string, locale: Locale) {
+  return locale === "zh-CN" ? notesById.get(genreId)?.name_zh : null;
+}
+
+export function genreDisplayName(
+  genreId: string,
+  originalName: string,
+  locale: Locale = i18n.locale,
+): string {
+  return localizedName(genreId, locale) || genreName(originalName);
+}
 
 /** A random catalogue genre other than the one at `previous`, by its place in the list. */
 export const randomGenreIndex = (previous = -1): number => {
@@ -15,7 +28,10 @@ export const randomGenreIndex = (previous = -1): number => {
 /** A genre's name and its one-sentence introduction in the interface language. */
 export const genreFact = (index: number, locale: Locale = i18n.locale) => {
   const note = genreIntros[index]!;
-  return { name: note.name, text: locale === "en" ? note.en : note.zh };
+  return {
+    name: localizedName(note.id, locale) || note.name,
+    text: locale === "en" ? note.en : note.zh,
+  };
 };
 
 export const genreNote = (

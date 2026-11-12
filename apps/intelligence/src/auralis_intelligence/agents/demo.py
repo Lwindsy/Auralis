@@ -26,18 +26,19 @@ def _reply(binding, request):
     payload = request.input
     name = request.schema_name
     if name.startswith("genre_pass1"):
-        output = {"branches": [{"id": "branch-jazz", "quote": payload["request_text"]}]}
+        output = {"branches": [{"number": 1, "quote": payload["request_text"]}]}
     elif name.startswith("genre_pass2"):
         output = {
             "preferences": [
                 {
-                    "id": "jazz",
+                    "number": 1,
                     "kind": "prefer",
                     "basis": "explicit",
                     "quote": payload["request_text"],
                 }
             ],
             "constraints": [],
+            "named_genres": [],
             "unresolved_constraints": [],
             "soft_preferences": [
                 {

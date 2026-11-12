@@ -8,6 +8,7 @@ import {
   type Route,
 } from "@playwright/test";
 import type { LongReviewView, ProductState } from "../../src/api/types.ts";
+import genreIntros from "../../src/content/genre-intros.json" with { type: "json" };
 import {
   FixtureBackend,
   JAZZ_GENRE_ID,
@@ -112,7 +113,7 @@ test("picked genres clear in one go; 传播度 explains itself without covering 
     page.getByText("以你的偏好为主，也会加入一些相邻的风格。"),
   ).toBeVisible();
   await page.getByRole("button", { name: /^风格/ }).click();
-  await page.getByRole("button", { name: "喜欢Jazz", exact: true }).click();
+  await page.getByRole("button", { name: "喜欢爵士", exact: true }).click();
   await page.getByRole("button", { name: "展开Unique", exact: true }).click();
   await page.getByRole("button", { name: "不喜欢Metal", exact: true }).click();
   const picked = page.getByRole("list", { name: "已选风格" });
@@ -120,7 +121,7 @@ test("picked genres clear in one go; 传播度 explains itself without covering 
   await page.getByRole("button", { name: "清空已选风格" }).click();
   await expect(picked).toHaveCount(0);
   await expect(
-    page.getByRole("button", { name: "喜欢Jazz", exact: true }),
+    page.getByRole("button", { name: "喜欢爵士", exact: true }),
   ).toHaveAttribute("aria-pressed", "false");
   await page.keyboard.press("Escape");
   await expect(page.locator(".reach__zone")).toHaveText("听众较少");
@@ -148,17 +149,18 @@ test("doors widen one at a time; genres group families, show notes and keep mark
     "folded",
   );
   // Hover note comes from the short genre notes, relation from the catalogue.
-  await page.getByRole("button", { name: "Jazz", exact: true }).hover();
+  await page.getByRole("button", { name: "爵士", exact: true }).hover();
+  await expect(page.locator(".genre-card__name")).toHaveText("爵士");
   await expect(page.getByRole("tooltip")).toContainText("即兴");
-  await page.getByRole("button", { name: "Jazz", exact: true }).click();
+  await page.getByRole("button", { name: "爵士", exact: true }).click();
   await expect(
     page.getByRole("button", { name: "喜欢Cool Jazz", exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "喜欢Jazz", exact: true }),
+    page.getByRole("button", { name: "喜欢爵士", exact: true }),
   ).toHaveAttribute("aria-pressed", "true");
-  await page.getByRole("button", { name: "Jazz特别喜欢", exact: true }).click();
-  await page.getByRole("button", { name: "Jazz本次重点", exact: true }).click();
+  await page.getByRole("button", { name: "爵士特别喜欢", exact: true }).click();
+  await page.getByRole("button", { name: "爵士本次重点", exact: true }).click();
   await expect(
     page.getByRole("list", { name: "风格家族" }).getByRole("button", {
       name: "不喜欢Metal",
@@ -258,6 +260,9 @@ test("中文／EN switches the whole page in place and sends the language with a
   );
   // Reviews are shown exactly as returned, whatever the page language.
   const card = album(page, "样例专辑 1");
+  const tags = card.locator(".wave__tags");
+  await expect(tags).toContainText("Jazz");
+  await expect(tags).toContainText("Rabbit Song");
   await card.getByRole("button", { name: "Jazz", exact: true }).focus();
   await expect(card.locator(".wave__note")).toContainText("Improvisation");
   await card.getByRole("button", { name: "Rabbit Song", exact: true }).focus();
@@ -273,7 +278,10 @@ test("中文／EN switches the whole page in place and sends the language with a
   // Switching back keeps the review that was already written.
   await english.getByRole("button", { name: "中文" }).click();
   await expect(page.locator("html")).toHaveAttribute("lang", "zh-CN");
-  await card.getByRole("button", { name: "Jazz", exact: true }).focus();
+  await expect(tags).toContainText("爵士");
+  await expect(tags).toContainText("rabbit歌曲");
+  await card.getByRole("button", { name: "爵士", exact: true }).focus();
+  await expect(card.locator(".wave__note strong")).toHaveText("爵士");
   await expect(card.locator(".wave__note")).toContainText("即兴");
   await expect(card.getByRole("button", { name: "收起长评" })).toBeVisible();
   await expect(
@@ -444,7 +452,7 @@ test("a genre note opens above the wave and nothing below it moves", async ({
   const review = card.locator(".reviews");
   const wave = card.locator(".wave__field");
   const before = [await review.boundingBox(), await wave.boundingBox()];
-  await card.getByRole("button", { name: "Jazz", exact: true }).focus();
+  await card.getByRole("button", { name: "爵士", exact: true }).focus();
   const note = card.locator(".wave__note");
   await expect(note).toContainText("即兴");
   const after = [await review.boundingBox(), await wave.boundingBox()];
@@ -686,6 +694,24 @@ test("after the last album: more of the same, or rethink with the old input", as
   }
   await expect(page.getByText("这一组听完了")).toBeVisible();
   await expect(page.getByRole("button", NEXT)).toBeDisabled();
+  // The choices' pictures run no animation (colour transitions with the room are fine);
+  // moving bars made people expect sound.
+  await expect(page.locator(".finale__choices .choice__glyph")).toHaveCount(2);
+  await expect(page.locator(".finale__choices .mini-wave")).toHaveCount(0);
+  expect(
+    await page.evaluate(() =>
+      [
+        ...document.querySelectorAll(
+          ".finale__choices .choice__glyph, .finale__choices .choice__glyph *",
+        ),
+      ].flatMap((element) =>
+        element
+          .getAnimations()
+          .filter((animation) => animation instanceof CSSAnimation)
+          .map((animation) => (animation as CSSAnimation).animationName),
+      ),
+    ),
+  ).toEqual([]);
   await expect(
     page.getByRole("button", { name: "换一些想法吧", exact: true }),
   ).toBeVisible();
@@ -759,20 +785,34 @@ test("WAITING winds down into the albums without another POST", async ({
   ).toEqual(["/v1/bootstrap"]);
 });
 
-test("the waiting genre stays for six seconds", async ({ page, context }) => {
+test("the waiting genre changes language in place and stays for six seconds", async ({
+  page,
+  context,
+}) => {
   const backend = new FixtureBackend(
     shared<ProductState>("fourth-request-waiting"),
   );
   await attach(context, backend);
-  await page.clock.install();
-  await visit(page);
+  const time = new Date("2026-11-12T12:00:00Z");
+  await page.clock.install({ time });
+  await page.clock.pauseAt(new Date(time.getTime() + 1000));
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/");
   const genre = page.locator(".waiting__genre");
   await expect(genre).toBeVisible();
-  const initial = await genre.innerText();
+  const original = await genre.innerText();
+  const fact = genreIntros.find((item) => item.name === original)!;
+  const introduction = page.locator(".waiting__note");
+  await expect(introduction).toHaveText(fact.en ?? "");
+  await page
+    .getByRole("button", { name: "中文", exact: true })
+    .dispatchEvent("click");
+  await expect(genre).toHaveText(fact.name_zh || original);
+  await expect(introduction).toHaveText(fact.zh ?? "");
   await page.clock.fastForward(4500);
-  await expect(genre).toHaveText(initial);
+  await expect(genre).toHaveText(fact.name_zh || original);
   await page.clock.fastForward(1600);
-  await expect(genre).not.toHaveText(initial);
+  await expect(introduction).not.toHaveText(fact.zh ?? "");
 });
 
 test("first card ends the wait and the actual batch tail appends once", async ({
@@ -964,6 +1004,149 @@ test("mobile layout fits, keys work and markup stays inert", async ({
   ).toEqual([0, 0]);
 });
 
+test.describe("on a phone", () => {
+  test.use({
+    viewport: { width: 390, height: 664 },
+    hasTouch: true,
+    isMobile: true,
+  });
+
+  test("an open door keeps the go button on screen; a tapped genre shows its card", async ({
+    page,
+    context,
+  }) => {
+    await attach(context, new FixtureBackend());
+    await visit(page);
+    const go = page.getByRole("button", { name: "开始发现" });
+    for (const door of [/^你的任何想法都可以说/, /^风格/, /^专辑/]) {
+      await page.getByRole("button", { name: door }).first().tap();
+      await page.waitForTimeout(1000);
+      const box = (await go.boundingBox())!;
+      expect(box.y + box.height).toBeLessThanOrEqual(664);
+    }
+    await page.getByRole("button", { name: /^风格/ }).first().tap();
+    await page.waitForTimeout(1000);
+    await page.getByRole("button", { name: "爵士", exact: true }).tap();
+    const card = page.getByRole("tooltip");
+    await expect(card).toContainText("即兴");
+    const box = (await card.boundingBox())!;
+    expect(box.x).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width).toBeLessThanOrEqual(390);
+    await page
+      .getByRole("button", { name: /^你的任何想法都可以说/ })
+      .first()
+      .tap();
+    await page.getByLabel("这次想听的音乐").fill("安静一点");
+    await go.tap();
+    await expect(album(page, "样例专辑 1")).toBeVisible({ timeout: 10000 });
+    expect(await page.evaluate(() => scrollY)).toBe(0);
+  });
+
+  test("a tap lights a genre on the wave; the bottom bar steps through the albums", async ({
+    page,
+    context,
+  }) => {
+    await attach(context, new FixtureBackend(ready()));
+    await visit(page);
+    const card = album(page, "样例专辑 1");
+    await expect(card).toBeVisible();
+    // The side edges give way to the bar: one visible pair of steps.
+    await expect(page.locator(".edge").first()).toBeHidden();
+    const field = card.locator(".wave__field");
+    await field.scrollIntoViewIfNeeded();
+    const box = (await field.boundingBox())!;
+    await page.touchscreen.tap(box.x + box.width * 0.8, box.y + box.height / 2);
+    await expect(card.locator(".wave")).toHaveAttribute("data-active", "true");
+    await expect(card.locator(".wave__note")).toContainText("即兴");
+    await page.touchscreen.tap(box.x + box.width * 0.8, box.y + box.height / 2);
+    await expect(card.locator(".wave")).not.toHaveAttribute("data-active");
+    // At the end of the room the bar rests above the privacy line.
+    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+    await page.waitForTimeout(300);
+    const bar = (await page.locator(".deck__nav").boundingBox())!;
+    const privacy = (await page
+      .getByRole("contentinfo", { name: "隐私说明" })
+      .boundingBox())!;
+    expect(bar.y + bar.height).toBeLessThanOrEqual(privacy.y);
+    // A step taken from down there brings the next cover back to the top.
+    await page.getByRole("button", NEXT).tap();
+    await expect(album(page, "样例专辑 2")).toBeVisible();
+    await expect.poll(() => page.evaluate(() => scrollY)).toBe(0);
+  });
+
+  test("swipes turn the albums; a reload or the back gesture never loses the place", async ({
+    page,
+    context,
+  }) => {
+    await attach(context, new FixtureBackend(ready()));
+    await visit(page);
+    await expect(album(page, "样例专辑 1")).toBeVisible();
+    // Pull-to-refresh and the rubber band are off on touch screens.
+    expect(
+      await page.evaluate(
+        () => getComputedStyle(document.documentElement).overscrollBehaviorY,
+      ),
+    ).toBe("none");
+    const cdp = await context.newCDPSession(page);
+    const swipe = async (x0: number, y0: number, x1: number, y1: number) => {
+      await cdp.send("Input.dispatchTouchEvent", {
+        type: "touchStart",
+        touchPoints: [{ x: x0, y: y0 }],
+      });
+      for (let i = 1; i <= 10; i++) {
+        await cdp.send("Input.dispatchTouchEvent", {
+          type: "touchMove",
+          touchPoints: [
+            { x: x0 + ((x1 - x0) * i) / 10, y: y0 + ((y1 - y0) * i) / 10 },
+          ],
+        });
+      }
+      await cdp.send("Input.dispatchTouchEvent", {
+        type: "touchEnd",
+        touchPoints: [],
+      });
+    };
+    const current = () =>
+      page.locator(".pips [aria-current]").getAttribute("aria-label");
+    // A right swipe on the first album goes nowhere; a left swipe turns to the next.
+    await swipe(80, 260, 330, 260);
+    await page.waitForTimeout(500);
+    expect(await current()).toBe("第 1 张");
+    await swipe(330, 260, 80, 262);
+    await expect(album(page, "样例专辑 2")).toBeVisible();
+    // An upward drag that starts on the wave scrolls the page and lights nothing.
+    const card = album(page, "样例专辑 2");
+    const field = card.locator(".wave__field");
+    await field.scrollIntoViewIfNeeded();
+    const box = (await field.boundingBox())!;
+    await swipe(
+      box.x + box.width / 2,
+      box.y + box.height / 2,
+      box.x + box.width / 2 + 4,
+      box.y + box.height / 2 - 150,
+    );
+    await page.waitForTimeout(400);
+    await expect(card.locator(".wave")).not.toHaveAttribute("data-active");
+    // A reload (a refresh that slipped through) comes back to the same album.
+    await page.waitForTimeout(500);
+    await page.reload();
+    await expect(album(page, "样例专辑 2")).toBeVisible();
+    expect(await current()).toBe("第 2 张");
+    // The back gesture folds the long review away and stays on the page.
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.getByRole("button", { name: "读长评" }).first().tap();
+    await expect(
+      page.getByRole("button", { name: "收起长评" }).first(),
+    ).toBeVisible({ timeout: 10000 });
+    await page.goBack();
+    await expect(page.locator(".cut[data-reading]")).toHaveCount(0);
+    await expect(album(page, "样例专辑 2")).toBeVisible();
+    expect(
+      await page.evaluate(() => [localStorage.length, sessionStorage.length]),
+    ).toEqual([0, 0]);
+  });
+});
+
 test("expired cookie opens an empty start page with an expiry notice", async ({
   page,
   context,
@@ -1043,6 +1226,59 @@ test("the go button works with a door open; start page and room fit the screen",
     .getByRole("contentinfo", { name: "隐私说明" })
     .boundingBox())!;
   expect(pips.y + pips.height).toBeLessThanOrEqual(privacy.y);
+});
+
+test("a long album name stays in its slot and never moves the cover or the words", async ({
+  page,
+  context,
+}) => {
+  const state = ready();
+  const long = [
+    "Let Yourself Be Huge",
+    "For Those of You Who Have Never (And Also Those Who Have)",
+    "The Inevitable Rise and Liberation of a Title So Long That Even the Smallest Size Cannot Hold It in Three Lines of the Slot",
+  ];
+  state.slots.forEach((slot, i) => {
+    slot.card!.identity.title = long[i]!;
+  });
+  await attach(context, new FixtureBackend(state));
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await visit(page);
+  const place = async (title: string) => {
+    const card = album(page, title);
+    await expect(card).toBeVisible();
+    await page.waitForTimeout(400);
+    const cover = (await card.locator(".sliced").boundingBox())!;
+    const words = (await card.locator(".cut__words").boundingBox())!;
+    const name = card.locator(".album-title");
+    const size = parseFloat(
+      await name.evaluate((element) => getComputedStyle(element).fontSize),
+    );
+    const height = (await name.boundingBox())!.height;
+    return { cover, words, size, height };
+  };
+  const first = await place(long[0]!);
+  for (const title of long.slice(1)) {
+    await page.getByRole("button", NEXT).click();
+    const next = await place(title);
+    expect(next.cover).toEqual(first.cover);
+    expect(next.words.x).toBe(first.words.x);
+    expect(next.words.y).toBe(first.words.y);
+    // Two lines of the full size is the whole slot.
+    expect(next.height).toBeLessThanOrEqual(2 * 1.04 * first.size + 1);
+  }
+  const clamped = album(page, long[2]!).locator(".album-title");
+  await expect(clamped).toHaveAttribute("title", long[2]!);
+  await expect(page.locator(".cut[data-leaving]")).toHaveCount(0);
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          document.documentElement.scrollHeight -
+          document.documentElement.clientHeight,
+      ),
+    )
+    .toBeLessThanOrEqual(0);
 });
 
 test("visual baselines for start page, room and mobile", async ({

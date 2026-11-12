@@ -4,7 +4,7 @@ import asyncio
 
 import pytest
 from auralis_intelligence.preferences.fast import GENERIC, FastPreferencesStage
-from test_preferences import FIXTURE, execution_for, raw
+from test_preferences import FIXTURE, execution_for, numbered_fixture_replies, raw
 
 
 @pytest.mark.parametrize("text", ["随便", "随便听听！", "都行", "推荐几张专辑", "anything is fine"])
@@ -33,7 +33,7 @@ def test_substantive_text_still_runs_both_model_passes():
     async def run():
         case = next(case for case in FIXTURE["cases"] if case["id"] == "explicit-genre")
         execution, _, adapter, original = execution_for(
-            raw(case["request_text"]), [case["expected_pass_1"], case["expected_pass_2"]]
+            raw(case["request_text"]), numbered_fixture_replies(case)
         )
         accepted = await FastPreferencesStage(original.gateway, original.reference)(execution)
         assert len(adapter.requests) == 2

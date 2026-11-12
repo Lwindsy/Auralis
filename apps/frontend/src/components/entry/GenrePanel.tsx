@@ -11,9 +11,8 @@ import { createPortal } from "react-dom";
 import type { Api } from "../../api/client.ts";
 import { message } from "../../api/messages.ts";
 import type { GenreNode, GenreSearchResult } from "../../api/types.ts";
-import { genreNote } from "../../content/genreNotes.ts";
+import { genreDisplayName, genreNote } from "../../content/genreNotes.ts";
 import { copy, useCopy } from "../../i18n/index.ts";
-import { genreName } from "../../lib/text.ts";
 import { useDebounced } from "../../state/hooks.ts";
 import { labels } from "../../state/labels.ts";
 import { Icon } from "../Icon.tsx";
@@ -90,15 +89,21 @@ interface Hover {
 type HoverHandlers = {
   show: (node: GenreNode, parent: GenreNode | null, anchor: Anchor) => void;
   hide: () => void;
+  /** Touch has no hover: a tap shows the card at once for a few seconds instead. */
+  peek: (node: GenreNode, parent: GenreNode | null, anchor: Anchor) => void;
 };
+
+/** How long a tapped genre's card stays up on a touch screen. */
+const PEEK_MS = 4000;
 
 function relation(node: GenreNode, parent: GenreNode | null) {
   const words = copy().genres;
-  if (parent) return words.childOf(genreName(parent.name));
-  const parents = node.parent_ids
-    .map((id) => labels.genre(id)?.name)
-    .filter((name): name is string => !!name)
-    .map(genreName);
+  if (parent)
+    return words.childOf(genreDisplayName(parent.genre_id, parent.name));
+  const parents = node.parent_ids.flatMap((id) => {
+    const name = labels.genre(id)?.name;
+    return name ? [genreDisplayName(id, name)] : [];
+  });
   if (parents.length) return words.partOf(parents);
   return node.has_children ? words.family : words.standalone;
 }
@@ -134,6 +139,11 @@ export function GenrePanel({
     hide: () => {
       clearTimeout(timer.current);
       timer.current = setTimeout(() => setHover(null), 90);
+    },
+    peek: (node, parent, anchor) => {
+      clearTimeout(timer.current);
+      setHover({ node, parent, anchor });
+      timer.current = setTimeout(() => setHover(null), PEEK_MS);
     },
   };
 
@@ -190,11 +200,14 @@ export function GenrePanel({
 function HoverCard({ hover }: { hover: Hover }) {
   useCopy();
   const note = genreNote(hover.node.genre_id);
-  const width = 288;
+  // Narrow phones get a card that still fits between 16px margins.
+  const width = Math.min(288, window.innerWidth - 32);
   const { anchor } = hover;
   const mid = (anchor.top + anchor.bottom) / 2;
   const side = anchor.right + 44 + width < window.innerWidth - 16;
-  const left = side ? anchor.right + 40 : Math.max(16, anchor.left - 8);
+  const left = side
+    ? anchor.right + 40
+    : Math.min(Math.max(16, anchor.left - 8), window.innerWidth - 16 - width);
   const top = side
     ? Math.max(16, Math.min(mid - 40, window.innerHeight - 220))
     : anchor.bottom + 14;
@@ -223,7 +236,9 @@ function HoverCard({ hover }: { hover: Hover }) {
         <svg className="genre-card__outline" aria-hidden="true">
           <rect x="0.5" y="0.5" pathLength="1" />
         </svg>
-        <p className="genre-card__name">{genreName(hover.node.name)}</p>
+        <p className="genre-card__name">
+          {genreDisplayName(hover.node.genre_id, hover.node.name)}
+        </p>
         {note ? (
           <p className="genre-card__note" aria-label={note}>
             {[...note].map((char, i) => (
@@ -444,9 +459,11 @@ function GenreRow({
 }) {
   const [expanded, setExpanded] = useState(false);
   const words = useCopy().genres;
+  const name = genreDisplayName(node.genre_id, node.name);
   const liked = handlers.liked.has(node.genre_id);
   const disliked = handlers.disliked.has(node.genre_id);
-  // Notes follow a mouse or the keyboard; a finger tap selects without a card in the way.
+  // Notes follow a mouse or the keyboard. A finger tap selects the genre and shows its
+  // card for a few seconds (the card lets taps through, so it never blocks the list).
   const anchorOf = (button: HTMLElement): Anchor => {
     const label = button.querySelector(".tree__label") ?? button;
     const rect = label.getBoundingClientRect();
@@ -457,6 +474,7 @@ function GenreRow({
       bottom: rect.bottom,
     };
   };
+  const touched = useRef(false);
   const onEnter = (event: ReactPointerEvent<HTMLElement>) => {
     if (event.pointerType === "touch") return;
     hover.show(node, parent, anchorOf(event.currentTarget));
@@ -479,9 +497,7 @@ function GenreRow({
             type="button"
             className="tree__toggle"
             aria-expanded={expanded}
-            aria-label={
-              expanded ? words.collapse(node.name) : words.expand(node.name)
-            }
+            aria-label={expanded ? words.collapse(name) : words.expand(name)}
             onClick={() => setExpanded((value) => !value)}
           >
             <Icon name="chevronRight" size={15} />
@@ -497,21 +513,28 @@ function GenreRow({
           className="tree__name"
           disabled={handlers.locked}
           onPointerEnter={onEnter}
-          onPointerLeave={hover.hide}
+          onPointerLeave={(event) => {
+            if (event.pointerType !== "touch") hover.hide();
+          }}
+          onPointerDown={(event) => {
+            touched.current = event.pointerType === "touch";
+          }}
           onFocus={onFocus}
           onBlur={hover.hide}
-          onClick={() => {
+          onClick={(event) => {
             if (handlers.onPick(node) && node.has_children) setExpanded(true);
+            if (touched.current)
+              hover.peek(node, parent, anchorOf(event.currentTarget));
           }}
         >
-          <span className="tree__label">{genreName(node.name)}</span>
+          <span className="tree__label">{name}</span>
         </button>
         <div className="tree__actions">
           <button
             type="button"
             className="tree__pill"
             aria-pressed={liked}
-            aria-label={words.likeName(node.name)}
+            aria-label={words.likeName(name)}
             title={words.like}
             disabled={handlers.locked}
             onClick={() => handlers.onToggleLike(node)}
@@ -522,7 +545,7 @@ function GenreRow({
             type="button"
             className="tree__pill tree__pill--avoid"
             aria-pressed={disliked}
-            aria-label={words.dislikeName(node.name)}
+            aria-label={words.dislikeName(name)}
             title={words.dislike}
             disabled={handlers.locked}
             onClick={() => handlers.onToggleDislike(node)}

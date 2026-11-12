@@ -1,9 +1,8 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import type { ProductCard } from "../../api/types.ts";
-import { genreNote } from "../../content/genreNotes.ts";
-import { useCopy } from "../../i18n/index.ts";
+import { genreDisplayName, genreNote } from "../../content/genreNotes.ts";
+import { i18n, useCopy } from "../../i18n/index.ts";
 import { hash } from "../../lib/cover.ts";
-import { genreName } from "../../lib/text.ts";
 
 const BARS = 96;
 const H = 96;
@@ -51,8 +50,15 @@ export function GenreWave({
   ).slice(0, 4);
   const tagIds = tags.map((tag) => tag.genre_id).join(" ");
   const words = useCopy();
+  const locale = i18n.locale;
   const svg = useRef<SVGSVGElement>(null);
   const names = useRef<HTMLDivElement>(null);
+  const finger = useRef<{
+    id: number;
+    x: number;
+    y: number;
+    sweep: boolean;
+  } | null>(null);
   const [active, setActive] = useState<number | null>(null);
   const activeRef = useRef<number | null>(null);
   useEffect(() => {
@@ -169,7 +175,7 @@ export function GenreWave({
       cancelAnimationFrame(frame);
       observer.disconnect();
     };
-  }, [seed, tags.length, tagIds, still]);
+  }, [seed, tags.length, tagIds, still, locale]);
 
   if (!tags.length) return null;
   const segmentOf = (u: number) =>
@@ -188,14 +194,61 @@ export function GenreWave({
     <div className="wave" data-active={active !== null || undefined}>
       <div
         className="wave__field"
+        // A finger has no hover: a tap lights the genre under it (the same genre again
+        // puts it out) and it stays lit after the finger lifts; a sideways drag sweeps
+        // across the genres. A drag that starts upward or downward is the page scrolling
+        // and leaves the wave as it was.
+        onPointerDown={(event) => {
+          if (event.pointerType !== "touch") return;
+          finger.current = {
+            id: event.pointerId,
+            x: event.clientX,
+            y: event.clientY,
+            sweep: false,
+          };
+        }}
         onPointerMove={(event) => {
+          if (event.pointerType === "touch") {
+            const touch = finger.current;
+            if (!touch || touch.id !== event.pointerId) return;
+            const dx = Math.abs(event.clientX - touch.x);
+            const dy = Math.abs(event.clientY - touch.y);
+            if (!touch.sweep) {
+              if (dy > 8 && dy >= dx) {
+                finger.current = null;
+                return;
+              }
+              if (dx < 8) return;
+              touch.sweep = true;
+            }
+          }
           const box = event.currentTarget.getBoundingClientRect();
           const u = (event.clientX - box.left) / box.width;
           target.current = { focus: u, power: POWER };
           const index = segmentOf(u);
           if (index !== active) setActive(index);
         }}
-        onPointerLeave={() => focusOn(null)}
+        onPointerUp={(event) => {
+          const touch = finger.current;
+          if (!touch || touch.id !== event.pointerId) return;
+          finger.current = null;
+          if (touch.sweep) return;
+          const box = event.currentTarget.getBoundingClientRect();
+          const u = (event.clientX - box.left) / box.width;
+          const index = segmentOf(u);
+          if (index === active) {
+            focusOn(null);
+            return;
+          }
+          target.current = { focus: u, power: POWER };
+          setActive(index);
+        }}
+        onPointerCancel={() => {
+          finger.current = null;
+        }}
+        onPointerLeave={(event) => {
+          if (event.pointerType !== "touch") focusOn(null);
+        }}
       >
         <svg
           ref={svg}
@@ -234,7 +287,7 @@ export function GenreWave({
               data-row={i % 2 ? "top" : "bottom"}
               data-on={active === i || undefined}
             >
-              {genreName(item.name)}
+              {genreDisplayName(item.genre_id, item.name, locale)}
             </span>
           ))}
         </div>
@@ -248,7 +301,7 @@ export function GenreWave({
               onBlur={() => focusOn(null)}
               onClick={() => focusOn(active === i ? null : i)}
             >
-              {genreName(item.name)}
+              {genreDisplayName(item.genre_id, item.name, locale)}
             </button>
           </li>
         ))}
@@ -256,7 +309,7 @@ export function GenreWave({
       <div className="wave__note" aria-live="polite">
         {tag && note ? (
           <p key={tag.genre_id}>
-            <strong>{genreName(tag.name)}</strong>
+            <strong>{genreDisplayName(tag.genre_id, tag.name, locale)}</strong>
             {[...note].map((char, i) => (
               <span
                 key={i}

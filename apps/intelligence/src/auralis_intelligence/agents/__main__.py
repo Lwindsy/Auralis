@@ -74,7 +74,9 @@ def serve(args):
     from auralis_intelligence.genre_taxonomy import check_artifacts
 
     check_artifacts(relative("genre_taxonomy"), relative("reference"), relative("recall_snapshot"))
-    reference = ReferenceCatalog.load(relative("reference"))
+    reference = ReferenceCatalog.load(
+        relative("reference"), taxonomy_path=relative("genre_taxonomy")
+    )
     from auralis_intelligence.album_reviews.batch import (
         BatchResearchStage,
         BatchSelectStage,

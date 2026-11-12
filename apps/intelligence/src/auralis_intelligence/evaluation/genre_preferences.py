@@ -26,7 +26,8 @@ from auralis_intelligence.preferences import (
     merge_preferences,
 )
 from auralis_intelligence.preferences.prompts import PASS_ONE_PROMPT, PASS_TWO_PROMPT
-from auralis_intelligence.preferences.schemas import PASS_ONE, PASS_TWO
+from auralis_intelligence.preferences.reference import numbered_choices
+from auralis_intelligence.preferences.schemas import pass_one_schema, pass_two_schema
 from auralis_intelligence.providers import ModelGateway, OpenAIResponsesAdapter
 from auralis_intelligence.providers.config import load_bindings
 
@@ -44,7 +45,7 @@ MANIFEST_KEYS = {
     "provider_key_env",
     "output_dir",
 }
-OPTIONAL_MANIFEST_KEYS = {"expected_pass1_branches"}
+OPTIONAL_MANIFEST_KEYS = {"expected_pass1_branches", "taxonomy"}
 
 
 def _sha256(path: Path) -> str:
@@ -189,10 +190,12 @@ def build_plan(manifest_path: str | Path) -> dict[str, Any]:
     case_ids = _case_ids(manifest, dataset)
     if any(identifier not in questions for identifier in case_ids):
         raise ValueError("UNKNOWN_CASE_ID")
-    reference = ReferenceCatalog.load(reference_path)
+    taxonomy_path = _resolve(manifest["taxonomy"]) if "taxonomy" in manifest else None
+    reference = ReferenceCatalog.load(reference_path, taxonomy_path=taxonomy_path)
     _, bindings = _binding_rows(bindings_path)
     binding = bindings["interpret"]
-    branches = reference.branch_material()
+    branches, _ = numbered_choices(reference.branch_material())
+    first_schema = pass_one_schema(len(branches))
     maximum = 0
     estimable = True
     inputs_fit = True
@@ -203,7 +206,7 @@ def build_plan(manifest_path: str | Path) -> dict[str, Any]:
     for identifier in case_ids:
         text = questions[identifier]["request_text"]
         first_bound = _input_bound(
-            PASS_ONE_PROMPT, {"request_text": text, "branches": branches}, PASS_ONE
+            PASS_ONE_PROMPT, {"request_text": text, "branches": branches}, first_schema
         )
         maximum_first_input_bound = max(maximum_first_input_bound, first_bound)
         first = _reservation(binding, first_bound)
@@ -224,11 +227,9 @@ def build_plan(manifest_path: str | Path) -> dict[str, Any]:
             sample_genres = reference.expand_limited(
                 expected_branches, manifest["second_pass_genre_limit"], text
             )
-        second_payload = {
-            "request_text": text,
-            "genres": [reference.material(row) for row in sample_genres],
-        }
-        second_bound = _input_bound(PASS_TWO_PROMPT, second_payload, PASS_TWO)
+        genres, _ = numbered_choices(sample_genres)
+        second_payload = {"request_text": text, "genres": genres}
+        second_bound = _input_bound(PASS_TWO_PROMPT, second_payload, pass_two_schema(len(genres)))
         maximum_second_input_bound = max(maximum_second_input_bound, second_bound)
         second = _reservation(binding, second_bound)
         estimate = None if first is None or second is None else first + second
@@ -397,7 +398,8 @@ async def run_live(manifest_path: str | Path, acknowledged_budget: int) -> Path:
     dataset = _read_json(_resolve(manifest["dataset"]))
     questions = {item["id"]: item for item in dataset["questions"]}
     case_ids = _case_ids(manifest, dataset)
-    reference = ReferenceCatalog.load(_resolve(manifest["reference"]))
+    taxonomy_path = _resolve(manifest["taxonomy"]) if "taxonomy" in manifest else None
+    reference = ReferenceCatalog.load(_resolve(manifest["reference"]), taxonomy_path=taxonomy_path)
     _, bindings = _binding_rows(_resolve(manifest["model_bindings"]))
     output_dir = _resolve(manifest["output_dir"])
     if output_dir.exists():
