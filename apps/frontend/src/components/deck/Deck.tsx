@@ -31,6 +31,7 @@ import { GenreWave } from "./GenreWave.tsx";
 import { FinaleGlyph } from "./FinaleGlyph.tsx";
 import { MiniWave } from "./MiniWave.tsx";
 import { AlbumTitle } from "./AlbumTitle.tsx";
+import { CopyTitle } from "./CopyTitle.tsx";
 import { SlicedCover, type CoverExit } from "./SlicedCover.tsx";
 import { FLIGHT_MS, GroupStack } from "./GroupStack.tsx";
 import { reducedMotion } from "../../lib/motion.ts";
@@ -485,6 +486,7 @@ export function Deck({
               {first_release_year ? (
                 <span className="mono">{first_release_year}</span>
               ) : null}
+              <CopyTitle title={title} />
             </p>
           </div>
         </div>
@@ -607,16 +609,20 @@ export function Deck({
       </div>
     );
 
-  // Phones: a sideways swipe on the room turns the album, and the room follows the finger
-  // a little (barely, at either end). Vertical drags stay the page's scroll; the wave, the
-  // review scrubber and the open long review keep their own gestures. Mice, trackpads and
-  // touch-screen laptops (which have a mouse too) never swipe.
+  // Phones: a sideways swipe anywhere in the room — cover, words, reviews, the open long
+  // review, the bar at the bottom, the group's end — turns the album, and the room follows
+  // the finger a little (barely, at either end). Vertical drags stay the page's scroll. Only
+  // the genre wave (a sideways drag there sweeps the genres) and the review's 22px progress
+  // line (a drag there scrubs) keep their own gestures. With the long review open nothing
+  // follows the finger (the sheet is fixed to the screen); the turn first puts it away.
+  // Mice, trackpads and touch-screen laptops (which have a mouse too) never swipe.
   const swipe = useRef<{
     id: number;
     x: number;
     y: number;
     dx: number;
     axis: "x" | "y" | null;
+    still: boolean;
   } | null>(null);
   const follow = (dx: number | null) => {
     const element = stage.current;
@@ -625,8 +631,12 @@ export function Deck({
       element.style.transform = "";
       element.style.transition = "";
       element.style.opacity = "";
+      delete element.dataset.swiping;
       return;
     }
+    // A transform makes the room the frame of anything fixed inside it: the folded long
+    // review sheet would rise into the page, so deck.css hides it while the room moves.
+    element.dataset.swiping = "";
     element.style.transition = "none";
     element.style.transform = `translateX(${dx.toFixed(1)}px)`;
     element.style.opacity = (1 - Math.min(Math.abs(dx) / 360, 0.3)).toFixed(3);
@@ -643,26 +653,21 @@ export function Deck({
     }, 340);
   };
   const swipeHandlers = {
-    onPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => {
+    onPointerDown: (event: ReactPointerEvent<HTMLElement>) => {
       if (event.pointerType !== "touch" || swipe.current || !isTouchDevice())
         return;
       const target = event.target as Element;
-      if (
-        target.closest(
-          '.wave__field, .track__line, [role="slider"], input, textarea',
-        ) ||
-        stage.current?.querySelector(".cut[data-reading]")
-      )
-        return;
+      if (target.closest(".wave__field, .track__line, input, textarea")) return;
       swipe.current = {
         id: event.pointerId,
         x: event.clientX,
         y: event.clientY,
         dx: 0,
         axis: null,
+        still: !!stage.current?.querySelector(".cut[data-reading]"),
       };
     },
-    onPointerMove: (event: ReactPointerEvent<HTMLDivElement>) => {
+    onPointerMove: (event: ReactPointerEvent<HTMLElement>) => {
       const gesture = swipe.current;
       if (!gesture || gesture.id !== event.pointerId) return;
       const dx = event.clientX - gesture.x;
@@ -673,10 +678,11 @@ export function Deck({
       }
       if (gesture.axis !== "x") return;
       gesture.dx = dx;
+      if (gesture.still) return;
       const end = (dx > 0 && position === 0) || (dx < 0 && position >= last);
       follow(dx * (end ? 0.12 : 0.35));
     },
-    onPointerUp: (event: ReactPointerEvent<HTMLDivElement>) => {
+    onPointerUp: (event: ReactPointerEvent<HTMLElement>) => {
       const gesture = swipe.current;
       if (!gesture || gesture.id !== event.pointerId) return;
       swipe.current = null;
@@ -690,18 +696,18 @@ export function Deck({
       if (target !== position && target >= 0 && target <= last) {
         follow(null);
         go(target);
-      } else settle();
+      } else if (!gesture.still) settle();
     },
-    onPointerCancel: (event: ReactPointerEvent<HTMLDivElement>) => {
+    onPointerCancel: (event: ReactPointerEvent<HTMLElement>) => {
       const gesture = swipe.current;
       if (!gesture || gesture.id !== event.pointerId) return;
       swipe.current = null;
-      if (gesture.axis === "x") settle();
+      if (gesture.axis === "x" && !gesture.still) settle();
     },
   };
 
   return (
-    <section className="deck" aria-label={words.label}>
+    <section className="deck" aria-label={words.label} {...swipeHandlers}>
       <button
         type="button"
         className="edge edge--prev"
@@ -709,17 +715,14 @@ export function Deck({
         disabled={position === 0}
         onClick={() => go(position - 1)}
       >
-        <svg viewBox="0 0 24 64" aria-hidden="true">
-          <path d="M18 8 6 32l12 24" />
-        </svg>
-        <span>{words.prev}</span>
+        <span className="edge__dial" aria-hidden="true">
+          <svg viewBox="0 0 24 24">
+            <path d="M14.5 5.5 8 12l6.5 6.5" />
+          </svg>
+        </span>
+        <span className="edge__label">{words.prev}</span>
       </button>
-      <div
-        className="deck__stage"
-        data-dir={dir}
-        ref={stage}
-        {...swipeHandlers}
-      >
+      <div className="deck__stage" data-dir={dir} ref={stage}>
         {ghost ? spread(ghost.entry, ghost.dir, ghost.room, ghost.exit) : null}
         {current ? spread(current) : tail}
       </div>
@@ -730,10 +733,12 @@ export function Deck({
         disabled={position >= last}
         onClick={() => go(position + 1)}
       >
-        <svg viewBox="0 0 24 64" aria-hidden="true">
-          <path d="M6 8l12 24L6 56" />
-        </svg>
-        <span>{words.forward}</span>
+        <span className="edge__dial" aria-hidden="true">
+          <svg viewBox="0 0 24 24">
+            <path d="M9.5 5.5 16 12l-6.5 6.5" />
+          </svg>
+        </span>
+        <span className="edge__label">{words.forward}</span>
       </button>
       {/* On phones the pips become a bar at the bottom of the screen with the two steps
           beside them (the side edges are hidden there); elsewhere the steps stay hidden

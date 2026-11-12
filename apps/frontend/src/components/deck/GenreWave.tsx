@@ -53,6 +53,7 @@ export function GenreWave({
   const locale = i18n.locale;
   const svg = useRef<SVGSVGElement>(null);
   const names = useRef<HTMLDivElement>(null);
+  const noteTouch = useRef(false);
   const finger = useRef<{
     id: number;
     x: number;
@@ -306,7 +307,17 @@ export function GenreWave({
           </li>
         ))}
       </ul>
-      <div className="wave__note" aria-live="polite">
+      {/* On a touch screen a tap on the note puts it away, as a tap on its genre does. */}
+      <div
+        className="wave__note"
+        aria-live="polite"
+        onPointerDown={(event) => {
+          noteTouch.current = event.pointerType === "touch";
+        }}
+        onClick={() => {
+          if (noteTouch.current) focusOn(null);
+        }}
+      >
         {tag && note ? (
           <p key={tag.genre_id}>
             <strong>{genreDisplayName(tag.genre_id, tag.name, locale)}</strong>
