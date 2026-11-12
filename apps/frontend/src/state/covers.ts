@@ -8,11 +8,14 @@ interface Entry {
   promise: Promise<LoadedCover | null>;
   cover: LoadedCover | null;
   expires: number;
+  retryable: boolean;
   users: number;
   bytes: number;
 }
 const cache = new Map<string, Entry>();
 const MAX_BYTES = 32 * 1024 * 1024;
+const RETRY_MS = 15000;
+const MAX_RETRIES = 2;
 
 export function coverUrl(id: string, size: 250 | 500 | 1200 = 500): string {
   return `/v1/catalog/albums/${encodeURIComponent(id)}/cover?size=${size}`;
@@ -51,11 +54,16 @@ function trim() {
 export function acquireCover(key: string) {
   trim();
   let entry = cache.get(key);
+  if (entry?.retryable && entry.expires <= Date.now()) {
+    cache.delete(key);
+    entry = undefined;
+  }
   if (!entry) {
     entry = {
       promise: Promise.resolve(null),
       cover: null,
       expires: 0,
+      retryable: false,
       users: 0,
       bytes: 0,
     };
@@ -69,8 +77,12 @@ export function acquireCover(key: string) {
           signal: AbortSignal.timeout(14000),
         });
         if (!response.ok) {
+          current.retryable =
+            response.status >= 500 ||
+            response.status === 429 ||
+            response.status === 408;
           current.expires =
-            Date.now() + (response.status === 404 ? 3600000 : 15000);
+            Date.now() + (response.status === 404 ? 3600000 : RETRY_MS);
           return null;
         }
         const blob = await response.blob();
@@ -91,7 +103,8 @@ export function acquireCover(key: string) {
         return current.cover;
       } catch {
         if (objectUrl) URL.revokeObjectURL(objectUrl);
-        current.expires = Date.now() + 15000;
+        current.retryable = true;
+        current.expires = Date.now() + RETRY_MS;
         return null;
       } finally {
         trim();
@@ -104,6 +117,7 @@ export function acquireCover(key: string) {
   const owned = entry;
   return {
     promise: owned.promise,
+    retryAt: () => (owned.retryable ? owned.expires : null),
     release: () => {
       owned.users--;
       trim();
@@ -119,13 +133,31 @@ export function useCover(url: string | null | undefined): LoadedCover | null {
   } | null>(null);
   useEffect(() => {
     if (!key) return;
-    const request = acquireCover(key);
+    let request = acquireCover(key);
     let live = true;
-    void request.promise.then((cover) => {
-      if (live) setLoaded({ key, cover });
-    });
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let retries = 0;
+    const watch = () => {
+      void request.promise.then((cover) => {
+        if (!live) return;
+        setLoaded({ key, cover });
+        const retryAt = request.retryAt();
+        if (retryAt === null || retries >= MAX_RETRIES) return;
+        timer = setTimeout(
+          () => {
+            request.release();
+            request = acquireCover(key);
+            retries++;
+            watch();
+          },
+          Math.max(0, retryAt - Date.now()),
+        );
+      });
+    };
+    watch();
     return () => {
       live = false;
+      clearTimeout(timer);
       request.release();
     };
   }, [key]);

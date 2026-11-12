@@ -759,6 +759,22 @@ test("WAITING winds down into the albums without another POST", async ({
   ).toEqual(["/v1/bootstrap"]);
 });
 
+test("the waiting genre stays for six seconds", async ({ page, context }) => {
+  const backend = new FixtureBackend(
+    shared<ProductState>("fourth-request-waiting"),
+  );
+  await attach(context, backend);
+  await page.clock.install();
+  await visit(page);
+  const genre = page.locator(".waiting__genre");
+  await expect(genre).toBeVisible();
+  const initial = await genre.innerText();
+  await page.clock.fastForward(4500);
+  await expect(genre).toHaveText(initial);
+  await page.clock.fastForward(1600);
+  await expect(genre).not.toHaveText(initial);
+});
+
 test("first card ends the wait and the actual batch tail appends once", async ({
   page,
   context,

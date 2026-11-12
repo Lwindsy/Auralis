@@ -22,6 +22,7 @@ from auralis_intelligence.providers.web import (
     FetchResponse,
     PublicResolver,
     checked_url,
+    extract_text,
 )
 from test_agent_runtime import setup, start
 
@@ -482,6 +483,12 @@ def test_actual_read_extracts_text_and_registers_receipt_after_redirect():
         await execution.cleanup()
 
     asyncio.run(run())
+
+
+def test_client_challenge_is_rejected_even_in_a_successful_html_response():
+    html = b"<title>Client Challenge</title><p>A required part of this site couldn't load.</p>"
+    with pytest.raises(FetchFailure, match="ACCESS_PAGE"):
+        extract_text(html, "text/html", "https://lorn.bandcamp.com/album/example")
 
 
 def test_sputnikmusic_review_uses_the_body_instead_of_the_first_comment_article():

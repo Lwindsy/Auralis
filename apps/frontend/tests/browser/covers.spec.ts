@@ -82,6 +82,49 @@ test("slow search cover does not delay results or selection", async ({
   expect(after?.height).toBe(bounds?.height);
 });
 
+test("the current cover retries in place after a temporary failure", async ({
+  page,
+  context,
+}) => {
+  const backend = new FixtureBackend(ready(2, 2));
+  backend.state.slots.forEach((slot, i) => {
+    slot.card!.cover_url = url(i + 1);
+  });
+  let currentCalls = 0;
+  let missingCalls = 0;
+  await attach(context, backend, async (route) => {
+    if (new URL(route.request().url()).pathname.includes("000000000002")) {
+      missingCalls++;
+      await route.fulfill({ status: 404 });
+      return;
+    }
+    currentCalls++;
+    if (currentCalls === 1) {
+      await route.fulfill({ status: 503, headers: { "Retry-After": "15" } });
+      return;
+    }
+    await route.fulfill({ status: 200, contentType: "image/png", body: png });
+  });
+  await page.clock.install();
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/");
+  await page.getByRole("button", { name: "中文", exact: true }).click();
+  const first = page.getByRole("article", { name: "样例专辑 1", exact: true });
+  await expect(first).toBeVisible();
+  await expect.poll(() => [currentCalls, missingCalls]).toEqual([1, 1]);
+  await expect(first.locator(".cover img")).toHaveCount(0);
+  await page.clock.fastForward(16000);
+  await expect(first.locator(".sliced__whole img")).toBeVisible();
+  expect(currentCalls).toBe(2);
+
+  await page.getByRole("button", { name: "下一张", exact: true }).click();
+  const second = page.getByRole("article", { name: "样例专辑 2", exact: true });
+  await expect(second).toBeVisible();
+  await page.clock.fastForward(16000);
+  await expect(second.locator(".cover img")).toHaveCount(0);
+  expect(missingCalls).toBe(1);
+});
+
 test("slices and colour share one decoded cover; old response cannot repaint a new card", async ({
   page,
   context,

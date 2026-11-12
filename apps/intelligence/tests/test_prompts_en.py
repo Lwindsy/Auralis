@@ -58,7 +58,7 @@ def test_recommendation_uses_one_language_for_every_model_stage(tmp_path, englis
                 "short_review_v1_4": writing.WRITING_PROMPT_EN
                 if english
                 else writing.WRITING_PROMPT,
-                "long_review_v1_5": (
+                "long_review_v1_6": (
                     writing.WRITING_PROMPT_EN if english else writing.WRITING_PROMPT
                 )
                 + writing.LONG_RESEARCH_INSTRUCTION,

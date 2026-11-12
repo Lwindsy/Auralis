@@ -29,8 +29,10 @@ WRITING_PROMPT = files(__package__).joinpath("writing.v1.4.txt").read_text(encod
 WRITING_PROMPT_EN = files(__package__).joinpath("writing.v1.4.en.txt").read_text(encoding="utf-8")
 LONG_RESEARCH_INSTRUCTION = (
     "\nRespect research_budget. If searches_remaining is zero, choose relevant "
-    "available_sources to read. If turns_remaining is zero, write using the sources "
-    "already read if sufficient. Otherwise report the gap without requesting tools."
+    "available_sources to read when a tool turn remains. If turns_remaining is zero, "
+    "focus the review on what the sources already read support and leave optional "
+    "sections empty. If even that review lacks sufficient evidence, report the gap "
+    "without requesting tools."
 )
 
 
@@ -73,7 +75,7 @@ class WriteStage:
 
     @staticmethod
     def _version(execution: Execution, form: str) -> str:
-        version = "1.5" if form == "long" else "1.4"
+        version = "1.6" if form == "long" else "1.4"
         return f"{form}_review.v{version}" + (".en" if execution.english else "")
 
     def start(
@@ -316,6 +318,7 @@ class WriteStage:
         policy = execution.start["agent_policy"]["writing"]
         turns = min(policy["long_tool_turns"], 2)
         searches = reads = 0
+        fallback_reason = None
         for turn in range(turns + 1):
             reply = await self._response(
                 execution,
@@ -330,9 +333,13 @@ class WriteStage:
                     {"url": url, "title": title} for url, title in available.items()
                 ],
                 research_budget={
-                    "turns_remaining": turns - turn,
-                    "searches_remaining": policy["long_extra_max_searches"] - searches,
-                    "reads_remaining": policy["long_extra_max_reads"] - reads,
+                    "turns_remaining": 0 if fallback_reason else turns - turn,
+                    "searches_remaining": 0
+                    if fallback_reason
+                    else policy["long_extra_max_searches"] - searches,
+                    "reads_remaining": 0
+                    if fallback_reason
+                    else policy["long_extra_max_reads"] - reads,
                 },
                 priority=priority,
             )
@@ -354,12 +361,16 @@ class WriteStage:
                 reason_code="REVIEW_MATERIAL_INSUFFICIENT",
             )
             requests = output["tool_requests"]
+            if fallback_reason is not None:
+                if fallback_reason == "LONG_RESEARCH_FAILED":
+                    result.update(status="FAILED", reason_code=fallback_reason)
+                return result
             if turn == turns and (turn or requests):
                 result.update(status="FAILED", reason_code="LONG_RESEARCH_LIMIT_REACHED")
                 return result
             if not requests:
                 return result
-            progressed = attempted = read_failed = False
+            progressed = attempted = read_failed = read_succeeded = False
             for request in requests:
                 if request["tool"] == "web_search":
                     if request["url"] is not None:
@@ -397,6 +408,7 @@ class WriteStage:
                         read.clear()
                         read_failed = True
                         continue
+                    read_succeeded = True
                     if (
                         identity_rejection(read.text, dossier.identity) is not None
                         or read.receipt["text_chars"]
@@ -419,9 +431,12 @@ class WriteStage:
                     result["extra_read_ids"].append(read.receipt["read_id"])
                     progressed = True
             if not progressed:
-                if read_failed:
-                    raise ContractError("LONG_RESEARCH_FAILED")
                 if not attempted:
                     result.update(status="FAILED", reason_code="LONG_RESEARCH_LIMIT_REACHED")
-                return result
+                    return result
+                fallback_reason = (
+                    "LONG_RESEARCH_FAILED"
+                    if read_failed and not read_succeeded
+                    else "REVIEW_MATERIAL_INSUFFICIENT"
+                )
         return result
