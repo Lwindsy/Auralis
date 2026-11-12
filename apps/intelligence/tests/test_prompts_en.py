@@ -51,8 +51,8 @@ def test_recommendation_uses_one_language_for_every_model_stage(tmp_path, englis
                 start["payload_digest"] = content_digest(start)
             edition = preferences_en if english else prompts_zh
             systems = {
-                "genre_pass1_v0_7": edition.PASS_ONE_PROMPT,
-                "genre_pass2_v0_8": edition.PASS_TWO_PROMPT,
+                "genre_pass1_v0_9": edition.PASS_ONE_PROMPT,
+                "genre_pass2_v1_0": edition.PASS_TWO_PROMPT,
                 "research_v2": research.RESEARCH_PROMPT_EN if english else research.RESEARCH_PROMPT,
                 "select_v1": selection.PROMPT_EN if english else selection.PROMPT,
                 "short_review_v1_4": writing.WRITING_PROMPT_EN
@@ -213,13 +213,15 @@ def test_preference_prompts_keep_sections_tables_and_examples(chinese, english):
 )
 def test_example_quotes_are_exact_spans_of_the_example_text(prompt):
     checked = 0
-    ids: set[str] = set()
+    numbers: set[int] = set()
     for section in prompt.split("\n## Example ")[1:]:
         blocks = json_blocks(section)
         given = [block for block in blocks if "request_text" in block]
         if given:
             request = given[0]["request_text"]
-            ids = {row["id"] for row in given[0].get("branches", given[0].get("genres", []))}
+            numbers = {
+                row["number"] for row in given[0].get("branches", given[0].get("genres", []))
+            }
         else:
             # An example may reuse the previous input with new words given in prose.
             request = re.search(r'`request_text` to "(.+?)"', section).group(1)
@@ -227,11 +229,12 @@ def test_example_quotes_are_exact_spans_of_the_example_text(prompt):
             if "request_text" in block:
                 continue
             rows = block.get("branches", []) + block.get("preferences", [])
-            rows += block.get("constraints", []) + block.get("soft_preferences", [])
+            rows += block.get("constraints", []) + block.get("named_genres", [])
+            rows += block.get("soft_preferences", [])
             for row in rows:
                 assert row["quote"] in request, row
-                if "id" in row:
-                    assert row["id"] in ids, row
+                if "number" in row:
+                    assert type(row["number"]) is int and row["number"] in numbers, row
                 checked += 1
             for limit in block.get("unresolved_constraints", []):
                 assert limit in request

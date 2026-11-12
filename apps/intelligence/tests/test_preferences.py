@@ -73,13 +73,24 @@ def execution_for(value, outputs, *, reference=REFERENCE, seed_descriptions=None
     return execution, control, adapter, stage
 
 
+def numbered_fixture_replies(case):
+    first, second = deepcopy([case["expected_pass_1"], case["expected_pass_2"]])
+    second["named_genres"] = []
+    branch_ids = [row["id"] for row in REFERENCE.branch_material()]
+    selected_branches = [row["id"] for row in first["branches"]]
+    genre_ids = [row["id"] for row in REFERENCE.expand(selected_branches)]
+    for row in first["branches"]:
+        row["number"] = branch_ids.index(row.pop("id")) + 1
+    for row in second["preferences"] + second["constraints"]:
+        row["number"] = genre_ids.index(row.pop("id")) + 1
+    return [first, second]
+
+
 @pytest.mark.parametrize("case", FIXTURE["cases"], ids=lambda row: row["id"])
 def test_two_pass_frozen_synthetic_cases(case):
     async def run():
         value = raw(case["request_text"])
-        execution, control, adapter, stage = execution_for(
-            value, [case["expected_pass_1"], case["expected_pass_2"]]
-        )
+        execution, control, adapter, stage = execution_for(value, numbered_fixture_replies(case))
         if case["expected_pass_2"]["unresolved_constraints"]:
             with pytest.raises(PreferenceError, match="UNSUPPORTED_CONSTRAINT") as caught:
                 await stage(execution)
@@ -103,7 +114,10 @@ def test_two_pass_frozen_synthetic_cases(case):
             for _, request in adapter.requests
         )
         genres = adapter.requests[1][1].input["genres"]
-        assert len(genres) == len({row["id"] for row in genres})
+        branches = adapter.requests[0][1].input["branches"]
+        for choices in (branches, genres):
+            assert [row["number"] for row in choices] == list(range(1, len(choices) + 1))
+            assert all(set(row) == {"number", "name", "aliases", "description"} for row in choices)
         assert len(control.invocations) == 2
         await execution.cleanup()
         assert execution.start["input"]["raw"] is None
@@ -136,6 +150,94 @@ def test_blank_text_preserves_preselected_flags_and_seed_descriptions_without_mo
         execution.start["input"]["raw"] = None
         assert await stage(execution) == snapshot
         assert not adapter.requests
+
+    asyncio.run(run())
+
+
+def test_direct_children_and_explicit_outside_choices():
+    async def run():
+        genres = [
+            {"id": identifier, "name": name, "aliases": [], "description": description}
+            for identifier, name, description in (
+                ("metal", "Metal", "metal family"),
+                ("dance", "Dance", "dance family"),
+                ("alt", "Alternative Metal", "alternative metal"),
+                ("nu", "Nu Metal", "nu metal"),
+                ("shared", "Shared genre", ""),
+            )
+        ]
+        branches = [
+            {**genres[0], "id": "metal-branch", "genre_ids": ["metal", "alt", "nu", "shared"]},
+            {**genres[1], "id": "dance-branch", "genre_ids": ["dance", "shared"]},
+        ]
+        taxonomy = {
+            "genres": [
+                {**row, "parents": parents}
+                for row, parents in zip(genres, [[], [], ["metal"], ["alt"], ["metal", "dance"]])
+            ]
+        }
+        reference = ReferenceCatalog({"genres": genres, "branches": branches}, taxonomy=taxonomy)
+        first = {
+            "branches": [
+                {"number": 1, "quote": "只听 Nu Metal"},
+                {"number": 2, "quote": "尽量避开舞曲"},
+            ]
+        }
+        second = {
+            "preferences": [],
+            "constraints": [],
+            "named_genres": [
+                {"name": "Nu Metal", "kind": "require", "quote": "只听 Nu Metal"},
+                {"name": "Dance", "kind": "avoid", "quote": "尽量避开舞曲"},
+            ],
+            "unresolved_constraints": [],
+            "soft_preferences": [],
+        }
+        execution, _, adapter, stage = execution_for(
+            raw("只听 Nu Metal，尽量避开舞曲"),
+            [first, second],
+            reference=reference,
+        )
+        snapshot = await stage(execution)
+        choices = adapter.requests[1][1].input["genres"]
+        assert [(row["number"], row["name"]) for row in choices] == [
+            (1, "Alternative Metal"),
+            (2, "Shared genre"),
+        ]
+        assert snapshot["required_tags"] == ["nu"]
+        assert snapshot["forbidden_tags"] == []
+        assert any(
+            row["kind"] == "avoid" and "Dance" in row["description"]
+            for row in snapshot["soft_preferences"]
+        )
+
+    asyncio.run(run())
+
+
+@pytest.mark.parametrize("text", ["我就想听氛围一样的", "给我来点氛围完全一致的", "the same vibe"])
+def test_similarity_only_keeps_seed_and_does_not_infer_a_genre(text):
+    async def run():
+        value = raw(
+            text,
+            albums=[
+                {
+                    "release_group_id": "album-1",
+                    "external": None,
+                    "strength": "normal",
+                    "focused": False,
+                }
+            ],
+        )
+        execution, _, adapter, stage = execution_for(
+            value, [], seed_descriptions={"album-1": "Artist / Album"}
+        )
+        snapshot = await stage(execution)
+        assert not adapter.requests
+        assert snapshot["tags"] == [] and snapshot["seeds"][0]["id"] == "album-1"
+        assert any(
+            row["description"] == text and row["kind"] == "prefer"
+            for row in snapshot["soft_preferences"]
+        )
 
     asyncio.run(run())
 
@@ -254,22 +356,23 @@ def test_external_album_only_maps_supplied_genres_and_retains_description():
 @pytest.mark.parametrize(
     "first,second,code",
     [
-        ({"branches": [{"id": "made-up", "quote": "爵士"}]}, None, "INVALID_ID"),
-        ({"branches": [{"id": "branch:jazz", "quote": "不存在"}]}, None, "INVALID_SPAN"),
+        ({"branches": [{"number": 0, "quote": "爵士"}]}, None, "INVALID_OUTPUT"),
+        ({"branches": [{"number": 1, "quote": "不存在"}]}, None, "INVALID_SPAN"),
         ({"branches": []}, None, "INVALID_OUTPUT"),
         (CallResult(finish="TRUNCATED"), None, "INTERPRETATION_FAILED"),
         (CallResult(outcome="UNCERTAIN"), None, "INTERPRETATION_FAILED"),
         (
-            {"branches": [{"id": "branch:jazz", "quote": "爵士"}]},
+            {"branches": [{"number": 1, "quote": "爵士"}]},
             {
                 "preferences": [
-                    {"id": "genre:metal", "kind": "prefer", "basis": "explicit", "quote": "爵士"}
+                    {"number": 4, "kind": "prefer", "basis": "explicit", "quote": "爵士"}
                 ],
                 "constraints": [],
+                "named_genres": [],
                 "unresolved_constraints": [],
                 "soft_preferences": [],
             },
-            "INVALID_ID",
+            "INVALID_OUTPUT",
         ),
     ],
 )
@@ -337,13 +440,13 @@ def test_conflicting_hard_constraints_and_parallel_interests():
 
 def test_two_pass_opposite_constraints_reach_conflict_resolution():
     async def run():
-        first = {"branches": [{"id": "branch:jazz", "quote": "爵士"}]}
+        first = {"branches": [{"number": 1, "quote": "爵士"}]}
         second = {
             "preferences": [],
             "constraints": [
-                {"id": "genre:jazz", "kind": kind, "quote": "爵士"}
-                for kind in ("require", "exclude")
+                {"number": 1, "kind": kind, "quote": "爵士"} for kind in ("require", "exclude")
             ],
+            "named_genres": [],
             "unresolved_constraints": [],
             "soft_preferences": [],
         }
@@ -371,12 +474,11 @@ def test_inference_preserves_explicit_positive_flags():
 @pytest.mark.parametrize("inferred,explicit", [("prefer", "exclude"), ("avoid", "require")])
 def test_explicit_constraint_wins_over_opposite_inference(inferred, explicit):
     async def run():
-        first = {"branches": [{"id": "branch:jazz", "quote": "爵士"}]}
+        first = {"branches": [{"number": 1, "quote": "爵士"}]}
         second = {
-            "preferences": [
-                {"id": "genre:jazz", "kind": inferred, "basis": "inferred", "quote": "爵士"}
-            ],
-            "constraints": [{"id": "genre:jazz", "kind": explicit, "quote": "爵士"}],
+            "preferences": [{"number": 1, "kind": inferred, "basis": "inferred", "quote": "爵士"}],
+            "constraints": [{"number": 1, "kind": explicit, "quote": "爵士"}],
+            "named_genres": [],
             "unresolved_constraints": [],
             "soft_preferences": [],
         }
@@ -395,7 +497,7 @@ def test_empty_expansion_and_second_pass_invalid_quote_stop_before_control():
         reference_doc = deepcopy(FIXTURE["reference"])
         reference_doc["branches"][0]["genre_ids"] = []
         reference = ReferenceCatalog(reference_doc)
-        first = {"branches": [{"id": "branch:jazz", "quote": "爵士"}]}
+        first = {"branches": [{"number": 1, "quote": "爵士"}]}
         execution, control, adapter, stage = execution_for(
             raw("爵士"), [first], reference=reference
         )
@@ -405,6 +507,7 @@ def test_empty_expansion_and_second_pass_invalid_quote_stop_before_control():
         second = {
             "preferences": [],
             "constraints": [],
+            "named_genres": [],
             "unresolved_constraints": [],
             "soft_preferences": [
                 {

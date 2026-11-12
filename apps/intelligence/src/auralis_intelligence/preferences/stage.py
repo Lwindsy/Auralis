@@ -9,10 +9,29 @@ from auralis_intelligence.providers import ModelGateway
 from jsonschema import Draft202012Validator
 
 from . import prompts, prompts_en
-from .reference import PreferenceError, ReferenceCatalog, locate
-from .schemas import PASS_ONE, PASS_TWO
+from .reference import PreferenceError, ReferenceCatalog, locate, numbered_choices
+from .schemas import pass_one_schema, pass_two_schema
 
+# The authority revision identifies the normalized proposal. Prompt versions track model I/O.
 PARSER_REVISION = "preferences-v1-pass1-v0.7-pass2-v0.8"
+SAME_SOUND_ONLY = re.compile(
+    r"(?:(?:我)?(?:就|只)?(?:想|要)(?:听)?|(?:请)?(?:给我)?(?:来|推荐)(?:点|一点|一些|几首|几张)?)?"
+    r"(?:听感|氛围)(?:完全)?(?:一样|一致|相同|相似|类似)(?:的(?:歌|音乐|专辑)?)?[。！？.!?]*"
+    r"|(?:(?:i (?:just )?want|give me|recommend) )?(?:something with )?(?:the )?"
+    r"(?:exact same|same|similar) (?:vibe|feel|mood|atmosphere|sound)[.!?]*",
+    re.IGNORECASE,
+)
+
+
+def _text_preference(identifier: str, description: str, kind: str) -> dict:
+    return {
+        "preference_id": identifier,
+        "description": description,
+        "kind": kind,
+        "basis": "explicit",
+        "strength": "normal",
+        "focused": False,
+    }
 
 
 class PreferencesStage:
@@ -65,19 +84,24 @@ class PreferencesStage:
             "unresolved_constraints": [],
             "soft_preferences": [],
         }
+        if SAME_SOUND_ONLY.fullmatch(text.strip()):
+            proposal["soft_preferences"].append(
+                _text_preference("text:similar-sound", text, "prefer")
+            )
+            return await self._accept(execution, proposal)
         if text.strip():
             edition = prompts_en if execution.english else prompts
             execution.phase = "INTERPRETING"
-            branches = self.reference.branch_material()
+            branches, branch_ids = numbered_choices(self.reference.branch_material())
             first = await self._generate(
                 execution,
                 edition.PASS_ONE_PROMPT,
                 {"request_text": text, "branches": branches},
-                PASS_ONE,
-                "genre_pass1_v0.7",
+                pass_one_schema(len(branches)),
+                "genre_pass1_v0.9",
             )
-            ids = [row["id"] for row in first["branches"]]
-            if len(set(ids)) != len(ids) or set(ids) - {row["id"] for row in branches}:
+            ids = [branch_ids[row["number"]] for row in first["branches"]]
+            if len(set(ids)) != len(ids):
                 raise PreferenceError("INTERPRETATION_INVALID_ID")
             for row in first["branches"]:
                 locate(text, row["quote"])
@@ -96,48 +120,44 @@ class PreferencesStage:
                         )
                         if mentioned:
                             raise PreferenceError("INTERPRETATION_INVALID_OUTPUT")
-                proposal["soft_preferences"] = [
-                    {
-                        "preference_id": "text:open-request",
-                        "description": text,
-                        "kind": "context",
-                        "basis": "explicit",
-                        "strength": "normal",
-                        "focused": False,
-                    }
-                ]
+                proposal["soft_preferences"].append(
+                    _text_preference("text:open-request", text, "context")
+                )
                 return await self._accept(execution, proposal)
             genres = (
                 self.reference.expand(ids)
                 if self.genre_limit is None
                 else self.reference.expand_limited(ids, self.genre_limit, text)
             )
+            choices, genre_ids = numbered_choices(genres)
             second = await self._generate(
                 execution,
                 edition.PASS_TWO_PROMPT,
-                {"request_text": text, "genres": genres},
-                PASS_TWO,
-                "genre_pass2_v0.8",
+                {"request_text": text, "genres": choices},
+                pass_two_schema(len(choices)),
+                "genre_pass2_v1.0",
             )
             if not any(second.values()):
                 raise PreferenceError("INTERPRETATION_INVALID_OUTPUT")
-            known = {row["id"] for row in genres}
             for key in ("preferences", "constraints"):
                 seen = set()
                 for row in second[key]:
-                    identity = (row["id"], row["kind"])
-                    if row["id"] not in known or identity in seen:
+                    identifier = genre_ids[row["number"]]
+                    identity = (identifier, row["kind"])
+                    if identity in seen:
                         raise PreferenceError("INTERPRETATION_INVALID_ID")
                     seen.add(identity)
                     proposal[key].append(
                         {
-                            **{k: v for k, v in row.items() if k != "quote"},
+                            **{k: v for k, v in row.items() if k not in {"number", "quote"}},
+                            "id": identifier,
                             "text_span": locate(text, row["quote"]),
                         }
                     )
             proposal["unresolved_constraints"] = [
                 locate(text, quote) for quote in second["unresolved_constraints"]
             ]
+            self._add_named_genres(text, proposal, second["named_genres"])
             for index, row in enumerate(second["soft_preferences"]):
                 locate(text, row["quote"])
                 proposal["soft_preferences"].append(
@@ -163,6 +183,36 @@ class PreferencesStage:
                     raise PreferenceError("PREFERENCE_CONFLICT", "NEEDS_INPUT")
                 directions[row["id"]] = positive
         return await self._accept(execution, proposal)
+
+    def _add_named_genres(self, text: str, proposal: dict, rows: list[dict]) -> None:
+        for index, row in enumerate(rows):
+            quote, kind = row["quote"], row["kind"]
+            span = locate(text, quote)
+            identifier = self.reference.named_genre_id(row["name"])
+            hard = kind in {"require", "exclude"}
+            if identifier is None:
+                if hard:
+                    proposal["unresolved_constraints"].append(span)
+                else:
+                    proposal["soft_preferences"].append(
+                        _text_preference(f"text:named-genre:{index + 1}", quote, kind)
+                    )
+                continue
+            key = "constraints" if hard else "preferences"
+            target = next(
+                (
+                    item
+                    for item in proposal[key]
+                    if item["id"] == identifier and item["kind"] == kind
+                ),
+                None,
+            )
+            if target is None:
+                target = {"id": identifier, "kind": kind}
+                proposal[key].append(target)
+            target["text_span"] = span
+            if not hard:
+                target["basis"] = "explicit"
 
     async def _accept(self, execution: Execution, proposal: dict) -> dict:
         proposal["proposal_digest"] = content_digest(proposal, "proposal_digest")

@@ -57,20 +57,14 @@ class Fixtures:
         gentle = "Gentle" if english else "轻柔"
         if request.schema_name.startswith("genre_pass1"):
             return CallResult(
-                {"branches": [{"id": "branch-jazz", "quote": jazz}]}, usage=Usage(100, 100, 0)
+                {"branches": [{"number": 1, "quote": jazz}]}, usage=Usage(100, 100, 0)
             )
         if request.schema_name.startswith("genre_pass2"):
             return CallResult(
                 {
-                    "preferences": [
-                        {
-                            "id": "00000000-0000-0000-0000-000000000065",
-                            "kind": "prefer",
-                            "basis": "explicit",
-                            "quote": jazz,
-                        }
-                    ],
+                    "preferences": [],
                     "constraints": [],
+                    "named_genres": [{"name": "Jazz", "kind": "prefer", "quote": jazz}],
                     "unresolved_constraints": [],
                     "soft_preferences": [
                         {

@@ -380,6 +380,7 @@ def test_unsupported_constraint_retains_precise_unicode_span(tmp_path):
                         {
                             "preferences": [],
                             "constraints": [],
+                            "named_genres": [],
                             "unresolved_constraints": [quote],
                             "soft_preferences": [],
                         },

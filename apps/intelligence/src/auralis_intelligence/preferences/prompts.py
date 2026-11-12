@@ -4,7 +4,7 @@ PASS_ONE_PROMPT = """# 角色与任务
 
 你是音乐推荐流程中的「分支初筛」环节。一位听众用自然语言描述了想听的音乐。你要阅读 `request_text` 中的完整原话，从 `branches` 里挑出值得交给下一轮细看的风格分支。
 
-这一轮负责**找入口**。程序会按风格 ID 展开所选分支并去重。下一轮会阅读同一份完整原话和展开后的风格资料。选择入口时关注三个目标。
+这一轮负责**找入口**。程序会取所选分支的直接子风格并去重。下一轮会阅读同一份完整原话和这些子风格。选择入口时关注三个目标。
 
 - **不漏。** 听众表达的每个需要保留、且有资料支持的方向都至少有一个入口。
 - **有依据的方向。** 从风格名、听感、心情或场景出发寻找入口，再用分支介绍核对。只有纯开放委托、没有任何具体需求时，返回空分支，不因必须推荐而补造偏好。
@@ -14,7 +14,7 @@ PASS_ONE_PROMPT = """# 角色与任务
 
 - `request_text` 是听众的完整原话，可能口语化、前后改口、夹杂比喻或其他语言。
 - `branches` 是程序提供的非空候选分支列表。每项包含以下字段。
-  - `id` 是唯一标识，输出时必须原样使用。
+  - `number` 是本轮候选的短整数编号，输出时直接使用这个整数。
   - `name` 是风格名称。
   - `aliases` 包含别名、常见写法和译名。
   - `description` 是该风格分支的介绍，可能写到大类归属、典型听感、配器、节奏、年代或相关风格。
@@ -55,8 +55,10 @@ PASS_ONE_PROMPT = """# 角色与任务
 - 风格词偶然出现在别的语境里时，按听众实际的诉求判断。例如「我在摇滚咖啡馆打工，想听点安静的」，音乐需求是「想听点安静的」。
 - 听众说的是大类（如「电子」），而分支更细时，普通正向偏好可以选介绍里明确属于该大类、且最贴近其他线索的几个入口。优先覆盖真正不同的方向。
 - 普通软偏好找不到准确的对应分支时，可以参考介绍中写明的相近风格或同一谱系，也可以从原话整体的听感和状态寻找别的合理方向。
-- 对明确点名的要求或排除，选能展开出对应**标准风格 ID** 的入口，保留原来的范围。涉及明确的例外或备选项时，也为这些对象找可达入口。若找不到对应风格的入口，下一轮仍会从完整原话看到这项限制。
+- 对明确点名的要求或排除，选能展开出对应**标准风格**的入口，保留原来的范围。涉及明确的例外或备选项时，也为这些对象找可达入口。若找不到对应风格的入口，下一轮仍会从完整原话看到这项限制。
 - 明确点名细分风格时，按输入资料中的目录归属找入口，不要因为声音相近就改选另一个谱系。比如当前资料把 Bossa Nova 放在 Regional Music 分支；不能只因它使用爵士和声就用 Jazz 入口代替。
+
+- 地区与音乐类型同时限定同一批作品时，优先选其音乐类型所在的分支。例如听众用香港流行歌手举例找港乐，保留 Pop 入口。歌词文学性是同一批作品的要求，不能单独引入其他地域的歌谣传统。
 
 ### B. 比喻、场景、听感、艺人或作品
 
@@ -73,6 +75,10 @@ PASS_ONE_PROMPT = """# 角色与任务
 可以从节奏密度与速度、律动类型、空间感与混响、音色（原声或电子、干净或失真）、编制与主奏乐器、人声风格、情绪强度、年代质感等维度判断。
 
 听众提到艺人或作品时，可以用音乐常识推测他在参照什么声音。最终选择要同时得到听众原话和分支介绍的支持。
+
+「喜欢游戏音乐」「想听电影原声」也提供了具体方向。即使没有同名分支，也要找有依据的入口。例如游戏音乐可以核对包含电子游戏音色和合成器配乐的电子方向。
+
+「氛围一样」「听感相似」表达听感上的相似关系。用原话中的具体声音特征、参照作品或点名风格找方向；单独的「氛围」二字不提供选择 Ambient 的依据。
 
 ### C. 融合诉求
 
@@ -93,7 +99,7 @@ PASS_ONE_PROMPT = """# 角色与任务
 - 一句话确实有两种合理解读时，只有每种解读都有原话和介绍支持，才分别给入口。例如上下文可能让「轻一点」指音量小，也可能指情绪轻快，按上下文判断哪些解读有依据。
 - **有具体需求时选一至三个。** 听感、心情和场景也是需求，例如「别太吵，适合晚上听」应保留软避让与夜晚场景，并从有据的分支寻找试探性方向；没有点名风格不等于没有偏好。明确排除也须找到核对入口，交下一轮保留限制。
 - **纯开放委托返回零个。** 只有「随便」「听什么都行」「你替我决定吧」等开放请求，且没有听感、情绪、场景、风格、艺人、作品、排除或其他具体条件时，输出 `{"branches":[]}`。不要从说话语气猜出爵士、流行等方向；已有预选偏好由Java合并保留。
-- 使用输入中给出的 `id` 原值，保留大小写和格式。每个 `id` 最多出现一次。一个分支同时对应多处原话时，选最能说明理由的一段。
+- 只选择本轮 `branches` 中的 `number`，输出整数，每个编号最多出现一次。一个分支同时对应多处原话时，选最能说明理由的一段。
 
 ## 第四步｜摘录 `quote`
 
@@ -107,12 +113,12 @@ PASS_ONE_PROMPT = """# 角色与任务
 只输出一个 JSON 对象。输出从 `{` 开始，到 `}` 结束。`branches` 有零至三项；零项仅用于上述纯开放委托。
 
 ```json
-{"branches":[{"id":"输入中的分支 ID","quote":"原文片段"}]}
+{"branches":[{"number":1,"quote":"原文片段"}]}
 ```
 
 # 输出前自检
 
-1. 每个 `id` 都在输入的 `branches` 里，并且各自只出现一次吗？
+1. 每个 `number` 都在输入的 `branches` 里，并且各自只出现一次吗？
 2. 每个 `quote` 都能在 `request_text` 中原样找到吗？
 3. 被改口撤回的方向是不是已经去掉了？
 4. `quote` 是不是保留了会影响范围和力度的否定词、程度词或例外？每个明确点名的偏好、避让或限制都有能展开到该风格的入口吗？
@@ -121,7 +127,7 @@ PASS_ONE_PROMPT = """# 角色与任务
 
 # 示例
 
-示例使用各自输入里的分支 ID。
+示例使用各自输入里的分支编号。
 
 ## 示例 1｜转折和排除
 
@@ -131,10 +137,10 @@ PASS_ONE_PROMPT = """# 角色与任务
 {
   "request_text": "想听点摇滚，但别太吵，最好有点民谣味。千万别是金属。",
   "branches": [
-    {"id":"folk_rock","name":"民谣摇滚","aliases":["Folk Rock"],"description":"摇滚分支，可展开带民谣旋律、原声吉他等元素的风格。"},
-    {"id":"soft_rock","name":"柔和摇滚","aliases":["Soft Rock"],"description":"摇滚分支，可展开编配温和、力度较轻的摇滚风格。"},
-    {"id":"metal","name":"金属","aliases":["Metal"],"description":"金属大类，可展开金属本身及包括重金属在内的子风格。"},
-    {"id":"heavy_metal","name":"重金属","aliases":["Heavy Metal"],"description":"金属的子类。此入口覆盖重金属这一支。"}
+    {"number":1,"name":"民谣摇滚","aliases":["Folk Rock"],"description":"摇滚分支，可展开带民谣旋律、原声吉他等元素的风格。"},
+    {"number":2,"name":"柔和摇滚","aliases":["Soft Rock"],"description":"摇滚分支，可展开编配温和、力度较轻的摇滚风格。"},
+    {"number":3,"name":"金属","aliases":["Metal"],"description":"金属大类，可展开金属本身及包括重金属在内的子风格。"},
+    {"number":4,"name":"重金属","aliases":["Heavy Metal"],"description":"金属的子类。此入口覆盖重金属这一支。"}
   ]
 }
 ```
@@ -142,7 +148,7 @@ PASS_ONE_PROMPT = """# 角色与任务
 输出
 
 ```json
-{"branches":[{"id":"folk_rock","quote":"想听点摇滚，但别太吵，最好有点民谣味"},{"id":"soft_rock","quote":"想听点摇滚，但别太吵"},{"id":"metal","quote":"千万别是金属"}]}
+{"branches":[{"number":1,"quote":"想听点摇滚，但别太吵，最好有点民谣味"},{"number":2,"quote":"想听点摇滚，但别太吵"},{"number":3,"quote":"千万别是金属"}]}
 ```
 
 「别太吵」为柔和摇滚提供软匹配线索。「千万别是金属」的范围由 `metal` 入口覆盖。
@@ -155,9 +161,9 @@ PASS_ONE_PROMPT = """# 角色与任务
 {
   "request_text": "来点电子吧，节奏快的那种……不对，今晚想放松，还是慢一点、空灵一点。",
   "branches": [
-    {"id":"ambient","name":"氛围音乐","aliases":["Ambient"],"description":"重视空间感和延展音色，节拍可以很轻。"},
-    {"id":"downtempo","name":"慢拍电子","aliases":["Downtempo"],"description":"节奏较慢，常有松弛的律动。"},
-    {"id":"fast_electronic","name":"快节奏电子","aliases":[],"description":"以快速且连续的节拍为核心。"}
+    {"number":1,"name":"氛围音乐","aliases":["Ambient"],"description":"重视空间感和延展音色，节拍可以很轻。"},
+    {"number":2,"name":"慢拍电子","aliases":["Downtempo"],"description":"节奏较慢，常有松弛的律动。"},
+    {"number":3,"name":"快节奏电子","aliases":[],"description":"以快速且连续的节拍为核心。"}
   ]
 }
 ```
@@ -165,7 +171,7 @@ PASS_ONE_PROMPT = """# 角色与任务
 输出
 
 ```json
-{"branches":[{"id":"ambient","quote":"慢一点、空灵一点"},{"id":"downtempo","quote":"今晚想放松，还是慢一点"}]}
+{"branches":[{"number":1,"quote":"慢一点、空灵一点"},{"number":2,"quote":"今晚想放松，还是慢一点"}]}
 ```
 
 「节奏快的」已被撤回，选择依据是改口后表达的听感。
@@ -177,7 +183,7 @@ PASS_ONE_PROMPT = """# 角色与任务
 输出
 
 ```json
-{"branches":[{"id":"ambient","quote":"最近心情不太好，随便推点歌吧"}]}
+{"branches":[{"number":1,"quote":"最近心情不太好，随便推点歌吧"}]}
 ```
 
 这里可以试试有空间感、节拍较轻的音乐，给听众一点缓冲。
@@ -185,19 +191,19 @@ PASS_ONE_PROMPT = """# 角色与任务
 
 PASS_TWO_PROMPT = """# 角色与任务
 
-你是音乐推荐流程中的「风格细选」环节。一位听众用自然语言描述了想听的音乐。第一轮选出了值得细看的分支，程序已经把这些分支展开并按风格 ID 去重。
+你是音乐推荐流程中的「风格细选」环节。一位听众用自然语言描述了想听的音乐。第一轮选出了值得细看的分支，程序已经取出它们的直接子风格并去重。
 
 这一轮负责**提出可核验的风格线索**。阅读听众的完整原话，从展开后的资料里提出可以尝试的风格。可以自由联想怎样的音乐能对上听众当前的状态。程序将核对这些建议，再用于召回和后续匹配。判断时关注三个目标。
 
 - **贴合原意。** 保留用户表达的力度、范围和关系，区分明确点名和听感推测。
 - **保留限制。** 单独记录能明确映射的风格限制，把暂时无法表达的完整条件交回核对。
-- **可追溯。** 每条建议都能在原话中定位，涉及的风格 ID 都能在本次资料里找到。
+- **可追溯。** 每条建议都能在原话中定位，涉及的风格编号都能在本轮候选里找到。
 
 # 输入
 
 - `request_text` 是听众的完整原话，与第一轮收到的文字相同。
-- `genres` 是程序展开后提供的非空候选风格列表。可用的大类本身也可能在列表中。每项包含以下字段。
-  - `id` 是风格标识，输出时必须原样使用。
+- `genres` 仅包含所选分支的直接子风格，可能为空。每项包含以下字段。
+  - `number` 是本轮候选的短整数编号，输出时直接使用这个整数。
   - `name` 是风格名称。
   - `aliases` 包含别名、常见写法和译名。
   - `description` 是该风格的说明，可能写到节奏、配器、音色、人声、氛围或风格之间的关系。
@@ -229,7 +235,7 @@ PASS_TWO_PROMPT = """# 角色与任务
 
 用 `name` 和 `aliases` 找无歧义的对应项，保留原话的宽窄。说「想听爵士」时，优先对应「爵士」。若原话还给出「演奏克制、编曲留白」等独立的听感线索，可以另外考虑资料支持的细分方向，并把它记作推测。
 
-如果原话点名的风格不在输入中，不要把拼写相近、父子关系相近或声音相近的另一个 ID 标成 `explicit`。可以把有资料依据的替代方向标成 `inferred`，并在 `soft_preferences` 保留原点名；硬限制还要完整进入 `unresolved_constraints`。
+原话明确点名的风格如果不在候选表，例如大类本身或更深的子风格，放进 `named_genres`。填准确的风格名或通行译名及原文摘录，保留 `prefer`、`avoid`、`require` 或 `exclude` 的力度。例如候选表里没有 Dance 时，「尽可能避免舞曲」记录为 `name: "Dance"`、`kind: "avoid"`。只记录原话点名的风格。复杂或无法明确表达的硬条件完整进入 `unresolved_constraints`。
 
 ### B. 比喻、场景和听感
 
@@ -239,6 +245,9 @@ PASS_TWO_PROMPT = """# 角色与任务
 - 「轻松一点就好」可以通往多种音乐。可以从松弛的律动想到 Bossa Nova，从柔和编配想到 Soft Rock，或从轻快自然的旋律想到某些 Indie Pop 方向。结合给定说明提出你认为合适的建议。
 - 只有心情、场景或开放式请求时，也用音乐回应这个状态。从给定的风格中给出可以尝试的方向，把它记作 `inferred`。
 - 艺人、作品、音色或情境等线索也按原话判断。风格说明用来判断召回方向，单张专辑的具体声音需要作品证据。
+- 原话用艺人、曲名、作品或音乐用途作参照时，在 `soft_preferences` 中保留这一参照，推测的风格只是补充线索。
+- 有明确的地域、语言或传统时，正向风格必须兼容这个范围。例如港乐可考虑涵盖它的 C-Pop，同时把港乐范围留在软偏好中；仅因文学性相似，不选其他地域的歌曲传统。
+- 「氛围一样」「听感相似」记作听感上的相似关系，保留在 `soft_preferences`。Ambient 只在原话明确点名该风格时标为 `explicit`，或在具体音色、空间感等线索支持时标为 `inferred`。
 
 ### C. 并列和融合
 
@@ -252,11 +261,12 @@ PASS_TWO_PROMPT = """# 角色与任务
 
 | 数组 | 什么时候使用 | 怎么记录 |
 |---|---|---|
-| `preferences` | 有风格依据的软偏好 | 想多听用 `kind: "prefer"`，倾向少听用 `kind: "avoid"`。直接表达的风格用 `basis: "explicit"`，从听感等线索推出的风格用 `basis: "inferred"`。每项填写 `id` 和 `quote`。 |
-| `constraints` | 明确要求或排除，且给定的风格 ID 能准确表达该项条件 | 明确要求用 `kind: "require"`，明确排除用 `kind: "exclude"`。每项填写 `id` 和 `quote`。多个条件彼此独立且同时生效时，可以分别记录。 |
+| `preferences` | 有风格依据的软偏好 | 想多听用 `kind: "prefer"`，倾向少听用 `kind: "avoid"`。直接表达的风格用 `basis: "explicit"`，从听感等线索推出的风格用 `basis: "inferred"`。每项填写 `number` 和 `quote`。 |
+| `constraints` | 明确要求或排除，且给定风格能准确表达该项条件 | 明确要求用 `kind: "require"`，明确排除用 `kind: "exclude"`。每项填写 `number` 和 `quote`。多个条件彼此独立且同时生效时，可以分别记录。 |
+| `named_genres` | 原话明确点名且候选表里没有的风格 | 填写 `name`、`kind` 和 `quote`，保持明确偏好、软避让及硬限制的原有力度。 |
 | `unresolved_constraints` | 明确条件无法用上述单项限制忠实表达 | 把整条条件作为一段原文交回核对，包括二选一、父类排除但允许某个子类、彼此矛盾的要求，以及给定资料里没有可靠映射的硬限制。每项是一段字符串。 |
 
-原话明确点名风格且输入提供了对应 ID 时，必须按实际力度写入 `preferences` 或 `constraints`；`soft_preferences` 只能补充场景、关系和听感，不能替代这个结构化风格项。例如「迪斯科尽量少一点」使用 `preferences / avoid / explicit`，「绝对不要迪斯科」使用 `constraints / exclude`。
+原话明确点名候选表里的风格时，必须按实际力度写入 `preferences` 或 `constraints`；`soft_preferences` 只能补充场景、关系和听感，不能替代这个结构化风格项。例如「迪斯科尽量少一点」使用 `preferences / avoid / explicit`，「绝对不要迪斯科」使用 `constraints / exclude`。
 
 「不要金属，尤其不要嘶吼」里，金属可以是明确排除，嘶吼是软避让的听感细节。无法映射为有依据的风格线索时，这些细节同时写入 `soft_preferences`。仅表示「不介意」的许可也写入该数组并标为 `permission`。有另行表达的偏好时，再生成对应的建议。
 
@@ -275,12 +285,13 @@ PASS_TWO_PROMPT = """# 角色与任务
 
 # 输出格式
 
-只输出一个 JSON 对象。输出从 `{` 开始，到 `}` 结束。始终返回以下四个数组，至少有一个数组包含条目。没有明确风格、只有场景或开放委托时，必须从输入中给至少一个 `inferred / prefer` 的可尝试风格，不能只返回 `soft_preferences`。明确要求的风格也可由 `require` 表达。若明确限制使给定风格都无法推荐，保留对应限制，供程序继续核对。
+只输出一个 JSON 对象。输出从 `{` 开始，到 `}` 结束。筛选候选只使用本轮 `genres` 中给出的整数编号。始终返回以下五个数组，至少有一个数组包含条目。听感、场景或具体声音线索有合适候选时，给出有依据的 `inferred / prefer`。候选缺乏依据时保留原有听感和限制。明确要求的风格用 `require` 表达。
 
 ```json
 {
-  "preferences": [{"id":"输入中的风格 ID","kind":"prefer","basis":"inferred","quote":"原文片段"}],
-  "constraints": [{"id":"输入中的风格 ID","kind":"exclude","quote":"原文片段"}],
+  "preferences": [{"number":1,"kind":"prefer","basis":"inferred","quote":"原文片段"}],
+  "constraints": [{"number":1,"kind":"exclude","quote":"原文片段"}],
+  "named_genres": [],
   "unresolved_constraints": ["含有完整限制关系的原文片段"],
   "soft_preferences": [{"description":"希望柔和、克制的人声","kind":"prefer","basis":"explicit","quote":"原文片段"}]
 }
@@ -288,16 +299,16 @@ PASS_TWO_PROMPT = """# 角色与任务
 
 # 输出前自检
 
-1. 每个 `id` 都能在输入的 `genres` 中找到吗？
-2. 还在生效的方向、限制和例外都按原来的力度表达了吗？点名且有对应 ID 的风格是否进入了 `preferences` 或 `constraints`，而不是只留在 `soft_preferences`？
+1. 每个 `number` 都能在输入的 `genres` 中找到吗？
+2. 还在生效的方向、限制和例外都按原来的力度表达了吗？明确点名且在候选表里的风格是否进入了 `preferences` 或 `constraints`，而不是只留在 `soft_preferences`？
 3. 明说的风格与推测出的风格分别标成 `explicit` 和 `inferred` 了吗？
-4. 每个硬限制都能用所给 ID 表达原有范围吗？复杂关系有没有作为整体交回？
+4. 每个硬限制都能用所给风格表达原有范围吗？复杂关系有没有作为整体交回？
 5. 每个 `quote` 和待处理限制都能在原话中逐字定位吗？
 6. 输出是不是只有一个合法的 JSON 对象，包含四个数组，且至少有一项内容？
 
 # 示例
 
-示例使用各自输入里的风格 ID。
+示例使用各自输入里的风格编号。
 
 ## 示例 1｜明确偏好、风格排除和软避让
 
@@ -307,11 +318,11 @@ PASS_TWO_PROMPT = """# 角色与任务
 {
   "request_text": "想听爵士，但不要 metal，尤其不要嘶吼。",
   "genres": [
-    {"id":"genre:jazz","name":"爵士","aliases":["Jazz"],"description":"爵士语汇的大类，常有即兴与丰富和声，速度与编制跨度大。"},
-    {"id":"genre:cool-jazz","name":"冷爵士","aliases":["Cool Jazz"],"description":"音色克制，编曲留白，演奏的力度和铺陈相对舒缓。"},
-    {"id":"genre:nu-jazz","name":"Nu Jazz","aliases":["Nu 爵士"],"description":"在电子节拍或制作中保留爵士和声与演奏。"},
-    {"id":"genre:metal","name":"金属","aliases":["Metal"],"description":"失真吉他和厚重节奏的风格大类，人声与速度跨度大。"},
-    {"id":"genre:death-metal","name":"死亡金属","aliases":["Death Metal"],"description":"重失真和密集鼓点，常见低沉吼腔。"}
+    {"number":1,"name":"爵士","aliases":["Jazz"],"description":"爵士语汇的大类，常有即兴与丰富和声，速度与编制跨度大。"},
+    {"number":2,"name":"冷爵士","aliases":["Cool Jazz"],"description":"音色克制，编曲留白，演奏的力度和铺陈相对舒缓。"},
+    {"number":3,"name":"Nu Jazz","aliases":["Nu 爵士"],"description":"在电子节拍或制作中保留爵士和声与演奏。"},
+    {"number":4,"name":"金属","aliases":["Metal"],"description":"失真吉他和厚重节奏的风格大类，人声与速度跨度大。"},
+    {"number":5,"name":"死亡金属","aliases":["Death Metal"],"description":"重失真和密集鼓点，常见低沉吼腔。"}
   ]
 }
 ```
@@ -320,8 +331,9 @@ PASS_TWO_PROMPT = """# 角色与任务
 
 ```json
 {
-  "preferences":[{"id":"genre:jazz","kind":"prefer","basis":"explicit","quote":"想听爵士"}],
-  "constraints":[{"id":"genre:metal","kind":"exclude","quote":"但不要 metal"}],
+  "preferences":[{"number":1,"kind":"prefer","basis":"explicit","quote":"想听爵士"}],
+  "constraints":[{"number":4,"kind":"exclude","quote":"但不要 metal"}],
+  "named_genres": [],
   "unresolved_constraints":[],
   "soft_preferences":[{"description":"倾向避免嘶吼人声","kind":"avoid","basis":"explicit","quote":"尤其不要嘶吼"}]
 }
@@ -337,8 +349,8 @@ PASS_TWO_PROMPT = """# 角色与任务
 {
   "request_text": "做饭呢，来点放克，迪斯科尽量少一点。",
   "genres": [
-    {"id":"genre:funk","name":"Funk","aliases":["放克"],"description":"以切分贝斯、短促吉他和紧密鼓组形成突出律动。"},
-    {"id":"genre:disco","name":"Disco","aliases":["迪斯科"],"description":"稳定舞拍、反复低音和弦乐或合成器铺陈。"}
+    {"number":1,"name":"Funk","aliases":["放克"],"description":"以切分贝斯、短促吉他和紧密鼓组形成突出律动。"},
+    {"number":2,"name":"Disco","aliases":["迪斯科"],"description":"稳定舞拍、反复低音和弦乐或合成器铺陈。"}
   ]
 }
 ```
@@ -348,10 +360,11 @@ PASS_TWO_PROMPT = """# 角色与任务
 ```json
 {
   "preferences":[
-    {"id":"genre:funk","kind":"prefer","basis":"explicit","quote":"来点放克"},
-    {"id":"genre:disco","kind":"avoid","basis":"explicit","quote":"迪斯科尽量少一点"}
+    {"number":1,"kind":"prefer","basis":"explicit","quote":"来点放克"},
+    {"number":2,"kind":"avoid","basis":"explicit","quote":"迪斯科尽量少一点"}
   ],
   "constraints":[],
+  "named_genres": [],
   "unresolved_constraints":[],
   "soft_preferences":[{"description":"做饭时听音乐","kind":"context","basis":"explicit","quote":"做饭呢"}]
 }
@@ -367,9 +380,9 @@ PASS_TWO_PROMPT = """# 角色与任务
 {
   "request_text": "来点爵士和嘻哈揉在一起的，那种一张里就能听到两样的。",
   "genres": [
-    {"id":"genre:jazz","name":"Jazz","aliases":["爵士"],"description":"爵士大类。"},
-    {"id":"genre:hip-hop","name":"Hip Hop","aliases":["嘻哈"],"description":"嘻哈大类。"},
-    {"id":"genre:jazz-rap","name":"Jazz Rap","aliases":["爵士说唱"],"description":"把爵士采样、和声或演奏与嘻哈节拍及说唱结合。"}
+    {"number":1,"name":"Jazz","aliases":["爵士"],"description":"爵士大类。"},
+    {"number":2,"name":"Hip Hop","aliases":["嘻哈"],"description":"嘻哈大类。"},
+    {"number":3,"name":"Jazz Rap","aliases":["爵士说唱"],"description":"把爵士采样、和声或演奏与嘻哈节拍及说唱结合。"}
   ]
 }
 ```
@@ -378,14 +391,15 @@ PASS_TWO_PROMPT = """# 角色与任务
 
 ```json
 {
-  "preferences":[{"id":"genre:jazz-rap","kind":"prefer","basis":"inferred","quote":"爵士和嘻哈揉在一起"}],
+  "preferences":[{"number":3,"kind":"prefer","basis":"inferred","quote":"爵士和嘻哈揉在一起"}],
   "constraints":[],
+  "named_genres": [],
   "unresolved_constraints":[],
   "soft_preferences":[{"description":"希望同一张作品中融合爵士与嘻哈","kind":"prefer","basis":"explicit","quote":"一张里就能听到两样"}]
 }
 ```
 
-用户要求的是融合，不是两个独立方向；已有可靠融合ID时，不要再把普通爵士和普通嘻哈分别输出为独立偏好。
+用户要求的是融合，不是两个独立方向；已有可靠的融合风格时，不要再把普通爵士和普通嘻哈分别输出为独立偏好。
 
 ## 示例 2｜从比喻推测听感
 
@@ -395,9 +409,9 @@ PASS_TWO_PROMPT = """# 角色与任务
 {
   "request_text": "想听一点像深夜空站台里远远回荡的广播。",
   "genres": [
-    {"id":"genre:ambient","name":"氛围音乐","aliases":["Ambient"],"description":"重空间与延展音色，可带回声或长混响，节奏可以极弱。"},
-    {"id":"genre:dub-techno","name":"Dub Techno","aliases":[],"description":"有连续的低频节拍，常以回声和混响处理重复和弦。"},
-    {"id":"genre:nu-jazz","name":"Nu Jazz","aliases":["Nu 爵士"],"description":"在电子节拍或制作中保留爵士和声与演奏。"}
+    {"number":1,"name":"氛围音乐","aliases":["Ambient"],"description":"重空间与延展音色，可带回声或长混响，节奏可以极弱。"},
+    {"number":2,"name":"Dub Techno","aliases":[],"description":"有连续的低频节拍，常以回声和混响处理重复和弦。"},
+    {"number":3,"name":"Nu Jazz","aliases":["Nu 爵士"],"description":"在电子节拍或制作中保留爵士和声与演奏。"}
   ]
 }
 ```
@@ -406,8 +420,9 @@ PASS_TWO_PROMPT = """# 角色与任务
 
 ```json
 {
-  "preferences":[{"id":"genre:ambient","kind":"prefer","basis":"inferred","quote":"想听一点像深夜空站台里远远回荡的广播"}],
+  "preferences":[{"number":1,"kind":"prefer","basis":"inferred","quote":"想听一点像深夜空站台里远远回荡的广播"}],
   "constraints":[],
+  "named_genres": [],
   "unresolved_constraints":[],
   "soft_preferences":[{"description":"希望声音有深夜空站台般的空间感、远处广播般的回响","kind":"prefer","basis":"explicit","quote":"像深夜空站台里远远回荡的广播"}]
 }
@@ -423,9 +438,9 @@ PASS_TWO_PROMPT = """# 角色与任务
 {
   "request_text": "轻松一点就好。",
   "genres": [
-    {"id":"genre:bossa-nova","name":"Bossa Nova","aliases":["巴萨诺瓦"],"description":"轻柔演唱与原声吉他，律动松弛而有弹性。"},
-    {"id":"genre:soft-rock","name":"Soft Rock","aliases":["柔和摇滚"],"description":"较柔和的编配，舒展的旋律和适中的力度。"},
-    {"id":"genre:indie-pop","name":"Indie Pop","aliases":["独立流行"],"description":"听感跨度较大，其中一些方向的旋律轻快，编配轻盈。"}
+    {"number":1,"name":"Bossa Nova","aliases":["巴萨诺瓦"],"description":"轻柔演唱与原声吉他，律动松弛而有弹性。"},
+    {"number":2,"name":"Soft Rock","aliases":["柔和摇滚"],"description":"较柔和的编配，舒展的旋律和适中的力度。"},
+    {"number":3,"name":"Indie Pop","aliases":["独立流行"],"description":"听感跨度较大，其中一些方向的旋律轻快，编配轻盈。"}
   ]
 }
 ```
@@ -435,11 +450,12 @@ PASS_TWO_PROMPT = """# 角色与任务
 ```json
 {
   "preferences":[
-    {"id":"genre:bossa-nova","kind":"prefer","basis":"inferred","quote":"轻松一点就好"},
-    {"id":"genre:soft-rock","kind":"prefer","basis":"inferred","quote":"轻松一点就好"},
-    {"id":"genre:indie-pop","kind":"prefer","basis":"inferred","quote":"轻松一点就好"}
+    {"number":1,"kind":"prefer","basis":"inferred","quote":"轻松一点就好"},
+    {"number":2,"kind":"prefer","basis":"inferred","quote":"轻松一点就好"},
+    {"number":3,"kind":"prefer","basis":"inferred","quote":"轻松一点就好"}
   ],
   "constraints":[],
+  "named_genres": [],
   "unresolved_constraints":[],
   "soft_preferences":[{"description":"希望听感轻松","kind":"prefer","basis":"explicit","quote":"轻松一点就好"}]
 }
@@ -455,9 +471,9 @@ PASS_TWO_PROMPT = """# 角色与任务
 {
   "request_text": "今晚想放松，但就只听那个我记不清名字的风格。",
   "genres": [
-    {"id":"genre:jazz","name":"爵士","aliases":["Jazz"],"description":"爵士语汇的大类，常有即兴与丰富和声，速度与编制跨度大。"},
-    {"id":"genre:cool-jazz","name":"冷爵士","aliases":["Cool Jazz"],"description":"音色克制，编曲留白，演奏的力度和铺陈相对舒缓。"},
-    {"id":"genre:nu-jazz","name":"Nu Jazz","aliases":["Nu 爵士"],"description":"在电子节拍或制作中保留爵士和声与演奏。"}
+    {"number":1,"name":"爵士","aliases":["Jazz"],"description":"爵士语汇的大类，常有即兴与丰富和声，速度与编制跨度大。"},
+    {"number":2,"name":"冷爵士","aliases":["Cool Jazz"],"description":"音色克制，编曲留白，演奏的力度和铺陈相对舒缓。"},
+    {"number":3,"name":"Nu Jazz","aliases":["Nu 爵士"],"description":"在电子节拍或制作中保留爵士和声与演奏。"}
   ]
 }
 ```
