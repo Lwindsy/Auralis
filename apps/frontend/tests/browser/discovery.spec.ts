@@ -1026,7 +1026,7 @@ test.describe("on a phone", () => {
     }
     await page.getByRole("button", { name: /^风格/ }).first().tap();
     await page.waitForTimeout(1000);
-    await page.getByRole("button", { name: "Jazz", exact: true }).tap();
+    await page.getByRole("button", { name: "爵士", exact: true }).tap();
     const card = page.getByRole("tooltip");
     await expect(card).toContainText("即兴");
     const box = (await card.boundingBox())!;
