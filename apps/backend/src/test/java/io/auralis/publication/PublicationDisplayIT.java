@@ -23,6 +23,104 @@ import org.springframework.boot.*;
 @EnabledIfEnvironmentVariable(named = "AURALIS_TEST_POSTGRES_URL", matches = ".+")
 class PublicationDisplayIT extends PublicationFixture {
     @Test
+    void activeTailSignalsCurrentRunAndCardsAppendPastDisplayTarget() throws Exception {
+        var f = flow(1);
+        String round = f.context().execution().evidence().round();
+        var first = batch(f, 1, "PERSONALIZED").put("batch_kind", "PROGRESSIVE");
+        first.putObject("selection")
+                .put("status", "NOT_RUN")
+                .putNull("invocation_id")
+                .putArray("order");
+        ((ObjectNode) first.path("cards").get(0)).put("selection_basis", "INDIVIDUAL");
+        ((ObjectNode) first.path("pending"))
+                .put("supply_state", "SUPPLYING")
+                .put("deferred_candidates", 2);
+        publication.deliver(
+                f.context(), delivery(f, "CARD_BATCH", first, "continuous-one").toString());
+        var running = JSON.readTree(publication.state(latest(f), round));
+        assertEquals(album(1), running.path("continuation_tail_id").asText());
+        publication.continueAfterTail(
+                latest(f),
+                round,
+                album(1),
+                (scope, sameRound, slots) -> {
+                    fail("A running round should receive a demand, not enqueue another execution");
+                    return null;
+                });
+        var signal =
+                JSON.readTree(publication.displayState(latest(f), round)).path("progressive_tail");
+        assertEquals(album(1), signal.path("candidate_id").asText());
+        assertEquals(f.context().execution().budget().run(), signal.path("run_id").asText());
+        assertFalse(JSON.readTree(publication.state(latest(f), round)).has("continuation_tail_id"));
+
+        var second = batch(f, 2, "PERSONALIZED");
+        first.putArray("screen_order").add(album(2));
+        first.putArray("screenings").add(second.path("screenings").get(1));
+        var card = (ObjectNode) second.path("cards").get(1);
+        card.put("selection_basis", "INDIVIDUAL");
+        first.putArray("cards").add(card);
+        publication.deliver(
+                f.context(), delivery(f, "CARD_BATCH", first, "continuous-two").toString());
+        var appended = JSON.readTree(publication.state(latest(f), round));
+        assertEquals("RUNNING", appended.path("status").asText());
+        assertEquals(2, appended.path("slots").size());
+        assertEquals(
+                album(1), appended.path("slots").get(0).path("card").path("candidate_id").asText());
+        assertEquals(album(2), appended.path("continuation_tail_id").asText());
+    }
+
+    @Test
+    void publishesOneCardBeforeCompletingAndAppendsOnlyOnceFromItsTail() throws Exception {
+        var f = flow(3);
+        String round = f.context().execution().evidence().round();
+        var first = batch(f, 1, "PERSONALIZED").put("batch_kind", "PROGRESSIVE");
+        first.putObject("selection")
+                .put("status", "NOT_RUN")
+                .putNull("invocation_id")
+                .putArray("order");
+        ((ObjectNode) first.path("cards").get(0)).put("selection_basis", "INDIVIDUAL");
+        ((ObjectNode) first.path("pending")).put("supply_state", "SUPPLYING");
+        var delivery = delivery(f, "CARD_BATCH", first, "progressive-one");
+        var accepted = JSON.readTree(publication.deliver(f.context(), delivery.toString()));
+        assertEquals(album(1), accepted.path("published_candidate_ids").get(0).asText());
+        assertEquals(
+                accepted, JSON.readTree(publication.deliver(f.context(), delivery.toString())));
+        var running = JSON.readTree(publication.state(latest(f), round));
+        assertEquals("RUNNING", running.path("status").asText());
+        assertFalse(running.has("continuation_tail_id"));
+
+        var finalBatch = first.deepCopy();
+        finalBatch.putArray("cards");
+        finalBatch.putArray("screen_order");
+        finalBatch.putArray("screenings");
+        ((ObjectNode) finalBatch.path("pending")).put("supply_state", "SUFFICIENT");
+        publication.deliver(
+                f.context(), delivery(f, "CARD_BATCH", finalBatch, "progressive-end").toString());
+        var complete = JSON.readTree(publication.state(latest(f), round));
+        assertEquals("PARTIAL", complete.path("status").asText());
+        assertEquals(album(1), complete.path("continuation_tail_id").asText());
+        assertEquals(1, complete.path("slots").size());
+
+        var starts = new java.util.concurrent.atomic.AtomicInteger();
+        PublicationAuthority.Supply supply =
+                (scope, sameRound, slots) -> {
+                    starts.incrementAndGet();
+                    assertEquals(round, sameRound);
+                    assertEquals(Set.of("slot-0002", "slot-0003", "slot-0004"), slots);
+                    return f.context().execution().budget().run();
+                };
+        publication.continueAfterTail(latest(f), round, album(2), supply);
+        publication.continueAfterTail(latest(f), round, album(1), supply);
+        publication.continueAfterTail(latest(f), round, album(1), supply);
+        assertEquals(1, starts.get());
+        var continued = JSON.readTree(publication.state(latest(f), round));
+        assertEquals(4, continued.path("slots").size());
+        assertEquals(
+                album(1),
+                continued.path("slots").get(0).path("card").path("candidate_id").asText());
+    }
+
+    @Test
     void candidateRegistrationChecksIdentityAndAudienceInBatches() throws Exception {
         var catalog = app.getBean(CatalogQuery.class);
         var audience = app.getBean(AudienceQuery.class);

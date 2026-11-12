@@ -313,6 +313,34 @@ class ResearchStage:
                     result.clear()
         if output is None:
             return self._failed(candidate, dossier, "INSUFFICIENT_REVIEWS")
+        return self.screen_result(
+            candidate,
+            dossier,
+            records,
+            output,
+            pref_aliases,
+            reply.invocation_id,
+            version,
+            policy,
+            lane,
+            require_score,
+            min_score,
+        )
+
+    @staticmethod
+    def screen_result(
+        candidate,
+        dossier,
+        records,
+        output,
+        pref_aliases,
+        invocation_id,
+        version,
+        policy,
+        lane,
+        require_score,
+        min_score,
+    ):
         lookup = {record.ref: record for record in records}
         assessments = {item["ref"]: item for item in output["reads"]}
         qualified_ids = [
@@ -357,7 +385,7 @@ class ResearchStage:
             "screen": {
                 "status": "OK",
                 "score": output["score"],
-                "invocation_id": reply.invocation_id,
+                "invocation_id": invocation_id,
                 "prompt_version": version,
             },
             "disposition": "RESERVE" if eligible else "BELOW_FLOOR" if qualified else "INELIGIBLE",

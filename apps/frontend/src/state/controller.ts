@@ -197,6 +197,18 @@ export class DiscoveryController {
     );
   }
 
+  async continueAfter(candidateId: string) {
+    const state = this.state;
+    if (!state || state.continuation_tail_id !== candidateId) return false;
+    return this.mutate(
+      "/v1/discovery-sessions/{session_id}/next-batch",
+      { expected_revision: state.revision, tail_candidate_id: candidateId },
+      { session_id: state.session_id },
+      null,
+      this.undoable,
+    );
+  }
+
   /** Restores the card and the 已听过 mark changed by the last single-card action. */
   async undo() {
     const target = this.undoable;

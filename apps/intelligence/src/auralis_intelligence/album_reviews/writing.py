@@ -14,6 +14,7 @@ from jsonschema import Draft202012Validator
 
 from . import prompts_en
 from .context import preference_context
+from .evidence_quality import identity_rejection
 from .research import excerpt
 from .types import AlbumDossier, ReadRecord
 from .validation import han_count, validate_long, validate_short, word_count
@@ -26,6 +27,11 @@ LONG_SCHEMA = json.loads(
 )
 WRITING_PROMPT = files(__package__).joinpath("writing.v1.4.txt").read_text(encoding="utf-8")
 WRITING_PROMPT_EN = files(__package__).joinpath("writing.v1.4.en.txt").read_text(encoding="utf-8")
+LONG_RESEARCH_INSTRUCTION = (
+    "\nRespect research_budget. If searches_remaining is zero, choose relevant "
+    "available_sources to read. If turns_remaining is zero, write using the sources "
+    "already read if sufficient. Otherwise report the gap without requesting tools."
+)
 
 
 @dataclass(frozen=True)
@@ -67,7 +73,8 @@ class WriteStage:
 
     @staticmethod
     def _version(execution: Execution, form: str) -> str:
-        return f"{form}_review.v1.4" + (".en" if execution.english else "")
+        version = "1.5" if form == "long" else "1.4"
+        return f"{form}_review.v{version}" + (".en" if execution.english else "")
 
     def start(
         self,
@@ -122,13 +129,17 @@ class WriteStage:
         invocation_ids,
         *,
         available_sources=(),
+        research_budget=None,
         priority=0,
     ):
         schema = SHORT_SCHEMA if form == "short" else LONG_SCHEMA
         policy = execution.start["agent_policy"]["writing"]
         payload = self._input(execution, dossier, preferences, records, form)
+        system = WRITING_PROMPT_EN if execution.english else WRITING_PROMPT
         if form == "long":
             payload["available_sources"] = list(available_sources)
+            payload["research_budget"] = research_budget
+            system += LONG_RESEARCH_INSTRUCTION
         for attempt in range(2):
             reply = await self.model.generate(
                 execution,
@@ -136,7 +147,7 @@ class WriteStage:
                 if form == "long" and "long_write" in execution.start["model_bindings"]
                 else "write",
                 purpose=purpose if attempt == 0 else "STRUCTURE_REPAIR",
-                system=WRITING_PROMPT_EN if execution.english else WRITING_PROMPT,
+                system=system,
                 input=payload,
                 output_schema=schema,
                 prompt_version=self._version(execution, form),
@@ -303,8 +314,9 @@ class WriteStage:
         result["extra_read_ids"].extend(r.result.receipt["read_id"] for r in extra)
         available: dict[str, str] = {}
         policy = execution.start["agent_policy"]["writing"]
+        turns = min(policy["long_tool_turns"], 2)
         searches = reads = 0
-        for turn in range(policy["long_tool_turns"] + 1):
+        for turn in range(turns + 1):
             reply = await self._response(
                 execution,
                 dossier,
@@ -317,6 +329,11 @@ class WriteStage:
                 available_sources=[
                     {"url": url, "title": title} for url, title in available.items()
                 ],
+                research_budget={
+                    "turns_remaining": turns - turn,
+                    "searches_remaining": policy["long_extra_max_searches"] - searches,
+                    "reads_remaining": policy["long_extra_max_reads"] - reads,
+                },
                 priority=priority,
             )
             output = reply.output
@@ -328,6 +345,7 @@ class WriteStage:
                     citations=[{"marker": ref, "read_id": lookup[ref]} for ref in output["refs"]],
                     han_char_count=sum(han_count(text) for text in output["sections"].values()),
                     missing_sections=[],
+                    reason_code=None,
                 )
                 return result
             result.update(
@@ -335,16 +353,21 @@ class WriteStage:
                 missing_sections=output["missing"],
                 reason_code="REVIEW_MATERIAL_INSUFFICIENT",
             )
-            if turn == policy["long_tool_turns"] or not output["tool_requests"]:
+            requests = output["tool_requests"]
+            if turn == turns and (turn or requests):
+                result.update(status="FAILED", reason_code="LONG_RESEARCH_LIMIT_REACHED")
                 return result
-            progressed = False
-            for request in output["tool_requests"]:
+            if not requests:
+                return result
+            progressed = attempted = read_failed = False
+            for request in requests:
                 if request["tool"] == "web_search":
                     if request["url"] is not None:
                         raise ContractError("LONG_TOOL_ARGUMENT_INVALID")
                     if searches >= policy["long_extra_max_searches"]:
                         continue
                     searches += 1
+                    attempted = True
                     query = f"{dossier.identity['artist_credit']} {dossier.identity['title']} {request['section']} album review"
                     hits = await self.tools.search(
                         execution, candidate_id=dossier.candidate_id, query=query, lane="BACKGROUND"
@@ -360,6 +383,7 @@ class WriteStage:
                     if reads >= policy["long_extra_max_reads"]:
                         continue
                     reads += 1
+                    attempted = True
                     read = await self.tools.read(
                         execution,
                         candidate_id=dossier.candidate_id,
@@ -370,9 +394,11 @@ class WriteStage:
                         priority=priority,
                     )
                     if read.receipt["status"] != "READ_OK":
-                        raise ContractError("LONG_RESEARCH_FAILED")
+                        read.clear()
+                        read_failed = True
+                        continue
                     if (
-                        not all(read.receipt["checks"].values())
+                        identity_rejection(read.text, dossier.identity) is not None
                         or read.receipt["text_chars"]
                         < execution.start["agent_policy"]["screening"]["min_review_chars"]
                     ):
@@ -393,5 +419,9 @@ class WriteStage:
                     result["extra_read_ids"].append(read.receipt["read_id"])
                     progressed = True
             if not progressed:
+                if read_failed:
+                    raise ContractError("LONG_RESEARCH_FAILED")
+                if not attempted:
+                    result.update(status="FAILED", reason_code="LONG_RESEARCH_LIMIT_REACHED")
                 return result
         return result

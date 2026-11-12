@@ -2046,6 +2046,15 @@
     "DisplayState": {
       "type": "object",
       "properties": {
+        "progressive_tail": {
+          "type": "object",
+          "properties": {
+            "candidate_id": {"$ref": "#/$defs/CardProposal/properties/candidate_id"},
+            "run_id": {"type": "string", "minLength": 1, "maxLength": 160}
+          },
+          "required": ["candidate_id", "run_id"],
+          "additionalProperties": false
+        },
         "display_seq": {
           "type": "integer",
           "minimum": 0,
@@ -2836,6 +2845,7 @@
           "enum": [
             "SELECTED",
             "SCREEN_ONLY",
+            "INDIVIDUAL",
             "CURATED"
           ]
         },
@@ -3101,6 +3111,7 @@
           "type": "string",
           "enum": [
             "FIRST",
+            "PROGRESSIVE",
             "SUPPLY"
           ]
         },
@@ -6566,6 +6577,10 @@
           },
           "maxItems": 1000
         },
+        "continuation_tail_id": {
+          "$ref": "#/$defs/CardProposal/properties/candidate_id",
+          "description": "Last visible card eligible to request more work within the current recall pool."
+        },
         "supply_state": {
           "type": "string",
           "enum": [
@@ -6668,6 +6683,10 @@
     "SessionAction": {
       "type": "object",
       "properties": {
+        "tail_candidate_id": {
+          "$ref": "#/$defs/CardProposal/properties/candidate_id",
+          "description": "For next-batch only, fill available candidate capacity within the current recall pool."
+        },
         "expected_revision": {
           "type": "integer",
           "minimum": 0

@@ -26,6 +26,14 @@
   --ink-60: color-mix(in srgb, var(--page-ink) 62%, var(--page-room));
   --glass: color-mix(in srgb, var(--page-ink) 5%, transparent);
   --glass-strong: color-mix(in srgb, var(--page-room) 72%, var(--page-ink) 6%);
+  /* Solid stand-ins for frosted glass: a backdrop blur over the moving map would have to
+     be recomputed on every frame of the canvas, which is what made slower GPUs stutter. */
+  --frost: color-mix(
+    in srgb,
+    color-mix(in srgb, var(--page-room) 90%, var(--page-ink)) 60%,
+    transparent
+  );
+  --frost-strong: color-mix(in srgb, var(--page-room) 94%, var(--page-ink));
   --accent: #e0714f;
   --radius: 26px;
   --room-change: 1100ms var(--ease-out-expo);
@@ -58,8 +66,18 @@ body,
       color-mix(in srgb, #000 30%, var(--page-room)) 100%
     );
   background-color: var(--page-room);
-  background-attachment: fixed;
   color: var(--page-ink);
+}
+
+/* The room stays put while the page scrolls. A fixed layer does this on the compositor;
+   background-attachment: fixed would force every scroll frame onto the main thread. */
+body::before {
+  content: "";
+  position: fixed;
+  z-index: -2;
+  inset: 0;
+  pointer-events: none;
+  background: inherit;
 }
 
 .room-fade {
@@ -99,12 +117,8 @@ body,
   height: 100%;
   color: var(--page-ink);
   pointer-events: none;
-  /* Lines fade toward the middle so they frame the content instead of crossing it. */
-  mask-image: radial-gradient(
-    120% 90% at 50% 50%,
-    rgb(0 0 0 / 0.45) 0%,
-    #000 75%
-  );
+  /* The lines fade toward the middle inside the canvas itself (Contours.tsx), which is
+     cheaper than masking a full-screen layer that changes every frame. */
   animation: fade 2400ms ease 200ms both;
   transition: color var(--room-change);
 }
@@ -187,6 +201,119 @@ body,
   flex: 1;
   display: grid;
   min-height: 100dvh;
+}
+
+.stage[data-stage="entry"],
+.stage[data-stage="leaving"] {
+  min-height: auto;
+}
+
+/* Privacy: one quiet line of short facts at the foot of the page; the full wording opens
+   in a small card above it. */
+.privacy {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 6px 14px;
+  margin-inline: auto;
+  padding: 8px 20px max(18px, env(safe-area-inset-bottom));
+  font-size: 12px;
+  line-height: 1.6;
+  letter-spacing: 0.02em;
+  color: color-mix(in srgb, var(--page-ink) 46%, var(--page-room));
+}
+
+.privacy__points {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 2px 0;
+}
+
+.privacy__points li {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+}
+
+.privacy__points li + li::before {
+  content: "";
+  width: 3px;
+  height: 3px;
+  margin-inline: 10px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.55;
+}
+
+.privacy__more {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px 3px 7px;
+  border: 1px solid var(--ink-12);
+  border-radius: 999px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  cursor: pointer;
+  transition:
+    color 240ms ease,
+    border-color 240ms ease,
+    background-color 240ms ease;
+}
+
+.privacy__more:hover,
+.privacy__more[aria-expanded="true"] {
+  border-color: var(--ink-40);
+  background: var(--glass);
+  color: var(--page-ink);
+}
+
+.privacy__card {
+  position: absolute;
+  bottom: calc(100% - 4px);
+  left: 50%;
+  width: min(420px, calc(100vw - 32px));
+  padding: 14px 18px;
+  border: 1px solid var(--ink-12);
+  border-radius: 16px;
+  background: var(--frost-strong);
+  box-shadow: 0 24px 60px -28px rgb(0 0 0 / 0.65);
+  color: var(--ink-60);
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  line-height: 1.7;
+  letter-spacing: 0;
+  text-align: left;
+  transform: translateX(-50%);
+  animation: privacy-in 420ms var(--ease-out-expo) both;
+}
+
+.privacy__card[hidden] {
+  display: none;
+}
+
+/* Narrow screens wrap the facts; without the dots no line starts with a stray one. */
+@media (max-width: 560px) {
+  .privacy__points {
+    gap: 2px 14px;
+  }
+
+  .privacy__points li + li::before {
+    content: none;
+  }
+}
+
+@keyframes privacy-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 8px) scale(0.98);
+  }
 }
 
 .fixture-banner {

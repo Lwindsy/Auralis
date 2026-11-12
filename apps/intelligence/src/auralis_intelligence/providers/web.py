@@ -124,7 +124,7 @@ class AiohttpPageFetcher:
             await resolver.close()
 
 
-def extract_text(body: bytes, content_type: str) -> str:
+def extract_text(body: bytes, content_type: str, source_url: str = "") -> str:
     media_type = content_type.split(";", 1)[0].strip().lower()
     if media_type == "text/plain":
         return body.decode("utf-8", errors="replace").strip()
@@ -135,7 +135,14 @@ def extract_text(body: bytes, content_type: str) -> str:
         ["script", "style", "nav", "header", "footer", "aside", "form", "noscript", "svg"]
     ):
         element.decompose()
-    main = soup.find("article") or soup.find("main") or soup.body or soup
+    source = urlsplit(source_url)
+    main = None
+    if source.hostname in {"sputnikmusic.com", "www.sputnikmusic.com"} and source.path.startswith(
+        "/review/"
+    ):
+        # Sputnikmusic marks comments as articles and puts the review in a separate column.
+        main = soup.select_one("#leftColumn")
+    main = main or soup.find("article") or soup.find("main") or soup.body or soup
     return "\n".join(line.strip() for line in main.get_text("\n").splitlines() if line.strip())
 
 
@@ -286,7 +293,10 @@ class ToolGateway:
                     if len(response.body) > guards["max_bytes"]:
                         raise FetchFailure("BODY_TOO_LARGE")
                     text = await execution.scheduler.cpu(
-                        extract_text, response.body, response.headers.get("content-type", "")
+                        extract_text,
+                        response.body,
+                        response.headers.get("content-type", ""),
+                        current,
                     )
                     if not text:
                         raise FetchFailure("EMPTY_BODY")

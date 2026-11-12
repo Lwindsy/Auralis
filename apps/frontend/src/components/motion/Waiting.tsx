@@ -1,33 +1,34 @@
 import { useEffect, useState } from "react";
 import type { ProductState } from "../../api/types.ts";
+import { genreFact, randomGenreIndex } from "../../content/genreNotes.ts";
 import { useCopy } from "../../i18n/index.ts";
 import { Drum } from "./Drum.tsx";
 
-const clock = (ms: number) => {
-  const seconds = Math.max(0, Math.floor(ms / 1000));
-  return `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
-};
+/** How long each genre stays on screen while waiting. */
+const FACT_MS = 4000;
 
 /**
- * Between the request and the first album. Only honest progress is shown: whether the
- * request is queued or being worked on, and how long this page has been waiting.
+ * Between the request and the first album. The title says honestly whether the request is
+ * queued or being worked on; underneath, a random genre from the catalogue and its
+ * one-line introduction change every few seconds, something to read while it works.
  */
 export function Waiting({
   state,
-  since,
   settling,
   onSettled,
 }: {
   state: ProductState | null;
-  since: number;
   settling: boolean;
   onSettled: () => void;
 }) {
   const words = useCopy().waiting;
-  const [now, setNow] = useState(() => Date.now());
+  const [index, setIndex] = useState(() => randomGenreIndex());
   useEffect(() => {
     if (settling) return;
-    const timer = setInterval(() => setNow(Date.now()), 1000);
+    const timer = setInterval(
+      () => setIndex((previous) => randomGenreIndex(previous)),
+      FACT_MS,
+    );
     return () => clearInterval(timer);
   }, [settling]);
   const queued = state?.status === "WAITING";
@@ -36,11 +37,7 @@ export function Waiting({
     : queued
       ? words.queued
       : words.working;
-  const detail = settling
-    ? words.soon
-    : queued
-      ? words.queuedFor(clock(now - since))
-      : words.waited(clock(now - since));
+  const fact = genreFact(index);
   return (
     <section className="waiting" aria-live="polite" aria-label={words.label}>
       <Drum settling={settling} onSettled={onSettled} />
@@ -53,7 +50,15 @@ export function Waiting({
             </span>
           ))}
         </p>
-        <p className="waiting__detail mono">{detail}</p>
+        {settling ? (
+          <p className="waiting__detail mono">{words.soon}</p>
+        ) : (
+          // Not announced: a new genre every few seconds would talk over everything.
+          <div className="waiting__fact" key={index} aria-live="off">
+            <p className="waiting__genre mono">{fact.name}</p>
+            <p className="waiting__note">{fact.text}</p>
+          </div>
+        )}
       </div>
     </section>
   );

@@ -161,39 +161,68 @@ def test_truncation_and_invalid_output_use_only_shared_repair_allowance():
     asyncio.run(run())
 
 
-def test_long_research_search_then_read_is_bounded_and_records_extra_evidence():
+@pytest.mark.parametrize("finish", ["ready", "limit"])
+def test_long_research_search_then_read_is_bounded_and_records_extra_evidence(finish):
     async def run():
         extra_url = "https://one.example/vocals"
+        unavailable_url = "https://one.example/unavailable"
         extra_text = (
-            "Artist Album\n"
+            "Godspeed You Black Emperor — Allelujah! Don't Bend! Ascend!\n"
             + "The vocals use a close microphone perspective. Quiet breath and restrained phrasing are described alongside the arrangement, with clear discussion of the singer's tone and the room around the voice. "
             * 3
         )
         execution, control, research, result, preferences = await prepared(
-            pages={URLS[0]: ONE, URLS[1]: TWO, extra_url: extra_text},
-            writing={"long_tool_turns": 2, "long_extra_max_searches": 1, "long_extra_max_reads": 1},
+            pages={
+                URLS[0]: ONE,
+                URLS[1]: TWO,
+                extra_url: extra_text,
+                unavailable_url: OSError("test page unavailable"),
+            },
+            writing={"long_tool_turns": 4, "long_extra_max_searches": 1, "long_extra_max_reads": 2},
+        )
+        result.dossier.identity.update(
+            title="’ALLELUJAH! DON’T BEND! ASCEND!",
+            artist_credit="Godspeed You! Black Emperor",
         )
         research.tools.search_adapter = StaticSearchAdapter(
-            (SearchHit(extra_url, "Album vocal review"),)
+            (
+                SearchHit(unavailable_url, "Unavailable review"),
+                SearchHit(extra_url, "Album vocal review"),
+            )
         )
+        read_both = needs_more("web_read", unavailable_url)
+        read_both["tool_requests"].extend(needs_more("web_read", extra_url)["tool_requests"])
         adapter = ScriptedModelAdapter(
             [
                 CallResult(needs_more("web_search"), usage=Usage(1, 1, 0)),
-                CallResult(needs_more("web_read", extra_url), usage=Usage(1, 1, 0)),
-                CallResult(long_output("R3"), usage=Usage(1, 1, 0)),
+                CallResult(read_both, usage=Usage(1, 1, 0)),
+                CallResult(
+                    long_output("R3") if finish == "ready" else needs_more(), usage=Usage(1, 1, 0)
+                ),
             ]
         )
         research.model.adapter = adapter
         output = await WriteStage(research.model, research.tools).long(
             execution, result.dossier, preferences
         )
-        assert output["status"] == "READY" and len(output["extra_read_ids"]) == 1
+        assert (output["status"], output["reason_code"]) == (
+            ("READY", None) if finish == "ready" else ("FAILED", "LONG_RESEARCH_LIMIT_REACHED")
+        )
+        assert len(output["extra_read_ids"]) == 1
         assert output["extra_read_ids"][0] in control.reads
+        assert control.reads[output["extra_read_ids"][0]]["receipt"]["checks"] == {
+            "mentions_title": False,
+            "mentions_artist": False,
+        }
         assert (
             control.reads[output["extra_read_ids"][0]]["receipt"]["purpose"]
             == "LONG_REVIEW_RESEARCH"
         )
         assert len(adapter.requests) == 3
+        budgets = [request.input["research_budget"] for _, request in adapter.requests]
+        assert [budget["turns_remaining"] for budget in budgets] == [2, 1, 0]
+        assert budgets[1]["searches_remaining"] == 0
+        assert budgets[2]["reads_remaining"] == 0
         assert (
             sum(call["plan"]["purpose"] == "SEARCH" for call in control.invocations.values()) == 1
         )

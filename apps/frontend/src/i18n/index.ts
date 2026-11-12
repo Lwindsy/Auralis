@@ -20,12 +20,12 @@ export const isLocale = (value: unknown): value is Locale =>
   value === "zh-CN" || value === "en";
 
 /**
- * The interface language of this page. Kept in memory only, like everything else the page
- * holds: nothing goes to browser storage. Changing it re-renders every subscribed view,
- * names the document's language and retitles the tab.
+ * The interface language of this page. It opens in English. Kept in memory only, like
+ * everything else the page holds: nothing goes to browser storage. Changing it re-renders
+ * every subscribed view, names the document's language and retitles the tab.
  */
 class LocaleStore {
-  locale: Locale = "zh-CN";
+  locale: Locale = "en";
   /** True once the person has picked a language on this page. */
   chosen = false;
   private adopted = false;

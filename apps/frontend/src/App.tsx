@@ -2,11 +2,16 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { Api } from "./api/client.ts";
 import { ApiError } from "./api/client.ts";
 import { message } from "./api/messages.ts";
-import type { DiscoveryInput, ProductState } from "./api/types.ts";
+import type {
+  DiscoveryInput,
+  GenreSearchResult,
+  ProductState,
+} from "./api/types.ts";
 import { Deck, type Feeling } from "./components/deck/Deck.tsx";
 import { Entry } from "./components/entry/Entry.tsx";
 import { Icon } from "./components/Icon.tsx";
 import { LangSwitch } from "./components/LangSwitch.tsx";
+import { PrivacyNote } from "./components/PrivacyNote.tsx";
 import { Drum } from "./components/motion/Drum.tsx";
 import {
   Contours,
@@ -45,7 +50,7 @@ const working = (state: ProductState) =>
 
 /** The request has an answer to show: cards, or a final outcome with nothing coming. */
 const answered = (state: ProductState) =>
-  !working(state) && (readyCards(state).length > 0 || !supplying(state));
+  readyCards(state).length > 0 || (!working(state) && !supplying(state));
 
 interface WaitMark {
   session: string | null;
@@ -56,8 +61,37 @@ export function App({ api, controller, review, fixture }: AppProps) {
   useStore(controller);
   const words = useCopy();
   const state = controller.state;
+  const [rootParentGenres, setRootParentGenres] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
+  const catalogAvailable = state !== null;
+  useEffect(() => {
+    if (!catalogAvailable) return;
+    const request = new AbortController();
+    const load = async () => {
+      const roots = new Set<string>();
+      let offset: number | null = 0;
+      while (offset !== null) {
+        const page: GenreSearchResult = await api.request<GenreSearchResult>(
+          "GET",
+          "/v1/catalog/genres",
+          {
+            query: { limit: "50", offset: String(offset) },
+            signal: request.signal,
+          },
+        );
+        for (const genre of page.items)
+          if (!genre.parent_ids.length && genre.has_children)
+            roots.add(genre.genre_id);
+        offset = page.next_offset;
+      }
+      if (!request.signal.aborted) setRootParentGenres(roots);
+    };
+    // Keep the original directory order if the hierarchy is unavailable.
+    void load().catch(() => {});
+    return () => request.abort();
+  }, [api, catalogAvailable]);
   const [requested, setRequested] = useState<Stage | null>(null);
-  const [waitSince, setWaitSince] = useState(() => Date.now());
   const [waitMark, setWaitMark] = useState<WaitMark | null>(null);
   const [minDone, setMinDone] = useState(true);
   const [epoch, setEpoch] = useState(0);
@@ -87,7 +121,7 @@ export function App({ api, controller, review, fixture }: AppProps) {
   const settling =
     stage === "waiting" &&
     !!state &&
-    minDone &&
+    (minDone || readyCards(state).length > 0) &&
     changed &&
     !controller.pending &&
     !controller.busy &&
@@ -118,7 +152,6 @@ export function App({ api, controller, review, fixture }: AppProps) {
 
   const startWait = (mark: WaitMark | null) => {
     setWaitMark(mark);
-    setWaitSince(Date.now());
     setMinDone(false);
     clearTimeout(minTimer.current);
     minTimer.current = setTimeout(() => setMinDone(true), MIN_WAIT_MS);
@@ -144,6 +177,10 @@ export function App({ api, controller, review, fixture }: AppProps) {
 
   const more = async () => {
     if (!state) return;
+    if (state.continuation_tail_id) {
+      await controller.continueAfter(state.continuation_tail_id);
+      return;
+    }
     startWait({ session, revision: state.revision });
     let ok = await controller.action("next-batch");
     if (!ok && !controller.pending && controller.state?.editable_input) {
@@ -255,18 +292,14 @@ export function App({ api, controller, review, fixture }: AppProps) {
             onSubmit={(input) => void submit(input)}
           />
         ) : stage === "waiting" ? (
-          <Waiting
-            state={state}
-            since={waitSince}
-            settling={settling}
-            onSettled={settled}
-          />
+          <Waiting state={state} settling={settling} onSettled={settled} />
         ) : (
           <Deck
             key={`${session}:${epoch}`}
             controller={controller}
             review={review}
             state={state!}
+            rootParentGenres={rootParentGenres}
             feelings={feelings}
             onFeel={(candidate, feeling) =>
               setFeelings((current) => {
@@ -282,6 +315,8 @@ export function App({ api, controller, review, fixture }: AppProps) {
           />
         )}
       </main>
+
+      <PrivacyNote />
 
       {errorText && error?.message !== "EXPIRED" ? (
         <div className="toast-region">

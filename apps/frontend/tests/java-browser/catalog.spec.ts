@@ -12,6 +12,8 @@ test("real Java bootstrap, genres, full catalog selection and read-only recovery
     response.url().endsWith("/v1/bootstrap"),
   );
   await page.goto("/");
+  // The page opens in English; these checks read the Chinese copy.
+  await page.getByRole("button", { name: "中文", exact: true }).click();
   const initial = validate(
     "BootstrapState",
     await (await bootstrap).json(),

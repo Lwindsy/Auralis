@@ -151,7 +151,17 @@ def test_long_generation_receives_first_and_additional_records():
                 )
 
         writer = Writer(None, None)
-        execution = SimpleNamespace(start={"agent_policy": {"writing": {"long_tool_turns": 0}}})
+        execution = SimpleNamespace(
+            start={
+                "agent_policy": {
+                    "writing": {
+                        "long_tool_turns": 0,
+                        "long_extra_max_searches": 0,
+                        "long_extra_max_reads": 0,
+                    }
+                }
+            }
+        )
         result = await writer._long_work(
             execution, dossier, {}, {"extra_read_ids": [], "invocation_ids": []}, 3
         )

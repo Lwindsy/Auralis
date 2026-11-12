@@ -28,7 +28,7 @@ import { Reaction } from "./Reaction.tsx";
 import { GenreWave } from "./GenreWave.tsx";
 import { MiniWave } from "./MiniWave.tsx";
 import { SlicedCover, type CoverExit } from "./SlicedCover.tsx";
-import { FLIGHT_MS, GroupStack, STACK_MAX } from "./GroupStack.tsx";
+import { FLIGHT_MS, GroupStack } from "./GroupStack.tsx";
 import { reducedMotion } from "../../lib/motion.ts";
 import { useRoom } from "./useRoom.ts";
 import { LINER_CLOSE_MS } from "./liner.ts";
@@ -40,6 +40,7 @@ export interface DeckProps {
   controller: DiscoveryController;
   review: LongReviewController;
   state: ProductState;
+  rootParentGenres: ReadonlySet<string>;
   feelings: ReadonlyMap<string, Feeling>;
   onFeel: (candidateId: string, feeling: Feeling | null) => void;
   onPaint: (room: string, ink: string) => void;
@@ -78,6 +79,7 @@ export function Deck({
   controller,
   review,
   state,
+  rootParentGenres,
   feelings,
   onFeel,
   onPaint,
@@ -113,6 +115,28 @@ export function Deck({
   const last = entries.length; // the tail position after the final album
   const position = Math.min(index, last);
   const current = entries[position] ?? null;
+  const viewed = useRef<string | null>(null);
+  const requestedTail = useRef<string | null>(null);
+  const tailId = state.continuation_tail_id;
+  const atCandidate = current?.candidateId;
+  const locked = controller.locked;
+  useEffect(() => {
+    if (atCandidate) viewed.current = atCandidate;
+    if (!tailId || locked || viewed.current !== tailId) return;
+    const key = `${state.session_id}:${state.round_id}:${state.run_id}:${state.supply_state}:${tailId}`;
+    if (requestedTail.current === key) return;
+    requestedTail.current = key;
+    void controller.continueAfter(tailId);
+  }, [
+    atCandidate,
+    controller,
+    locked,
+    state.round_id,
+    state.run_id,
+    state.session_id,
+    state.supply_state,
+    tailId,
+  ]);
   const nextCover = entries[position + 1]?.card.cover_url;
   useEffect(() => {
     prefetchCover(nextCover);
@@ -184,16 +208,12 @@ export function Deck({
     const outgoing = entries[position];
     const direction = bounded > position ? "next" : "prev";
     // Into the finale the sleeve does not break into strips over the closing words: it
-    // flies whole into the group's stack, or just fades when there is no stack to join.
-    const stacked =
-      !!outgoing &&
-      entries
-        .slice(-STACK_MAX)
-        .some((e) => e.candidateId === outgoing.candidateId);
+    // flies whole into its place in the group's stack (every album has one), or just fades
+    // while more albums are on the way or motion is reduced.
     const exit: CoverExit =
       bounded !== last
         ? "slices"
-        : stacked && !busy && !reducedMotion()
+        : !!outgoing && !busy && !reducedMotion()
           ? "flight"
           : "quiet";
     review.close();
@@ -427,7 +447,11 @@ export function Deck({
           </div>
         </div>
         <div className="cut__words">
-          <GenreWave card={entry.card} still={!!leaving} />
+          <GenreWave
+            card={entry.card}
+            rootParentGenres={rootParentGenres}
+            still={!!leaving}
+          />
           {state.analysis_mode === "BASIC" ? (
             <p className="basic-note">{words.basic}</p>
           ) : null}
@@ -513,7 +537,6 @@ export function Deck({
         <div className="finale__choices">
           <button type="button" className="choice" onClick={onRethink}>
             <MiniWave bars={13} calm className="choice__wave" />
-            <span className="choice__eyebrow">{words.unhappy}</span>
             <span className="choice__title">{words.rethink}</span>
           </button>
           <button
@@ -523,7 +546,6 @@ export function Deck({
             onClick={onMore}
           >
             <MiniWave bars={13} live className="choice__wave" />
-            <span className="choice__eyebrow">{words.same}</span>
             <span className="choice__title">{words.more}</span>
           </button>
         </div>

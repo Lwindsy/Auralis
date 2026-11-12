@@ -57,16 +57,19 @@ function nameOf(item: ChipItem): ChipName {
 
 /**
  * What has been picked, as small chips that pop in. Liked items carry two marks — 特别喜欢
- * and 本次重点 — and every chip can be removed (which also clears its marks).
+ * and 本次重点 — and every chip can be removed (which also clears its marks). With two or
+ * more picks a last quiet button clears them all at once.
  */
 export function Chips({
   items,
   handlers,
   label,
+  onClear,
 }: {
   items: ChipItem[];
   handlers: ChipHandlers;
   label: string;
+  onClear?: () => void;
 }) {
   useStore(labels);
   const words = useCopy().chips;
@@ -151,6 +154,19 @@ export function Chips({
             </li>
           );
         })}
+        {onClear && items.length > 1 ? (
+          <li className="chips__clear">
+            <button
+              type="button"
+              aria-label={words.clearName(label)}
+              disabled={handlers.locked}
+              onClick={onClear}
+            >
+              <Icon name="close" size={11} />
+              {words.clear}
+            </button>
+          </li>
+        ) : null}
       </ul>
     </QuietScroll>
   );

@@ -714,6 +714,7 @@ class RoundSupervisor:
         kind, payload = command["kind"], command["payload"]
         if (
             kind == "DISPLAY_STATE"
+            and "progressive_tail" not in payload
             and execution.work is not None
             and payload["display_seq"] <= execution.work.display_seq
         ):

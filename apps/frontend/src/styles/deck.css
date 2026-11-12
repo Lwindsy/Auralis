@@ -1309,8 +1309,15 @@
 
 /* The group, gathered ------------------------------------------------------- */
 
+/* Up to seven sleeves overlap by 40%; a larger group packs them closer so the whole fan
+   stays within the width seven would take (and within the screen). */
 .finale__stack {
   --w: clamp(76px, 8vw, 116px);
+  --span: min(calc(var(--w) * 4.6), calc(100vw - 48px));
+  --step: min(
+    calc(var(--w) * 0.6),
+    calc((var(--span) - var(--w)) / max(var(--n, 1) - 1, 1))
+  );
   display: flex;
   justify-content: center;
   align-items: flex-start;
@@ -1325,9 +1332,9 @@
   width: var(--w);
   height: var(--w);
   margin-top: var(--lift);
-  margin-left: calc(var(--w) * -0.4);
+  margin-left: calc(var(--step) - var(--w));
   animation: stack-in 760ms var(--ease-out-expo) both;
-  animation-delay: calc(140ms + var(--i) * 70ms);
+  animation-delay: calc(140ms + var(--i) * var(--beat, 70ms));
 }
 
 .stack__slot:first-child {
@@ -1391,12 +1398,6 @@
 
 .choice:hover:not(:disabled) .choice__wave[data-calm] line {
   animation-duration: 900ms;
-}
-
-.choice__eyebrow {
-  font-size: 13px;
-  letter-spacing: 0.1em;
-  color: var(--ink-60);
 }
 
 .choice__title {
