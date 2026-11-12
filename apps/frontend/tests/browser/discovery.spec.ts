@@ -1013,6 +1013,38 @@ test("the GPU draws the map when WebGL2 is there; ?contours=2d keeps the 2D path
   expect(errors).toEqual([]);
 });
 
+test("the go button works with a door open; start page and room fit the screen", async ({
+  page,
+  context,
+}) => {
+  await attach(context, new FixtureBackend());
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await visit(page);
+  const overflow = () =>
+    page.evaluate(
+      () =>
+        document.documentElement.scrollHeight -
+        document.documentElement.clientHeight,
+    );
+  await openDoor(page, /^你的任何想法都可以说/);
+  await page.getByLabel("这次想听的音乐").fill("写代码时听的安静音乐");
+  await expect(page.locator('.door[data-state="open"]')).toHaveCount(1);
+  // The open door leaves room for the dock and the privacy line: no page scroll.
+  await expect.poll(overflow).toBeLessThanOrEqual(0);
+  // Pressing the go button while the door is open starts the round at once. A person
+  // holds the button for a moment, long enough for a folding door to move it away.
+  await page.getByRole("button", { name: "开始发现" }).click({ delay: 150 });
+  await expect(page.getByRole("region", { name: "正在推荐" })).toBeVisible();
+  await expect(album(page, "样例专辑 1")).toBeVisible({ timeout: 10000 });
+  await expect.poll(overflow).toBeLessThanOrEqual(0);
+  // The position pips sit above the privacy line, never on it.
+  const pips = (await page.locator(".pips").boundingBox())!;
+  const privacy = (await page
+    .getByRole("contentinfo", { name: "隐私说明" })
+    .boundingBox())!;
+  expect(pips.y + pips.height).toBeLessThanOrEqual(privacy.y);
+});
+
 test("visual baselines for start page, room and mobile", async ({
   page,
   context,

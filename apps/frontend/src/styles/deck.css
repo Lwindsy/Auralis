@@ -4,7 +4,7 @@
 
 .deck {
   position: relative;
-  min-height: 100dvh;
+  min-height: calc(100dvh - var(--privacy-h, 44px));
   display: grid;
   grid-template-columns: clamp(52px, 7vw, 110px) minmax(0, 1fr) clamp(
       52px,
@@ -18,7 +18,8 @@
   position: relative;
   display: grid;
   place-items: center;
-  padding: 84px 0 96px;
+  /* The bottom only clears the pips; the privacy line sits below the room. */
+  padding: 84px 0 56px;
 }
 
 /* Edges --------------------------------------------------------------------- */
@@ -429,7 +430,7 @@
   flex-direction: column;
   gap: 18px;
   min-height: 0;
-  max-height: calc(100dvh - 180px);
+  max-height: calc(100dvh - var(--privacy-h, 44px) - 136px);
   align-self: start;
   padding-top: clamp(0px, 2vh, 24px);
 }
@@ -1434,7 +1435,8 @@
   position: fixed;
   z-index: 3;
   left: 50%;
-  bottom: 26px;
+  /* Just above the privacy line, never on it. */
+  bottom: calc(var(--privacy-h, 44px) + 6px);
   transform: translateX(-50%);
   display: flex;
   align-items: center;

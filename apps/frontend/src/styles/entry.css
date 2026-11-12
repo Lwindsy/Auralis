@@ -3,12 +3,15 @@
 
 .entry {
   --gutter: clamp(18px, 4vw, 56px);
+  --pad-top: clamp(92px, 14vh, 150px);
+  --pad-bottom: 40px;
+  --gap: clamp(26px, 4vh, 44px);
   width: min(1200px, 100% - 2 * var(--gutter));
   margin: 0 auto;
-  padding: clamp(92px, 14vh, 150px) 0 40px;
+  padding: var(--pad-top) 0 var(--pad-bottom);
   display: grid;
   align-content: start;
-  gap: clamp(26px, 4vh, 44px);
+  gap: var(--gap);
 }
 
 /* Head ---------------------------------------------------------------------- */
@@ -140,8 +143,17 @@
     height 860ms var(--ease-out-expo);
 }
 
+/* An open door fills the screen that is left — the folded title above, the dock and the
+   privacy line below — so the page never needs a scrollbar. --chrome is the folded title
+   plus the dock. */
 .entry[data-active] .doors {
-  height: clamp(440px, 60vh, 620px);
+  --chrome: 124px;
+  height: clamp(
+    300px,
+    100dvh - var(--pad-top) - var(--pad-bottom) - 2 * var(--gap) -
+      var(--chrome) - var(--privacy-h, 44px),
+    620px
+  );
 }
 
 .entry[data-active="text"] .doors {

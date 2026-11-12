@@ -200,7 +200,8 @@ body::before {
   z-index: 1;
   flex: 1;
   display: grid;
-  min-height: 100dvh;
+  /* One screen together with the privacy line below it: no page scroll. */
+  min-height: calc(100dvh - var(--privacy-h, 44px));
 }
 
 .stage[data-stage="entry"],

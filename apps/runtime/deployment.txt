@@ -50,16 +50,16 @@ Compose 的 Java 执行窗口默认 180 秒，自请求接收时起算，包含�
 当前不设置全站每日费用上限；会话、轮次、车道预算仍由Java配置控制。
 备份在本机保留，需要运维定期复制到独立存储；容器更新不替代异机备份。
 
-长评筛选额度更新（需与本轮修复代码一起部署）：
-- /etc/auralis/config/models.json的screen：max_input_tokens=180000、max_output_tokens=2048。
-- recommendation.json的model_bindings.screen同步上述值；prices中对应ref的
-  maxInput=180000、maxOutput=2048。模型、ref、版本、费率与金额预算不变。
-- 长评提示词v1.4配套更新：models.json的long_write与recommendation.json的
-  model_bindings.long_write均设max_output_tokens=12000，prices.long-write-terra
-  同步maxOutput=12000。上线前按现有后台车道与轮次预算核对预留金额。
+模型与预算配置同步
+- 发布使用服务器 /etc/auralis/config 下的外置文件。CI/CD 更新镜像并继续挂载该目录。
+- 从真实开发预览的运行记录确认实际加载的配置。逐项核对 models.json 的模型绑定与
+  recommendation.json 的 model_bindings、prices、budget_limits，包含输入／输出 token、
+  费率、调用次数和会话／轮次／车道金额。核对 agent-service.json 的服务参数，沿用生产
+  工件路径、控制地址和凭证环境。开发预览启动器的整场试验费用上限只适用于该次预览。
+- 按新配置核对单次调用最大预留能落在对应车道预算内。
 - 先按发布流程停止网页接纳并排空旧执行，在双端停止后备份并同步两份配置，
-  再启动同版Java／Python。不要在仍有旧绑定执行时只改一端。
-- 旧会话后续新执行采用更新后的技术额度；历史执行、已预留及已结算费用保留。
-  本次没有DDL迁移。回退优先保留支持额度更新的代码并恢复配置后重新排空／启动；
-  若退回不支持此行为的旧代码，须先核对所有仍有效轮次的绑定，不能只降配置后启动。
-  已发生模型费用不能回滚；故障恢复不得用旧数据库覆盖费用或删除记录。
+  再启动同版 Java／Python。核对容器实际挂载的配置与开发基准、Java readiness 和维护
+  状态后恢复网页，再验证公网 HTTPS 与 bootstrap。
+- 同一模型身份、版本及费率下，旧会话后续执行采用更新后的 token 上限，已有轮次保留
+  原金额和调用次数，历史执行、预留和结算记录继续留存。配置回退按同一排空流程恢复
+  成对备份并复核 readiness。恢复服务使用现有数据库和账本。
