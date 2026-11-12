@@ -248,7 +248,9 @@ export function Entry({
     onSubmit(input);
   };
 
-  // Escape, or a press anywhere outside the open door, folds it back.
+  // Escape, or a press anywhere outside the open door, folds it back. The dock (modes,
+  // 传播度 and the go button) is exempt: folding moves the go button out from under the
+  // pointer before the click lands, so a press there must not fold the door.
   useEffect(() => {
     if (!active) return;
     const onKey = (event: KeyboardEvent) => {
@@ -257,7 +259,9 @@ export function Entry({
     const onPress = (event: PointerEvent) => {
       const target = event.target as Element | null;
       if (
-        !target?.closest?.('.door[data-state="open"], .door__face, .genre-card')
+        !target?.closest?.(
+          '.door[data-state="open"], .door__face, .genre-card, .dock',
+        )
       )
         setActive(null);
     };

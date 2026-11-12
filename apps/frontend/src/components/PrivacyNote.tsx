@@ -12,6 +12,23 @@ export function PrivacyNote() {
   const root = useRef<HTMLElement>(null);
   const cardId = useId();
 
+  // Scenes size themselves to the viewport minus this line (--privacy-h), so the page
+  // never grows past the screen and fixed controls can sit just above it.
+  useEffect(() => {
+    const element = root.current;
+    if (!element) return;
+    const style = document.documentElement.style;
+    const report = () =>
+      style.setProperty("--privacy-h", `${element.offsetHeight}px`);
+    report();
+    const observer = new ResizeObserver(report);
+    observer.observe(element);
+    return () => {
+      observer.disconnect();
+      style.removeProperty("--privacy-h");
+    };
+  }, []);
+
   useEffect(() => {
     if (!open) return;
     const away = (event: PointerEvent) => {

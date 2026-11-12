@@ -12,6 +12,13 @@ body {
 html {
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
+  /* Scenes fit the screen; where a short window still has to scroll, the page scrolls
+     without the browser's bar, like the inner areas (QuietScroll). */
+  scrollbar-width: none;
+}
+
+html::-webkit-scrollbar {
+  display: none;
 }
 
 body {
