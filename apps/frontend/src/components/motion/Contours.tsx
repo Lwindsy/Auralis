@@ -330,12 +330,16 @@ export function Contours() {
     const heading = between(-0.45, 0.45) + (Math.random() < 0.5 ? 0 : Math.PI);
     const current = { x: Math.cos(heading), y: Math.sin(heading) };
     let travel = between(0, 1);
+    // The swell's phase. Like `travel` it is integrated frame by frame: a phase written as
+    // clock × speed would leap whenever the mode changes the speed, by the whole clock so
+    // far times the change, and the longer the page had been open the faster it raced.
+    let slide = 0;
     let eruptions: Eruption[] = [];
     let eruptionDebt = 0;
 
     const sample = (clock: number, now: number) => {
       const scale = Math.max(width, height);
-      const { familiar, explore, surprise } = field.mix;
+      const { familiar, surprise } = field.mix;
       const wrap = (u: number) =>
         ((((u - BAND_FROM) % BAND) + BAND) % BAND) + BAND_FROM;
       const centres = hills.map((h) => {
@@ -388,8 +392,6 @@ export function Contours() {
       }));
       const fx = 0.0032;
       const fy = 0.0041;
-      // The swell runs with the current in 拓展.
-      const slide = clock * (0.11 + 0.25 * explore);
       for (let j = 0; j <= rows; j++) {
         const y = j * CELL;
         const across = Math.cos(y * fy - clock * 0.08);
@@ -900,6 +902,8 @@ export function Contours() {
       const tick = dt * field.flow * wander * (1 - 0.35 * familiar);
       clock += tick;
       travel += tick * explore * 0.05;
+      // The swell runs with the current in 拓展.
+      slide += tick * (0.11 + 0.25 * explore);
       // 惊喜: new hills keep rising; the older ones sink away.
       eruptionDebt += tick * surprise * 0.75;
       while (eruptionDebt >= 1) {
