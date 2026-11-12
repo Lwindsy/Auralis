@@ -28,7 +28,7 @@ import { Reaction } from "./Reaction.tsx";
 import { GenreWave } from "./GenreWave.tsx";
 import { MiniWave } from "./MiniWave.tsx";
 import { SlicedCover, type CoverExit } from "./SlicedCover.tsx";
-import { FLIGHT_MS, GroupStack, STACK_MAX } from "./GroupStack.tsx";
+import { FLIGHT_MS, GroupStack } from "./GroupStack.tsx";
 import { reducedMotion } from "../../lib/motion.ts";
 import { useRoom } from "./useRoom.ts";
 import { LINER_CLOSE_MS } from "./liner.ts";
@@ -206,16 +206,12 @@ export function Deck({
     const outgoing = entries[position];
     const direction = bounded > position ? "next" : "prev";
     // Into the finale the sleeve does not break into strips over the closing words: it
-    // flies whole into the group's stack, or just fades when there is no stack to join.
-    const stacked =
-      !!outgoing &&
-      entries
-        .slice(-STACK_MAX)
-        .some((e) => e.candidateId === outgoing.candidateId);
+    // flies whole into its place in the group's stack (every album has one), or just fades
+    // while more albums are on the way or motion is reduced.
     const exit: CoverExit =
       bounded !== last
         ? "slices"
-        : stacked && !busy && !reducedMotion()
+        : !!outgoing && !busy && !reducedMotion()
           ? "flight"
           : "quiet";
     review.close();

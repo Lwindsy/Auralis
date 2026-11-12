@@ -405,6 +405,28 @@ test("from the last album the sleeve flies into the group's stack", async ({
   await expect(page.getByText("这一组听完了")).toBeVisible();
 });
 
+test("the group's stack keeps every album of a large group on screen", async ({
+  page,
+  context,
+}) => {
+  await attach(context, new FixtureBackend(ready(10, 10)));
+  await page.goto("/");
+  await expect(album(page, "样例专辑 1")).toBeVisible();
+  await page.locator(".pips li[data-tail] button").click();
+  await expect(page.getByText("这一组听完了")).toBeVisible();
+  const slots = page.locator(".finale__stack .stack__slot");
+  await expect(slots).toHaveCount(10);
+  const ids = await slots.evaluateAll((nodes) =>
+    nodes.map((node) => node.getAttribute("data-candidate")),
+  );
+  expect(new Set(ids).size).toBe(10);
+  const width = page.viewportSize()!.width;
+  const first = (await slots.first().boundingBox())!;
+  const last = (await slots.last().boundingBox())!;
+  expect(first.x).toBeGreaterThanOrEqual(0);
+  expect(last.x + last.width).toBeLessThanOrEqual(width);
+});
+
 test("one album at a time: edges and keys move, 听过了 records and can be taken back", async ({
   page,
   context,
