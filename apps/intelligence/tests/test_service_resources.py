@@ -4,7 +4,7 @@ import asyncio
 import threading
 
 import pytest
-from auralis_intelligence.agents.ports import CallDenied
+from auralis_intelligence.agents.ports import CallDenied, CallResult, Usage
 from auralis_intelligence.agents.resources import ServiceResources
 
 
@@ -86,6 +86,52 @@ def test_shared_search_model_rate_and_cancelled_waiter():
         await b.run("model", lambda: work("model"), tokens=10)
         assert sent == ["search", "model"]
         await service.close()
+
+    asyncio.run(scenario())
+
+
+def test_completed_search_releases_unused_tokens_without_waiting_for_next_window():
+    async def scenario():
+        service = ServiceResources(rpm=5000, tpm=2_000_000)
+        scope = service.scope("round", "session")
+
+        async def search():
+            return CallResult(usage=Usage(input_tokens=9000, output_tokens=60))
+
+        async def screen():
+            return CallResult()
+
+        try:
+            for _ in range(20):
+                await asyncio.wait_for(scope.run("search", search, tokens=181_024), 1)
+                await scope.run("model", screen, tokens=15_500)
+        finally:
+            await service.close()
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        CallResult(usage=Usage(input_tokens=2)),
+        CallResult(outcome="UNCERTAIN", usage=Usage(input_tokens=2, output_tokens=1)),
+    ],
+)
+def test_search_retains_reservation_for_unknown_usage(reply):
+    async def scenario():
+        service = ServiceResources(rpm=10, tpm=10)
+        scope = service.scope("round", "session")
+
+        async def search():
+            return reply
+
+        try:
+            await scope.run("search", search, tokens=10)
+            with pytest.raises(asyncio.TimeoutError):
+                await asyncio.wait_for(scope.run("search", search, tokens=10), 0.05)
+        finally:
+            await service.close()
 
     asyncio.run(scenario())
 

@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from functools import partial
 from time import monotonic
 
-from .ports import CallDenied
+from .ports import CallDenied, CallResult
 
 
 @dataclass
@@ -177,7 +177,7 @@ class ServiceResources:
             if job.resource == "model":
                 self.last_lane = job.background
             if job.resource in {"model", "search"} and self.quotas:
-                # Conservative upper-bound reservation; unknown usage is never refunded.
+                # Reserve the upper bound while the provider call is in flight.
                 job.quota_record = [float("inf"), job.tokens]
                 self.history[job.quota_group].append(job.quota_record)
             self.counts[job.resource] += 1
@@ -200,6 +200,17 @@ class ServiceResources:
     async def _execute(self, job):
         try:
             result = await job.factory()
+            if (
+                job.resource == "search"
+                and job.quota_record is not None
+                and isinstance(result, CallResult)
+                and result.outcome == "COMPLETED"
+                and result.usage.input_tokens is not None
+                and result.usage.output_tokens is not None
+            ):
+                # Hosted search can add context we cannot size before sending.
+                # Its reported usage replaces the context ceiling in the TPM window.
+                job.quota_record[1] = result.usage.input_tokens + result.usage.output_tokens
             if not job.future.done():
                 job.future.set_result(result)
         except asyncio.CancelledError:

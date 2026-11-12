@@ -202,17 +202,22 @@
   position: relative;
   flex: 1 1 0;
   height: 100%;
-  overflow: hidden;
   transform-origin: 50% 50%;
   animation: slice-in 1500ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
   animation-delay: calc(var(--i) * 16ms);
 }
 
+/* The strip's picture is clipped to the strip; its shadow hangs below it, outside. */
 .slice__inner {
   position: absolute;
   inset: 0;
-  overflow: hidden;
   transform-origin: 50% 50%;
+}
+
+.slice__clip {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
 }
 
 .slice__art {
@@ -304,41 +309,86 @@
   }
 }
 
-/* Only a drop shadow, no outline. The outer layer fades it in once the whole cover is in
-   (while the strips bounce there is no box to see); the inner layer lifts it. */
-.sliced__shadow {
+/* Only a drop shadow, no outline. It is painted, not a box-shadow: a soft field that
+   hangs under the bottom edge. The strips each carry their own slice of the same field
+   (offset like their picture), so while they move the shadow follows every strip's own
+   bottom edge, and at rest the slices add up to exactly the whole cover's shadow, which
+   takes over in the same frame once the strips are gone. Painted once, then moved with
+   the strips by transform: nothing is repainted while they move. */
+.sliced__shadow,
+.slice__shadow {
   position: absolute;
-  inset: 0;
+  top: 100%;
+  left: 0;
+  width: 100%;
+  height: calc(var(--s) * 0.25);
+  overflow: hidden;
   pointer-events: none;
-  opacity: 0;
-  animation: fade 500ms ease 1720ms forwards;
 }
 
-.cut[data-dir] .sliced__shadow {
-  animation-delay: 1980ms;
+.sliced__shadow,
+.slice__shade {
+  background: linear-gradient(
+    rgb(0 0 0 / 0.5),
+    rgb(0 0 0 / 0.43) 8%,
+    rgb(0 0 0 / 0.36) 17%,
+    rgb(0 0 0 / 0.29) 25%,
+    rgb(0 0 0 / 0.22) 33%,
+    rgb(0 0 0 / 0.16) 42%,
+    rgb(0 0 0 / 0.11) 50%,
+    rgb(0 0 0 / 0.07) 58%,
+    rgb(0 0 0 / 0.045) 67%,
+    rgb(0 0 0 / 0.015) 83%,
+    transparent
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    rgb(0 0 0 / 0.2) 5%,
+    rgb(0 0 0 / 0.45) 10%,
+    rgb(0 0 0 / 0.7) 16%,
+    rgb(0 0 0 / 0.9) 23%,
+    #000 31%,
+    #000 69%,
+    rgb(0 0 0 / 0.9) 77%,
+    rgb(0 0 0 / 0.7) 84%,
+    rgb(0 0 0 / 0.45) 90%,
+    rgb(0 0 0 / 0.2) 95%,
+    transparent
+  );
 }
 
-/* Settling back under the whole cover is slower than lifting off. */
-.sliced__shadow::after {
-  content: "";
+.slice__shade {
   position: absolute;
-  inset: 0;
-  box-shadow: 0 60px 80px -42px rgb(0 0 0 / 0.75);
-  transform-origin: 50% 100%;
-  transition:
-    transform 720ms var(--ease-out-expo),
-    opacity 600ms ease;
+  top: 0;
+  left: calc(var(--i) * -100%);
+  width: var(--s);
+  height: 100%;
 }
 
-/* While the strips ripple the cover is no box either: the shadow draws in from the
-   corners and pales, as if the sleeve had lifted off the floor. Transform and opacity
-   only, so it stays on the compositor like the strips. */
-.sliced[data-phase="rippling"] .sliced__shadow::after {
-  opacity: 0.45;
-  transform: translateY(-10px) scale(0.8, 0.9);
-  transition:
-    transform 380ms var(--ease-out-expo),
-    opacity 300ms ease;
+/* The whole cover's shadow only while the strips are gone. */
+.sliced__shadow {
+  opacity: 0;
+}
+
+.sliced[data-phase="whole"] .sliced__shadow {
+  opacity: 1;
+}
+
+/* Assembling, each strip's shadow comes in as that strip closes up (its 82% keyframe):
+   while the bars bounce there is no box to cast one. */
+.slice__shadow {
+  animation: fade 220ms ease both;
+  animation-delay: calc(1120ms + var(--i) * 16ms);
+}
+
+.cut[data-dir] .slice__shadow {
+  animation-delay: calc(1380ms + var(--i) * 16ms);
+}
+
+/* Strips brought back for a ripple already have theirs. */
+.sliced[data-phase="rippling"] .slice__shadow {
+  animation: none;
 }
 
 /* Caption ------------------------------------------------------------------ */
@@ -1319,27 +1369,25 @@
   animation: none !important;
 }
 
-/* Breaking into strips, the sleeve leaves its shadow the same way it lifts for a ripple,
-   then the shadow is gone with the strips. A whole sleeve (flight or quiet) leaves
-   without one. */
-.cut[data-leaving] .sliced__shadow {
-  animation: none;
-  opacity: 1;
+/* Breaking into strips, every strip's slice of the shadow goes as the strip narrows
+   (before its 35% keyframe), so no shadow hangs under the falling bars. A whole sleeve
+   (flight or quiet) leaves without one. */
+.cut[data-leaving] .slice__shadow {
+  animation: shade-out 180ms ease-out both;
+  animation-delay: calc(var(--i) * 9ms);
 }
 
-.cut[data-leaving] .sliced__shadow::after {
-  animation: shadow-lift-out 480ms var(--ease-out-expo) both;
+@keyframes shade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
 }
 
 .cut[data-leaving] .sliced[data-exit] .sliced__shadow {
   opacity: 0;
-}
-
-@keyframes shadow-lift-out {
-  to {
-    opacity: 0;
-    transform: translateY(-10px) scale(0.6, 0.8);
-  }
 }
 
 /* Transform and opacity only: a blur over the whole column would be repainted every
