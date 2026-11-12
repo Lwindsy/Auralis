@@ -1,6 +1,7 @@
 """Evidence admission, natural-language scoring context and failure denominators."""
 
 import asyncio
+from copy import deepcopy
 
 import pytest
 from auralis_intelligence.agents import CallResult, Execution, Usage
@@ -12,6 +13,7 @@ from auralis_intelligence.contracts import ContractError, content_digest
 from auralis_intelligence.providers import ModelBinding, ModelGateway, ToolGateway
 from auralis_intelligence.providers.testing import ScriptedModelAdapter, StaticSearchAdapter
 from auralis_intelligence.providers.web import FetchResponse
+from jsonschema import Draft202012Validator
 from test_agent_runtime import bind, setup, start
 
 ONE = (
@@ -159,6 +161,34 @@ def test_model_rejects_irrelevant_page_without_mechanical_title_gate():
         result = await stage.run(execution, candidate, prefs)
         assert not result.eligible and not result.screening["qualified_read_ids"]
         await execution.cleanup()
+
+    asyncio.run(run())
+
+
+def test_individual_screening_schema_accepts_only_candidate_evidence():
+    def reply(binding, request):
+        result = good_reply(binding, request)
+        validator = Draft202012Validator(request.output_schema)
+        assert validator.is_valid(result.output)
+        for refs in (["S1"], ["R1", "S1"], ["R1", "R1"]):
+            invalid = deepcopy(result.output)
+            invalid["matches"][0]["refs"] = refs
+            assert not validator.is_valid(invalid)
+        invalid = deepcopy(result.output)
+        invalid["reads"][0]["ref"] = "S1"
+        assert not validator.is_valid(invalid)
+        return result
+
+    async def run():
+        execution, _, _, stage, candidate, preferences = await environment(reply=reply)
+        research = IndividualResearchStage(SeedContext(stage.model, stage.tools), stage.tools)
+        try:
+            result = await research.run(
+                execution, candidate, preferences, known_read_refs=candidate["known_review_refs"]
+            )
+            assert result.eligible
+        finally:
+            await execution.cleanup()
 
     asyncio.run(run())
 
