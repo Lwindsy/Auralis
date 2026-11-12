@@ -97,6 +97,8 @@ export function SlicedCover({
         if (event.pointerType !== "touch") ripple();
       }}
     >
+      {/* The drop shadow lifts and pales while the strips move (deck.css). */}
+      <div className="sliced__shadow" aria-hidden="true" />
       {/* The seamless cover settles over the strips once they have closed up. */}
       <div className="sliced__whole" aria-hidden="true">
         <Cover seed={seed} title={title} resolved={image} />

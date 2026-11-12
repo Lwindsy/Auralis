@@ -248,20 +248,41 @@
   }
 }
 
-/* Only a drop shadow, no outline, and only once the whole cover is in: while the strips
-   bounce there is no box to see. */
-.sliced::after {
-  content: "";
+/* Only a drop shadow, no outline. The outer layer fades it in once the whole cover is in
+   (while the strips bounce there is no box to see); the inner layer lifts it. */
+.sliced__shadow {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  box-shadow: 0 60px 80px -42px rgb(0 0 0 / 0.75);
   opacity: 0;
   animation: fade 500ms ease 1720ms forwards;
 }
 
-.cut[data-dir] .sliced::after {
+.cut[data-dir] .sliced__shadow {
   animation-delay: 1980ms;
+}
+
+/* Settling back under the whole cover is slower than lifting off. */
+.sliced__shadow::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  box-shadow: 0 60px 80px -42px rgb(0 0 0 / 0.75);
+  transform-origin: 50% 100%;
+  transition:
+    transform 720ms var(--ease-out-expo),
+    opacity 600ms ease;
+}
+
+/* While the strips ripple the cover is no box either: the shadow draws in from the
+   corners and pales, as if the sleeve had lifted off the floor. Transform and opacity
+   only, so it stays on the compositor like the strips. */
+.sliced[data-phase="rippling"] .sliced__shadow::after {
+  opacity: 0.45;
+  transform: translateY(-10px) scale(0.8, 0.9);
+  transition:
+    transform 380ms var(--ease-out-expo),
+    opacity 300ms ease;
 }
 
 /* Caption ------------------------------------------------------------------ */
@@ -1238,9 +1259,31 @@
 }
 
 .cut[data-leaving] .cut__caption *,
-.cut[data-leaving] .cut__words *,
-.cut[data-leaving] .sliced::after {
+.cut[data-leaving] .cut__words * {
   animation: none !important;
+}
+
+/* Breaking into strips, the sleeve leaves its shadow the same way it lifts for a ripple,
+   then the shadow is gone with the strips. A whole sleeve (flight or quiet) leaves
+   without one. */
+.cut[data-leaving] .sliced__shadow {
+  animation: none;
+  opacity: 1;
+}
+
+.cut[data-leaving] .sliced__shadow::after {
+  animation: shadow-lift-out 480ms var(--ease-out-expo) both;
+}
+
+.cut[data-leaving] .sliced[data-exit] .sliced__shadow {
+  opacity: 0;
+}
+
+@keyframes shadow-lift-out {
+  to {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.6, 0.8);
+  }
 }
 
 /* Transform and opacity only: a blur over the whole column would be repainted every
