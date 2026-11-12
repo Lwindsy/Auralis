@@ -16,7 +16,7 @@ sql() { "${compose[@]}" exec -T database psql -X -At -v ON_ERROR_STOP=1 -U postg
 # Stop new work and let already accepted operations settle before snapshotting.
 "${compose[@]}" stop web
 sql 'UPDATE discovery.runtime_control SET maintenance=true,revision=revision+1 WHERE singleton;'
-for i in $(seq 1 150); do
+for i in $(seq 1 210); do
     active=$(sql "SELECT (SELECT count(*) FROM discovery.execution_slot WHERE state<>'FREE')+(SELECT count(*) FROM discovery.discovery_intent WHERE status='WAITING');")
     [[ "$active" == 0 ]] && break
     sleep 1

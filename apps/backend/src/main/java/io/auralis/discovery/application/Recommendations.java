@@ -701,9 +701,10 @@ public class Recommendations {
                     var current = owned(token, session);
                     var cached = sessions.command(current, "product:" + operation, key, hash);
                     if (cached.isPresent()) return cached.get();
-                    // Tail demand is guarded by the current card in the publication transaction.
-                    // A new card can advance the revision between a poll and this request.
-                    if (!input.has("tail_candidate_id")
+                    // Tail demand and opening a long review are guarded by the candidate.
+                    // A new card may advance the revision between a poll and either request.
+                    if (!operation.equals("OPEN")
+                            && !input.has("tail_candidate_id")
                             && current.revision() != input.path("expected_revision").asLong())
                         fail("REVISION_CONFLICT");
                     var round =
@@ -754,9 +755,8 @@ public class Recommendations {
                                         Set.of());
                         publication.waitFor(current, round.id(), run);
                     } else if (operation.equals("OPEN")) {
-                        publication.longReview(
-                                current, publication.candidateRound(current, target), target);
-                        queue.prioritize(current, target, key);
+                        publication.prioritizeLong(
+                                current, publication.candidateRound(current, target), target, key);
                     } else if (operation.equals("REGENERATE")
                             && json(round.configuration()).path("curated_prepared").asBoolean())
                         publication.longReview(

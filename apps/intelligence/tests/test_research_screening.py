@@ -5,6 +5,9 @@ import asyncio
 import pytest
 from auralis_intelligence.agents import CallResult, Execution, Usage
 from auralis_intelligence.album_reviews import ResearchStage
+from auralis_intelligence.album_reviews.individual import IndividualResearchStage
+from auralis_intelligence.album_reviews.research import SCREEN_SCHEMA
+from auralis_intelligence.album_reviews.seed_context import SeedContext
 from auralis_intelligence.contracts import ContractError, content_digest
 from auralis_intelligence.providers import ModelBinding, ModelGateway, ToolGateway
 from auralis_intelligence.providers.testing import ScriptedModelAdapter, StaticSearchAdapter
@@ -156,6 +159,40 @@ def test_model_rejects_irrelevant_page_without_mechanical_title_gate():
         result = await stage.run(execution, candidate, prefs)
         assert not result.eligible and not result.screening["qualified_read_ids"]
         await execution.cleanup()
+
+    asyncio.run(run())
+
+
+@pytest.mark.parametrize(
+    "provider_note_limit,error_code", [(None, "SCREEN_STRUCTURE_INVALID"), (500, "INVALID_PAYLOAD")]
+)
+def test_individual_screening_with_oversize_evidence_note_fails_only_the_candidate(
+    monkeypatch, provider_note_limit, error_code
+):
+    if provider_note_limit is not None:
+        monkeypatch.setitem(
+            SCREEN_SCHEMA["$defs"]["evidence"]["properties"]["note"],
+            "maxLength",
+            provider_note_limit,
+        )
+
+    def oversized_note(binding, request):
+        reply = good_reply(binding, request)
+        reply.output["matches"][0]["note"] = "x" * 350
+        return reply
+
+    async def run():
+        execution, _, _, stage, candidate, preferences = await environment(reply=oversized_note)
+        research = IndividualResearchStage(SeedContext(stage.model, stage.tools), stage.tools)
+        try:
+            result = await research.run(
+                execution, candidate, preferences, known_read_refs=candidate["known_review_refs"]
+            )
+            assert not result.eligible
+            assert result.screening["reason_code"] == "SCREEN_FAILED"
+            assert result.error_code == error_code
+        finally:
+            await execution.cleanup()
 
     asyncio.run(run())
 

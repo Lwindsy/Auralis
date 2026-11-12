@@ -49,6 +49,8 @@ public interface PublicationAuthority {
 
     String longReview(Scope scope, String round, String candidate);
 
+    void prioritizeLong(Scope scope, String round, String candidate, String command);
+
     String regenerate(Scope scope, String round, String candidate, Supply supply);
 
     String bundle(Scope scope, String round);

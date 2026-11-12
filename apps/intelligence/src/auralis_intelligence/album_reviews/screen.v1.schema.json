@@ -58,13 +58,14 @@
       "maxItems": 12,
       "items": {
         "type": "string",
+        "minLength": 1,
         "maxLength": 200
       }
     },
     "summary": {
       "type": "string",
       "minLength": 1,
-      "maxLength": 1200
+      "maxLength": 1000
     }
   },
   "required": [
@@ -94,7 +95,7 @@
         "note": {
           "type": "string",
           "minLength": 1,
-          "maxLength": 500
+          "maxLength": 300
         }
       },
       "required": [

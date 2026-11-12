@@ -764,17 +764,20 @@ public class PostgresDispatchQueue implements DispatchQueue {
     }
 
     @Override
-    public void prioritize(SessionStore.Scope scope, String candidate, String command) {
+    public void prioritize(SessionStore.Scope scope, String run, String candidate, String command) {
         tx.write(
                 () -> {
                     discovery.lockRuntime();
                     sessions.lockActive(scope);
+                    var now = clock.instant();
                     var jobs =
                             active().stream()
                                     .filter(
                                             j ->
                                                     j.scope().sessionId().equals(scope.sessionId())
-                                                            && !j.cancel())
+                                                            && j.run().equals(run)
+                                                            && !j.cancel()
+                                                            && now.isBefore(j.deadline()))
                                     .toList();
                     for (var job : jobs) {
                         String id =

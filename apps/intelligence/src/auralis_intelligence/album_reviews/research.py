@@ -90,6 +90,7 @@ class ResearchStage:
                 ),
                 execution.start["agent_policy"]["timing"][timeout_key] / 1000,
             )
+            validate_definition("CandidateScreening", result.screening)
         except asyncio.CancelledError:
             dossier.clear()
             raise
@@ -110,7 +111,6 @@ class ResearchStage:
                 code,
             )
         dossier.screening = result.screening
-        validate_definition("CandidateScreening", result.screening)
         if (
             result.screening["research_status"] == "QUALIFIED_READS"
             and result.screening["screen"]["status"] == "OK"

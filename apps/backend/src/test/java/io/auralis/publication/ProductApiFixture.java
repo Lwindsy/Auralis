@@ -124,6 +124,10 @@ abstract class ProductApiFixture extends PublicationFixture {
     }
 
     void bootProduct() {
+        bootProduct(Map.of());
+    }
+
+    void bootProduct(Map<String, Object> overrides) {
         if (app != null) app.close();
         var application =
                 new SpringApplication(OnlineApplication.class, CuratedTestConfiguration.class);
@@ -147,6 +151,7 @@ abstract class ProductApiFixture extends PublicationFixture {
         props.put(
                 "AURALIS_GENRE_TAXONOMY",
                 io.auralis.catalog.TaxonomyFixtures.write(admin).toString());
+        props.putAll(overrides);
         application.setDefaultProperties(props);
         app =
                 application.run(
