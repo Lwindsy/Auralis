@@ -7,6 +7,7 @@ import {
   ACTIVE_REVIEW,
   type LongReviewController,
 } from "../../state/review.ts";
+import { isTouchDevice, pageState } from "../../lib/touch.ts";
 import { QuietScroll } from "../QuietScroll.tsx";
 import { useLiner } from "./liner.ts";
 import { MiniWave } from "./MiniWave.tsx";
@@ -99,6 +100,20 @@ export function Reviews({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
+  }, [expanded, review]);
+
+  // Phones: the open review takes a history step of its own, so the back gesture or the
+  // back button folds it away instead of leaving the page. Closing it any other way takes
+  // that step back off again.
+  useEffect(() => {
+    if (!expanded || !isTouchDevice()) return;
+    history.pushState({ ...pageState(), auralisLiner: true }, "");
+    const onPop = () => review.close();
+    window.addEventListener("popstate", onPop);
+    return () => {
+      window.removeEventListener("popstate", onPop);
+      if (pageState().auralisLiner) history.back();
+    };
   }, [expanded, review]);
 
   return (

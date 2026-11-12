@@ -334,6 +334,8 @@
   position: relative;
   padding: 22px 0 24px;
   cursor: crosshair;
+  /* Touch: sideways drags sweep the genres, vertical drags still scroll the page. */
+  touch-action: pan-y;
 }
 
 .wave__svg {
@@ -1520,6 +1522,16 @@
 
 /* Position pips ------------------------------------------------------------ */
 
+/* The phone bar's wrapper and steps (see the 760px block); elsewhere the wrapper does not
+   take part in the layout and the steps are not shown. */
+.deck__nav {
+  display: contents;
+}
+
+.deck__step {
+  display: none;
+}
+
 .pips {
   position: fixed;
   z-index: 3;
@@ -1602,12 +1614,64 @@
 }
 
 @media (max-width: 760px) {
+  /* Phones: the page scrolls, so nothing floats over the album. The side edges give way
+     to a bar at the bottom of the screen — previous, the pips, next — that rides along
+     while the room is in view and settles under it above the privacy line. */
   .deck {
-    grid-template-columns: 34px minmax(0, 1fr) 34px;
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .edge {
+    display: none;
   }
   .deck__stage {
-    padding: 72px 0 110px;
+    padding: 72px 18px 20px;
     place-items: start center;
+  }
+  .deck__nav {
+    position: sticky;
+    z-index: 3;
+    bottom: calc(10px + env(safe-area-inset-bottom));
+    display: flex;
+    align-items: center;
+    align-self: end;
+    justify-self: center;
+    gap: 2px;
+    margin-bottom: 12px;
+    padding: 2px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--page-room) 86%, var(--page-ink) 5%);
+    box-shadow: 0 10px 30px -18px rgb(0 0 0 / 0.5);
+    transition: background-color var(--room-change);
+  }
+  .deck__nav .pips {
+    position: static;
+    transform: none;
+    padding: 8px 6px;
+    background: none;
+  }
+  .deck__step {
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    color: var(--page-ink);
+  }
+  .deck__step svg {
+    width: 18px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  .deck__step:disabled {
+    opacity: 0.25;
+  }
+  /* The long review fills the screen: the bar and the privacy line step away. */
+  .deck:has(.cut[data-reading]) .deck__nav,
+  html:has(.cut[data-reading]) .privacy {
+    visibility: hidden;
   }
   .cut {
     --s: min(74vw, 320px);
@@ -1615,5 +1679,48 @@
   }
   .edge span {
     display: none;
+  }
+}
+
+/* Touch screens keep :hover after a tap; the reactions and the end-of-group choices go
+   back to rest there instead of staying lifted. Mouse and trackpad are unaffected. */
+@media (hover: none) {
+  .react:hover:not(:disabled) {
+    transform: none;
+  }
+  .react:hover:not(:disabled, [data-done]) .react__icon {
+    border-color: var(--ink-20);
+  }
+  .react[data-done]:hover .react__icon {
+    border-color: transparent;
+  }
+  .react[data-kind="like"]:hover .react__icon,
+  .react[data-kind="meh"]:hover .react__icon {
+    transform: none;
+  }
+  .choice:hover:not(:focus-visible) .choice__glyph[data-kind="doors"] {
+    color: var(--ink-60);
+  }
+  .choice:hover:not(:focus-visible) .glyph__side,
+  .choice:hover:not(:focus-visible) .glyph__door {
+    transform: none;
+  }
+  .choice:hover:not(:focus-visible) .glyph__sleeve[data-back] {
+    transform: rotate(-22deg);
+  }
+  .choice:hover:not(:focus-visible) .glyph__sleeve[data-slot] {
+    transform: rotate(22deg);
+    fill-opacity: 0;
+  }
+  .choice:hover:not(:focus-visible) .choice__title {
+    background-size: 0 1px;
+  }
+}
+
+/* Touch screens: the room takes sideways swipes (Deck.tsx turns the album) and leaves
+   vertical scrolling and pinch zoom to the page. */
+@media (hover: none) and (pointer: coarse) {
+  .deck__stage {
+    touch-action: pan-y pinch-zoom;
   }
 }

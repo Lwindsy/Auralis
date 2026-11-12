@@ -139,6 +139,12 @@ export function App({ api, controller, review, fixture }: AppProps) {
   useEffect(() => {
     setFlow(stage === "waiting" ? 2.4 : stage === "deck" ? 0.45 : 0.7);
   }, [stage]);
+  // Each scene starts at its top. Only phones ever scroll the page (a desktop scene fits
+  // the screen), so this matters there: going in from a start page scrolled down to the
+  // go button must not open the waiting screen or the albums halfway down.
+  useEffect(() => {
+    if (window.scrollY > 0) window.scrollTo({ top: 0 });
+  }, [stage]);
   // Away from the start page the land keeps the shape of the submitted mode.
   const submittedMode = state?.editable_input?.mode ?? "explore";
   useEffect(() => {

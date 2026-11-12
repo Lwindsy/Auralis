@@ -352,6 +352,14 @@ body::before {
   animation: fade 900ms ease 200ms both;
 }
 
+/* Phones scroll the page; the corner stays at the top of it rather than floating over
+   the album, the reviews and the group's stack. */
+@media (max-width: 760px) {
+  .corner {
+    position: absolute;
+  }
+}
+
 .brand {
   display: inline-flex;
   flex: none;
@@ -782,4 +790,22 @@ body::before {
 
 ::view-transition-new(lang-switch) {
   animation: none;
+}
+
+/* Touch screens: a field under 16px makes iOS zoom the page in on focus and leave it
+   zoomed. */
+@media (hover: none) and (pointer: coarse) {
+  .search-field input {
+    font-size: 16px;
+  }
+}
+
+/* Phones: an open door hides the big start-page title, so the brand comes back to the
+   corner (as it does on every later page) and the page keeps its name. */
+@media (max-width: 760px) {
+  body:has(.entry[data-active]) .brand[data-hidden] {
+    max-width: 180px;
+    margin-right: 22px;
+    opacity: 1;
+  }
 }
