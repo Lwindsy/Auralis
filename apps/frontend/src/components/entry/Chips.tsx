@@ -1,7 +1,7 @@
 import type { Strength } from "../../api/types.ts";
+import { genreDisplayName } from "../../content/genreNotes.ts";
 import { copy, useCopy } from "../../i18n/index.ts";
 import { albumSeed } from "../../lib/cover.ts";
-import { genreName } from "../../lib/text.ts";
 import { useStore } from "../../state/hooks.ts";
 import { labels } from "../../state/labels.ts";
 import { Cover } from "../Cover.tsx";
@@ -51,7 +51,7 @@ function nameOf(item: ChipItem): ChipName {
         };
   }
   const known = labels.genre(item.id)?.name;
-  const name = known ? genreName(known) : words.genre;
+  const name = known ? genreDisplayName(item.id, known) : words.genre;
   return { name, seed: null, parts: { title: name } };
 }
 

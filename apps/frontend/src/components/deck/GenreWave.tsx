@@ -1,9 +1,8 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import type { ProductCard } from "../../api/types.ts";
-import { genreNote } from "../../content/genreNotes.ts";
-import { useCopy } from "../../i18n/index.ts";
+import { genreDisplayName, genreNote } from "../../content/genreNotes.ts";
+import { i18n, useCopy } from "../../i18n/index.ts";
 import { hash } from "../../lib/cover.ts";
-import { genreName } from "../../lib/text.ts";
 
 const BARS = 96;
 const H = 96;
@@ -51,6 +50,7 @@ export function GenreWave({
   ).slice(0, 4);
   const tagIds = tags.map((tag) => tag.genre_id).join(" ");
   const words = useCopy();
+  const locale = i18n.locale;
   const svg = useRef<SVGSVGElement>(null);
   const names = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState<number | null>(null);
@@ -169,7 +169,7 @@ export function GenreWave({
       cancelAnimationFrame(frame);
       observer.disconnect();
     };
-  }, [seed, tags.length, tagIds, still]);
+  }, [seed, tags.length, tagIds, still, locale]);
 
   if (!tags.length) return null;
   const segmentOf = (u: number) =>
@@ -234,7 +234,7 @@ export function GenreWave({
               data-row={i % 2 ? "top" : "bottom"}
               data-on={active === i || undefined}
             >
-              {genreName(item.name)}
+              {genreDisplayName(item.genre_id, item.name, locale)}
             </span>
           ))}
         </div>
@@ -248,7 +248,7 @@ export function GenreWave({
               onBlur={() => focusOn(null)}
               onClick={() => focusOn(active === i ? null : i)}
             >
-              {genreName(item.name)}
+              {genreDisplayName(item.genre_id, item.name, locale)}
             </button>
           </li>
         ))}
@@ -256,7 +256,7 @@ export function GenreWave({
       <div className="wave__note" aria-live="polite">
         {tag && note ? (
           <p key={tag.genre_id}>
-            <strong>{genreName(tag.name)}</strong>
+            <strong>{genreDisplayName(tag.genre_id, tag.name, locale)}</strong>
             {[...note].map((char, i) => (
               <span
                 key={i}
