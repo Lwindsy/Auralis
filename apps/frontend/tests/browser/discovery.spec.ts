@@ -8,6 +8,7 @@ import {
   type Route,
 } from "@playwright/test";
 import type { LongReviewView, ProductState } from "../../src/api/types.ts";
+import genreIntros from "../../src/content/genre-intros.json" with { type: "json" };
 import {
   FixtureBackend,
   JAZZ_GENRE_ID,
@@ -112,7 +113,7 @@ test("picked genres clear in one go; 传播度 explains itself without covering 
     page.getByText("以你的偏好为主，也会加入一些相邻的风格。"),
   ).toBeVisible();
   await page.getByRole("button", { name: /^风格/ }).click();
-  await page.getByRole("button", { name: "喜欢Jazz", exact: true }).click();
+  await page.getByRole("button", { name: "喜欢爵士", exact: true }).click();
   await page.getByRole("button", { name: "展开Unique", exact: true }).click();
   await page.getByRole("button", { name: "不喜欢Metal", exact: true }).click();
   const picked = page.getByRole("list", { name: "已选风格" });
@@ -120,7 +121,7 @@ test("picked genres clear in one go; 传播度 explains itself without covering 
   await page.getByRole("button", { name: "清空已选风格" }).click();
   await expect(picked).toHaveCount(0);
   await expect(
-    page.getByRole("button", { name: "喜欢Jazz", exact: true }),
+    page.getByRole("button", { name: "喜欢爵士", exact: true }),
   ).toHaveAttribute("aria-pressed", "false");
   await page.keyboard.press("Escape");
   await expect(page.locator(".reach__zone")).toHaveText("听众较少");
@@ -148,17 +149,18 @@ test("doors widen one at a time; genres group families, show notes and keep mark
     "folded",
   );
   // Hover note comes from the short genre notes, relation from the catalogue.
-  await page.getByRole("button", { name: "Jazz", exact: true }).hover();
+  await page.getByRole("button", { name: "爵士", exact: true }).hover();
+  await expect(page.locator(".genre-card__name")).toHaveText("爵士");
   await expect(page.getByRole("tooltip")).toContainText("即兴");
-  await page.getByRole("button", { name: "Jazz", exact: true }).click();
+  await page.getByRole("button", { name: "爵士", exact: true }).click();
   await expect(
     page.getByRole("button", { name: "喜欢Cool Jazz", exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "喜欢Jazz", exact: true }),
+    page.getByRole("button", { name: "喜欢爵士", exact: true }),
   ).toHaveAttribute("aria-pressed", "true");
-  await page.getByRole("button", { name: "Jazz特别喜欢", exact: true }).click();
-  await page.getByRole("button", { name: "Jazz本次重点", exact: true }).click();
+  await page.getByRole("button", { name: "爵士特别喜欢", exact: true }).click();
+  await page.getByRole("button", { name: "爵士本次重点", exact: true }).click();
   await expect(
     page.getByRole("list", { name: "风格家族" }).getByRole("button", {
       name: "不喜欢Metal",
@@ -258,6 +260,9 @@ test("中文／EN switches the whole page in place and sends the language with a
   );
   // Reviews are shown exactly as returned, whatever the page language.
   const card = album(page, "样例专辑 1");
+  const tags = card.locator(".wave__tags");
+  await expect(tags).toContainText("Jazz");
+  await expect(tags).toContainText("Rabbit Song");
   await card.getByRole("button", { name: "Jazz", exact: true }).focus();
   await expect(card.locator(".wave__note")).toContainText("Improvisation");
   await card.getByRole("button", { name: "Rabbit Song", exact: true }).focus();
@@ -273,7 +278,10 @@ test("中文／EN switches the whole page in place and sends the language with a
   // Switching back keeps the review that was already written.
   await english.getByRole("button", { name: "中文" }).click();
   await expect(page.locator("html")).toHaveAttribute("lang", "zh-CN");
-  await card.getByRole("button", { name: "Jazz", exact: true }).focus();
+  await expect(tags).toContainText("爵士");
+  await expect(tags).toContainText("rabbit歌曲");
+  await card.getByRole("button", { name: "爵士", exact: true }).focus();
+  await expect(card.locator(".wave__note strong")).toHaveText("爵士");
   await expect(card.locator(".wave__note")).toContainText("即兴");
   await expect(card.getByRole("button", { name: "收起长评" })).toBeVisible();
   await expect(
@@ -444,7 +452,7 @@ test("a genre note opens above the wave and nothing below it moves", async ({
   const review = card.locator(".reviews");
   const wave = card.locator(".wave__field");
   const before = [await review.boundingBox(), await wave.boundingBox()];
-  await card.getByRole("button", { name: "Jazz", exact: true }).focus();
+  await card.getByRole("button", { name: "爵士", exact: true }).focus();
   const note = card.locator(".wave__note");
   await expect(note).toContainText("即兴");
   const after = [await review.boundingBox(), await wave.boundingBox()];
@@ -777,20 +785,34 @@ test("WAITING winds down into the albums without another POST", async ({
   ).toEqual(["/v1/bootstrap"]);
 });
 
-test("the waiting genre stays for six seconds", async ({ page, context }) => {
+test("the waiting genre changes language in place and stays for six seconds", async ({
+  page,
+  context,
+}) => {
   const backend = new FixtureBackend(
     shared<ProductState>("fourth-request-waiting"),
   );
   await attach(context, backend);
-  await page.clock.install();
-  await visit(page);
+  const time = new Date("2026-11-12T12:00:00Z");
+  await page.clock.install({ time });
+  await page.clock.pauseAt(new Date(time.getTime() + 1000));
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/");
   const genre = page.locator(".waiting__genre");
   await expect(genre).toBeVisible();
-  const initial = await genre.innerText();
+  const original = await genre.innerText();
+  const fact = genreIntros.find((item) => item.name === original)!;
+  const introduction = page.locator(".waiting__note");
+  await expect(introduction).toHaveText(fact.en ?? "");
+  await page
+    .getByRole("button", { name: "中文", exact: true })
+    .dispatchEvent("click");
+  await expect(genre).toHaveText(fact.name_zh || original);
+  await expect(introduction).toHaveText(fact.zh ?? "");
   await page.clock.fastForward(4500);
-  await expect(genre).toHaveText(initial);
+  await expect(genre).toHaveText(fact.name_zh || original);
   await page.clock.fastForward(1600);
-  await expect(genre).not.toHaveText(initial);
+  await expect(introduction).not.toHaveText(fact.zh ?? "");
 });
 
 test("first card ends the wait and the actual batch tail appends once", async ({

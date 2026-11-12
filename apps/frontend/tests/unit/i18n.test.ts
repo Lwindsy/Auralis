@@ -1,6 +1,11 @@
 import { afterEach, describe, expect, test } from "vitest";
 import { message, stateMessage } from "../../src/api/messages.ts";
-import { genreNote } from "../../src/content/genreNotes.ts";
+import genreIntros from "../../src/content/genre-intros.json";
+import {
+  genreDisplayName,
+  genreFact,
+  genreNote,
+} from "../../src/content/genreNotes.ts";
 import en from "../../src/i18n/en.ts";
 import { copy, i18n, LOCALES, withLanguage } from "../../src/i18n/index.ts";
 import zhCN from "../../src/i18n/zh-CN.ts";
@@ -100,5 +105,17 @@ describe("interface language", () => {
     expect(genreNote(JAZZ_GENRE_ID, "zh-CN")).toContain("即兴");
     expect(genreNote(RABBIT_SONG_GENRE_ID)).toBeNull();
     expect(genreNote("Jazz")).toBeNull();
+  });
+
+  test("genre display names use the ID and fall back to the original name", () => {
+    const index = genreIntros.findIndex((genre) => genre.id === JAZZ_GENRE_ID);
+    expect(genreDisplayName(JAZZ_GENRE_ID, "Jazz")).toBe("爵士");
+    expect(genreDisplayName("unlisted-genre", "unknown genre")).toBe(
+      "Unknown Genre",
+    );
+    expect(genreFact(index).name).toBe("爵士");
+    i18n.set("en");
+    expect(genreDisplayName(JAZZ_GENRE_ID, "Jazz")).toBe("Jazz");
+    expect(genreFact(index).name).toBe("Jazz");
   });
 });
