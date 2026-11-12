@@ -5,7 +5,7 @@ import { useCopy } from "../../i18n/index.ts";
 import { Drum } from "./Drum.tsx";
 
 /** How long each genre stays on screen while waiting. */
-const FACT_MS = 4000;
+const FACT_MS = 6000;
 
 /**
  * Between the request and the first album. The title says honestly whether the request is

@@ -131,6 +131,8 @@ def extract_text(body: bytes, content_type: str, source_url: str = "") -> str:
     if media_type not in {"text/html", "application/xhtml+xml"}:
         raise FetchFailure("UNSUPPORTED_CONTENT_TYPE")
     soup = BeautifulSoup(body, "html.parser")
+    if soup.title and soup.title.get_text(strip=True).casefold() == "client challenge":
+        raise FetchFailure("ACCESS_PAGE")
     for element in soup(
         ["script", "style", "nav", "header", "footer", "aside", "form", "noscript", "svg"]
     ):

@@ -377,7 +377,7 @@ def test_seeded_batch_and_long_review_use_same_registered_seed(tmp_path):
                         ],
                     }
                 else:
-                    assert request.schema_name == "long_review_v1_5_seed_v2"
+                    assert request.schema_name == "long_review_v1_6_seed_v2"
                     output = {
                         "status": "ok",
                         "sections": {
@@ -428,7 +428,7 @@ def test_seeded_batch_and_long_review_use_same_registered_seed(tmp_path):
                 d["payload"] for d in h.control.deliveries.values() if d["kind"] == "LONG_REVIEW"
             ]
             assert len(longs) == 3 and all(
-                row["status"] == "READY" and row["prompt_version"] == "long_review.v1.5.seed.v2"
+                row["status"] == "READY" and row["prompt_version"] == "long_review.v1.6.seed.v2"
                 for row in longs
             )
             assert search.calls.count("album-0") == 1

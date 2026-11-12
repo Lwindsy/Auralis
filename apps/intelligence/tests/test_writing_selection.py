@@ -232,6 +232,58 @@ def test_long_research_search_then_read_is_bounded_and_records_extra_evidence(fi
 
 
 @pytest.mark.parametrize(
+    "final_review,unusable_page,expected",
+    [
+        (True, True, ("READY", None)),
+        (False, True, ("NEEDS_MORE_RESEARCH", "REVIEW_MATERIAL_INSUFFICIENT")),
+        (False, False, ("FAILED", "LONG_RESEARCH_FAILED")),
+    ],
+)
+def test_long_review_makes_a_final_pass_after_unusable_supplementary_reads(
+    final_review, unusable_page, expected
+):
+    async def run():
+        blocked_url = "https://one.example/challenge"
+        other_url = "https://two.example/unusable"
+        execution, _, research, result, preferences = await prepared(
+            pages={
+                URLS[0]: ONE,
+                URLS[1]: TWO,
+                blocked_url: OSError("blocked"),
+                other_url: "Another album" if unusable_page else OSError("blocked"),
+            },
+            writing={"long_tool_turns": 2, "long_extra_max_searches": 1, "long_extra_max_reads": 2},
+        )
+        research.tools.search_adapter = StaticSearchAdapter(
+            (SearchHit(blocked_url, "Album"), SearchHit(other_url, "Album"))
+        )
+        reads = needs_more("web_read", blocked_url)
+        reads["tool_requests"].extend(needs_more("web_read", other_url)["tool_requests"])
+        adapter = ScriptedModelAdapter(
+            [
+                CallResult(needs_more("web_search"), usage=Usage(1, 1, 0)),
+                CallResult(reads, usage=Usage(1, 1, 0)),
+                CallResult(long_output() if final_review else needs_more(), usage=Usage(1, 1, 0)),
+            ]
+        )
+        research.model.adapter = adapter
+        try:
+            output = await WriteStage(research.model, research.tools).long(
+                execution, result.dossier, preferences
+            )
+            assert (output["status"], output["reason_code"]) == expected
+            assert output["extra_read_ids"] == []
+            assert len(adapter.requests) == 3
+            final = adapter.requests[-1][1].input
+            assert set(final["research_budget"].values()) == {0}
+            assert [source["ref"] for source in final["sources"]] == ["R1", "R2"]
+        finally:
+            await execution.cleanup()
+
+    asyncio.run(run())
+
+
+@pytest.mark.parametrize(
     "case,expected",
     [
         ("insufficient", "NEEDS_MORE_RESEARCH"),
