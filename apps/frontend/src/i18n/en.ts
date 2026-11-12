@@ -173,6 +173,9 @@ const en: Copy = {
     forward: "Next",
     position: "Position",
     nth: (n: number) => `Album ${n}`,
+    copyTitle: "Copy album name",
+    copyShort: "Copy",
+    copied: "Copied",
   },
   review: {
     short: "Quick take",

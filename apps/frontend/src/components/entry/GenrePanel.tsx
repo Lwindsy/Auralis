@@ -84,17 +84,16 @@ interface Hover {
   node: GenreNode;
   parent: GenreNode | null;
   anchor: Anchor;
+  /** Opened by a finger: the card takes taps, and a tap on it or anywhere else closes it. */
+  touch?: boolean;
 }
 
 type HoverHandlers = {
   show: (node: GenreNode, parent: GenreNode | null, anchor: Anchor) => void;
   hide: () => void;
-  /** Touch has no hover: a tap shows the card at once for a few seconds instead. */
+  /** Touch has no hover: a tap shows the card at once, until the next tap or scroll. */
   peek: (node: GenreNode, parent: GenreNode | null, anchor: Anchor) => void;
 };
-
-/** How long a tapped genre's card stays up on a touch screen. */
-const PEEK_MS = 4000;
 
 function relation(node: GenreNode, parent: GenreNode | null) {
   const words = copy().genres;
@@ -142,10 +141,31 @@ export function GenrePanel({
     },
     peek: (node, parent, anchor) => {
       clearTimeout(timer.current);
-      setHover({ node, parent, anchor });
-      timer.current = setTimeout(() => setHover(null), PEEK_MS);
+      setHover({ node, parent, anchor, touch: true });
     },
   };
+
+  // A card a finger opened stays until it is read: a tap on the card puts it away (see
+  // HoverCard), and so does a tap anywhere else or the page scrolling under it. A tap on
+  // another genre's name closes this card here and opens that one on its click.
+  const touchCard = hover?.touch ?? false;
+  useEffect(() => {
+    if (!touchCard) return;
+    const close = (event: Event) => {
+      if (
+        event.type === "pointerdown" &&
+        (event.target as Element | null)?.closest?.(".genre-card")
+      )
+        return;
+      setHover(null);
+    };
+    document.addEventListener("pointerdown", close, true);
+    window.addEventListener("scroll", close, { capture: true, passive: true });
+    return () => {
+      document.removeEventListener("pointerdown", close, true);
+      window.removeEventListener("scroll", close, true);
+    };
+  }, [touchCard]);
 
   return (
     <div className="genres">
@@ -186,7 +206,13 @@ export function GenrePanel({
           )}
         </div>
       </QuietScroll>
-      {hover ? <HoverCard hover={hover} key={hover.node.genre_id} /> : null}
+      {hover ? (
+        <HoverCard
+          hover={hover}
+          key={hover.node.genre_id}
+          onDismiss={() => setHover(null)}
+        />
+      ) : null}
     </div>
   );
 }
@@ -197,7 +223,13 @@ export function GenrePanel({
  * appears character by character as if being typeset. Placed beside the row (or under
  * it near the edge of the screen), never at the cursor.
  */
-function HoverCard({ hover }: { hover: Hover }) {
+function HoverCard({
+  hover,
+  onDismiss,
+}: {
+  hover: Hover;
+  onDismiss: () => void;
+}) {
   useCopy();
   const note = genreNote(hover.node.genre_id);
   // Narrow phones get a card that still fits between 16px margins.
@@ -231,11 +263,22 @@ function HoverCard({ hover }: { hover: Hover }) {
         className="genre-card"
         role="tooltip"
         data-side={side ? "right" : "below"}
+        data-touch={hover.touch || undefined}
         style={{ left, top, width } as CSSProperties}
+        onClick={hover.touch ? onDismiss : undefined}
       >
         <svg className="genre-card__outline" aria-hidden="true">
           <rect x="0.5" y="0.5" pathLength="1" />
         </svg>
+        {hover.touch ? (
+          <svg
+            className="genre-card__close"
+            viewBox="0 0 12 12"
+            aria-hidden="true"
+          >
+            <path d="M2.5 2.5l7 7M9.5 2.5l-7 7" />
+          </svg>
+        ) : null}
         <p className="genre-card__name">
           {genreDisplayName(hover.node.genre_id, hover.node.name)}
         </p>

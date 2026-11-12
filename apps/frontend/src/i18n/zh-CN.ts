@@ -166,6 +166,9 @@ const zhCN = {
     forward: "下一张",
     position: "位置",
     nth: (n: number) => `第 ${n} 张`,
+    copyTitle: "复制专辑名",
+    copyShort: "复制",
+    copied: "已复制",
   },
   review: {
     short: "短评",
