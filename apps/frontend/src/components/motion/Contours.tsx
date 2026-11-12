@@ -180,6 +180,10 @@ export function Contours() {
     let visit = 0;
     let shadeImage: ImageData | null = null;
     let grains: Grain[] = [];
+    // The centre fade, drawn into the canvas rather than applied as a CSS mask: a mask on
+    // a full-screen layer that changes every frame costs the compositor a pass per frame.
+    let centreFade: CanvasGradient | null = null;
+    let fadeSquash = 1;
     const resize = () => {
       width = window.innerWidth;
       height = window.innerHeight;
@@ -206,6 +210,21 @@ export function Contours() {
         Math.max(110, Math.min(300, (width * height) / 5200)),
       );
       grains = Array.from({ length: count }, () => spawn(true));
+      // Same shape as the old mask: an ellipse 120% × 90% of the screen, 45% strength at
+      // the centre rising to full at three quarters of the way out.
+      const rx = width * 1.2;
+      fadeSquash = (height * 0.9) / rx;
+      const cy = height / 2 / fadeSquash;
+      centreFade = ctx.createRadialGradient(
+        width / 2,
+        cy,
+        0,
+        width / 2,
+        cy,
+        rx,
+      );
+      centreFade.addColorStop(0, "rgba(0,0,0,0.45)");
+      centreFade.addColorStop(0.75, "#000");
     };
     const spawn = (anywhere: boolean): Grain => ({
       x: between(0, width),
@@ -702,13 +721,19 @@ export function Contours() {
       }
     };
     /** Each grain is a bright point with a faint trail behind it, like a slow comet. */
+    // Reused every frame instead of filtering three fresh arrays.
+    const buckets: Grain[][] = [[], [], []];
+    const BANDS = [0.25, 0.55, 0.9] as const;
     const drawGrains = () => {
-      for (const band of [0.25, 0.55, 0.9]) {
-        const members = grains.filter((g) => {
-          const fade = Math.min(g.age / 1.2, (g.life - g.age) / 1.6, 1);
-          if (fade <= 0) return false;
-          return (fade < 0.4 ? 0.25 : fade < 0.75 ? 0.55 : 0.9) === band;
-        });
+      for (const bucket of buckets) bucket.length = 0;
+      for (const g of grains) {
+        const fade = Math.min(g.age / 1.2, (g.life - g.age) / 1.6, 1);
+        if (fade <= 0) continue;
+        buckets[fade < 0.4 ? 0 : fade < 0.75 ? 1 : 2]!.push(g);
+      }
+      for (let b = 0; b < 3; b++) {
+        const band = BANDS[b]!;
+        const members = buckets[b]!;
         ctx.beginPath();
         for (const g of members) {
           ctx.moveTo(g.x, g.y);
@@ -762,6 +787,14 @@ export function Contours() {
         ctx.stroke();
       }
       if (motion) drawGrains();
+      if (centreFade) {
+        ctx.globalAlpha = 1;
+        ctx.globalCompositeOperation = "destination-in";
+        ctx.setTransform(ratio, 0, 0, ratio * fadeSquash, 0, 0);
+        ctx.fillStyle = centreFade;
+        ctx.fillRect(0, 0, width, height / fadeSquash);
+        ctx.globalCompositeOperation = "source-over";
+      }
       ctx.globalAlpha = 1;
     };
 

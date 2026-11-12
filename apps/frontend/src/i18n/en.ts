@@ -18,6 +18,8 @@ const en: Copy = {
     reconnect: "Reconnect",
     refresh: "Refresh",
     retry: "Try that again",
+    dataNotice:
+      "No account needed. The cookie holds only an anonymous session credential. Auralis keeps your submitted preferences, text, and recommendation results for 30 days after your last active interaction. OpenAI may process relevant input to generate personalized recommendations and reviews.",
   },
   entry: {
     doors: {
