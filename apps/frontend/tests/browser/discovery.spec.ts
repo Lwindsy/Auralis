@@ -47,12 +47,19 @@ const album = (page: Page, title: string) =>
   page.getByRole("article", { name: title, exact: true });
 const notes = (page: Page, title: string) => album(page, title);
 
+/** The page opens in English; these checks read the Chinese copy, so switch first. */
+async function visit(page: Page) {
+  await page.goto("/");
+  await page.getByRole("button", { name: "中文", exact: true }).click();
+  await expect(page.locator("html")).toHaveAttribute("lang", "zh-CN");
+}
+
 async function openDoor(page: Page, name: RegExp) {
   await page.getByRole("button", { name }).first().click();
 }
 
 async function type(page: Page, text: string) {
-  await openDoor(page, /^说说想听什么/);
+  await openDoor(page, /^你的任何想法都可以说/);
   await page.getByLabel("这次想听的音乐").fill(text);
 }
 
@@ -67,10 +74,10 @@ test("actual fixture HTTP restores via HttpOnly cookie without storing input in 
   page,
   context,
 }) => {
-  await page.goto("/");
+  await visit(page);
   await expect(page.getByText("契约样例模式")).toBeVisible();
   await type(page, "中文原文 only on server");
-  await page.getByLabel("传播度").fill("100");
+  await page.getByLabel("传播度", { exact: true }).fill("100");
   await start(page);
   await expect(album(page, "样例专辑 1")).toBeVisible({ timeout: 10000 });
   const cookies = await context.cookies();
@@ -80,11 +87,13 @@ test("actual fixture HTTP restores via HttpOnly cookie without storing input in 
   expect(JSON.stringify(cookies)).not.toContain("中文原文");
   await page.close();
   const reopened = await context.newPage();
-  await reopened.goto("/");
+  await visit(reopened);
   await expect(album(reopened, "样例专辑 1")).toBeVisible();
   await reopened.getByRole("link", { name: "Auralis 首页" }).click();
-  await expect(reopened.getByLabel("传播度")).toHaveValue("100");
-  await openDoor(reopened, /^说说想听什么/);
+  await expect(reopened.getByLabel("传播度", { exact: true })).toHaveValue(
+    "100",
+  );
+  await openDoor(reopened, /^你的任何想法都可以说/);
   await expect(reopened.getByLabel("这次想听的音乐")).toHaveValue(
     "中文原文 only on server",
   );
@@ -93,13 +102,43 @@ test("actual fixture HTTP restores via HttpOnly cookie without storing input in 
   ).toEqual([0, 0]);
 });
 
+test("picked genres clear in one go; 传播度 explains itself without covering anything", async ({
+  page,
+  context,
+}) => {
+  await attach(context, new FixtureBackend());
+  await visit(page);
+  await expect(
+    page.getByText("以你的偏好为主，也会加入一些相邻的风格。"),
+  ).toBeVisible();
+  await page.getByRole("button", { name: /^风格/ }).click();
+  await page.getByRole("button", { name: "喜欢Jazz", exact: true }).click();
+  await page.getByRole("button", { name: "展开Unique", exact: true }).click();
+  await page.getByRole("button", { name: "不喜欢Metal", exact: true }).click();
+  const picked = page.getByRole("list", { name: "已选风格" });
+  await expect(picked.getByRole("listitem")).toHaveCount(3);
+  await page.getByRole("button", { name: "清空已选风格" }).click();
+  await expect(picked).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "喜欢Jazz", exact: true }),
+  ).toHaveAttribute("aria-pressed", "false");
+  await page.keyboard.press("Escape");
+  await expect(page.locator(".reach__zone")).toHaveText("听众较少");
+  await page.getByRole("button", { name: "传播度说明" }).hover();
+  await expect(page.getByRole("tooltip")).toHaveText(
+    "听众数的参考，不代表全球热度",
+  );
+  await page.mouse.move(5, 5);
+  await expect(page.getByRole("tooltip")).toHaveCount(0);
+});
+
 test("doors widen one at a time; genres group families, show notes and keep marks", async ({
   page,
   context,
 }) => {
   const backend = new FixtureBackend();
   await attach(context, backend);
-  await page.goto("/");
+  await visit(page);
   await expect(page.getByRole("button", { name: "开始发现" })).toBeDisabled();
   const genres = page.getByRole("button", { name: /^风格/ });
   await genres.click();
@@ -138,7 +177,9 @@ test("doors widen one at a time; genres group families, show notes and keep mark
   await type(page, "温暖的爵士 🎷");
   await page.getByLabel("惊喜", { exact: true }).check({ force: true });
   await start(page);
-  await expect(page.getByRole("region", { name: "正在推荐" })).toBeVisible();
+  const waiting = page.getByRole("region", { name: "正在推荐" });
+  await expect(waiting).toBeVisible();
+  await expect(waiting).not.toContainText("已等待");
   await expect(album(page, "样例专辑 1")).toBeVisible({ timeout: 10000 });
   expect(backend.state.editable_input!.liked_genres[0]).toEqual({
     genre_id: JAZZ_GENRE_ID,
@@ -157,6 +198,14 @@ test("中文／EN switches the whole page in place and sends the language with a
   const backend = new FixtureBackend();
   await attach(context, backend);
   await page.goto("/");
+  // The page opens in English.
+  await expect(page.locator("html")).toHaveAttribute("lang", "en");
+  await expect(page).toHaveTitle("Auralis · Find your next album");
+  await page
+    .getByRole("group", { name: "Language" })
+    .getByRole("button", { name: "中文" })
+    .click();
+  await expect(page.locator("html")).toHaveAttribute("lang", "zh-CN");
   const switcher = page.getByRole("group", { name: "界面语言" });
   const privacy = page.getByRole("contentinfo", { name: "隐私说明" });
   await expect(privacy).toContainText("记录保留 30 天");
@@ -196,7 +245,7 @@ test("中文／EN switches the whole page in place and sends the language with a
   await page.getByRole("button", { name: "Jazz", exact: true }).hover();
   await expect(page.getByRole("tooltip")).toContainText("Improvisation");
   await page.getByRole("button", { name: "Like Jazz", exact: true }).click();
-  await page.getByRole("button", { name: /^In your own words/ }).click();
+  await page.getByRole("button", { name: /^Say anything you like/ }).click();
   await page
     .getByLabel("What you want to hear this time")
     .fill("rainy day jazz piano");
@@ -288,7 +337,7 @@ test("an album at rest keeps no strips; the leaving copy is static and keeps its
   context,
 }) => {
   await attach(context, new FixtureBackend(ready()));
-  await page.goto("/");
+  await visit(page);
   await expect(album(page, "样例专辑 1")).toBeVisible();
   // The strips exist only while the cover assembles.
   await expect(page.locator(".slice")).toHaveCount(0, { timeout: 4000 });
@@ -318,7 +367,7 @@ test("a genre note opens above the wave and nothing below it moves", async ({
   context,
 }) => {
   await attach(context, new FixtureBackend(ready()));
-  await page.goto("/");
+  await visit(page);
   const card = notes(page, "样例专辑 1");
   await expect(card.getByText("这是用于交互验证的合成短评")).toBeAttached();
   await page.waitForTimeout(2600);
@@ -345,7 +394,7 @@ test("the long review is printed on a sheet; the album moves into the header and
 }) => {
   await attach(context, new FixtureBackend(ready()));
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto("/");
+  await visit(page);
   const card = notes(page, "样例专辑 1");
   await page.waitForTimeout(2600);
   const cover = card.locator(".sliced");
@@ -385,7 +434,7 @@ test("from the last album the sleeve flies into the group's stack", async ({
   context,
 }) => {
   await attach(context, new FixtureBackend(ready()));
-  await page.goto("/");
+  await visit(page);
   for (const title of ["样例专辑 1", "样例专辑 2"]) {
     await expect(album(page, title)).toBeVisible();
     await page.getByRole("button", NEXT).click();
@@ -423,7 +472,7 @@ test("the group's stack keeps every album of a large group on screen", async ({
   context,
 }) => {
   await attach(context, new FixtureBackend(ready(10, 10)));
-  await page.goto("/");
+  await visit(page);
   await expect(album(page, "样例专辑 1")).toBeVisible();
   await page.locator(".pips li[data-tail] button").click();
   await expect(page.getByText("这一组听完了")).toBeVisible();
@@ -446,7 +495,7 @@ test("one album at a time: edges and keys move, 听过了 records and can be tak
 }) => {
   const backend = new FixtureBackend(ready());
   await attach(context, backend);
-  await page.goto("/");
+  await visit(page);
   await expect(album(page, "样例专辑 1")).toBeVisible();
   await expect(page.getByRole("article")).toHaveCount(1);
   await expect(page.getByRole("button", PREV)).toBeDisabled();
@@ -498,7 +547,7 @@ test("long review unfolds in place of the short one; failures regenerate only on
 }) => {
   const backend = new FixtureBackend(ready());
   await attach(context, backend);
-  await page.goto("/");
+  await visit(page);
   const card = notes(page, "样例专辑 1");
   await card.getByRole("button", { name: "读长评" }).click();
   await expect(card.getByText("长评写作中")).toBeVisible();
@@ -543,7 +592,7 @@ test("long review research limit gives a specific message and keeps the retry ac
     });
     return true;
   });
-  await page.goto("/");
+  await visit(page);
   const card = notes(page, "样例专辑 1");
   await card.getByRole("button", { name: "读长评" }).click();
   await expect(
@@ -560,21 +609,24 @@ test("after the last album: more of the same, or rethink with the old input", as
 }) => {
   const backend = new FixtureBackend(ready());
   await attach(context, backend);
-  await page.goto("/");
+  await visit(page);
   for (const title of ["样例专辑 1", "样例专辑 2", "样例专辑 3"]) {
     await expect(album(page, title)).toBeVisible();
     await page.getByRole("button", NEXT).click();
   }
   await expect(page.getByText("这一组听完了")).toBeVisible();
   await expect(page.getByRole("button", NEXT)).toBeDisabled();
-  await page.getByRole("button", { name: /再给我来一些/ }).click();
+  await expect(
+    page.getByRole("button", { name: "换一些想法吧", exact: true }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "再给我来一些", exact: true }).click();
   await expect(page.getByRole("region", { name: "正在推荐" })).toBeVisible();
   await expect(album(page, "样例专辑 10")).toBeVisible({ timeout: 10000 });
   expect(posts(backend, "/next-batch")).toHaveLength(1);
 
   for (let i = 0; i < 3; i++) await page.getByRole("button", NEXT).click();
   await page.getByRole("button", { name: /换一些想法吧/ }).click();
-  await openDoor(page, /^说说想听什么/);
+  await openDoor(page, /^你的任何想法都可以说/);
   await expect(page.getByLabel("这次想听的音乐")).toHaveValue("想听轻松的爵士");
   await page.getByLabel("这次想听的音乐").fill("换个方向");
   await start(page);
@@ -590,7 +642,7 @@ test("BASIC results say so and rescreen only on request", async ({
   state.analysis_mode = "BASIC";
   const backend = new FixtureBackend(state);
   await attach(context, backend);
-  await page.goto("/");
+  await visit(page);
   await expect(page.getByText("基础推荐 · 本次个性化未完成")).toBeVisible();
   expect(posts(backend, "/rescreen")).toHaveLength(0);
   await page.getByRole("button", NEXT).click();
@@ -607,11 +659,11 @@ for (const status of ["NO_MATCH", "FAILED", "INTERRUPTED"] as const) {
     const state = ready(0);
     state.status = status;
     await attach(context, new FixtureBackend(state));
-    await page.goto("/");
+    await visit(page);
     await expect(page.getByRole("group", { name: "接下来" })).toBeVisible();
     await expect(page.getByRole("article")).toHaveCount(0);
     await page.getByRole("button", { name: /换一些想法吧/ }).click();
-    await openDoor(page, /^说说想听什么/);
+    await openDoor(page, /^你的任何想法都可以说/);
     await expect(page.getByLabel("这次想听的音乐")).toHaveValue(
       "想听轻松的爵士",
     );
@@ -626,7 +678,7 @@ test("WAITING winds down into the albums without another POST", async ({
     shared<ProductState>("fourth-request-waiting"),
   );
   await attach(context, backend);
-  await page.goto("/");
+  await visit(page);
   await expect(page.getByText("排队中")).toBeVisible();
   backend.state = ready();
   await expect(album(page, "样例专辑 1")).toBeVisible({ timeout: 10000 });
@@ -660,7 +712,7 @@ test("first card ends the wait and the actual batch tail appends once", async ({
     await route.fulfill({ json: backend.state });
     return true;
   });
-  await page.goto("/");
+  await visit(page);
   await expect(page.getByText("排队中")).toBeVisible();
   backend.state = {
     ...full,
@@ -721,7 +773,7 @@ test("seeing the current last card asks for more while the run is still working"
     await route.fulfill({ json: backend.state });
     return true;
   });
-  await page.goto("/");
+  await visit(page);
   await expect(album(page, "样例专辑 1")).toBeVisible();
   await expect.poll(() => requests).toBe(1);
   backend.state = { ...full, revision: state.revision + 2 };
@@ -751,7 +803,7 @@ test("lost response retains original key and prevents duplicate intents", async 
     }
     return false;
   });
-  await page.goto("/");
+  await visit(page);
   await notes(page, "样例专辑 1")
     .getByRole("button", { name: "听过了" })
     .click();
@@ -772,7 +824,7 @@ test("album shelf sends only MBID and marks; removal resets marks", async ({
 }) => {
   const backend = new FixtureBackend();
   await attach(context, backend);
-  await page.goto("/");
+  await visit(page);
   const name = "Synthetic 外部专辑 — Synthetic Artist";
   await openDoor(page, /^专辑/);
   await page.getByLabel("查找专辑").fill("Synthetic");
@@ -807,7 +859,7 @@ test("mobile layout fits, keys work and markup stays inert", async ({
   state.slots[0]!.card!.identity.title = "<img src=x onerror=alert(1)>";
   await attach(context, new FixtureBackend(state));
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/");
+  await visit(page);
   await expect(
     page.getByRole("heading", {
       name: "<img src=x onerror=alert(1)>",
@@ -832,7 +884,7 @@ test("expired cookie opens an empty start page with an expiry notice", async ({
 }) => {
   const state = { ...idle(), message_key: "session.expired" };
   await attach(context, new FixtureBackend(state));
-  await page.goto("/");
+  await visit(page);
   await expect(
     page.getByText("上次发现已过期，已为你打开空白页面，可以重新开始。"),
   ).toBeVisible();
@@ -846,7 +898,7 @@ test("visual baselines for start page, room and mobile", async ({
   const backend = new FixtureBackend(ready());
   await attach(context, backend);
   await page.setViewportSize({ width: 1360, height: 900 });
-  await page.goto("/");
+  await visit(page);
   await expect(album(page, "样例专辑 1")).toBeVisible();
   await page.waitForTimeout(1200);
   await page.screenshot({ path: "test-results/room.png" });

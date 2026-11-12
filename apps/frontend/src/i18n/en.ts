@@ -33,7 +33,7 @@ const en: Copy = {
   entry: {
     doors: {
       text: {
-        label: "In your own words",
+        label: "Say anything you like",
         hint: "A mood, a moment, a sound — anything goes",
       },
       genres: {
@@ -44,14 +44,14 @@ const en: Copy = {
     },
     spine: { text: "Words", genres: "Genres", albums: "Albums" },
     examples: [
-      "Rainy Sunday afternoon, in the mood for jazz piano",
+      "Coding right now, something quiet please",
       "Electronic stuff for a late-night drive, nothing too loud",
       "Warm and a little melancholy, like In Rainbows",
     ],
     hint: "Not sure what to play? Tell us how you feel and get a soundtrack that's all yours",
     resume: "Back to your picks",
     textLabel: "What you want to hear this time",
-    textPlaceholder: "e.g. Rainy Sunday afternoon, in the mood for jazz piano",
+    textPlaceholder: "e.g. I love trip hop, give me some!",
     tooLong: (max: number, length: number) =>
       `Keep it under ${max} characters — you're at ${length}.`,
     examplesLabel: "Try something like",
@@ -66,23 +66,25 @@ const en: Copy = {
     group: "How far to roam",
     familiar: {
       label: "Familiar",
-      hint: "Stays close to what you already like",
-      line: "Sticks to the lane you gave it. The safe bet.",
+      hint: "Stays close to what you asked for",
+      line: "Only albums that stay close to what you asked for.",
     },
     explore: {
       label: "Explore",
-      hint: "Keeps your core taste, wanders into nearby genres",
-      line: "Same core vibe, with a detour into neighboring genres.",
+      hint: "Mostly your taste, plus nearby genres",
+      line: "Mostly your taste, plus some neighboring genres.",
     },
     surprise: {
       label: "Surprise",
-      hint: "Lets the connections reach further",
-      line: "Goes further out. Expect the unexpected.",
+      hint: "Can drift further from your taste",
+      line: "Picks can drift further from your taste, so results are less predictable.",
     },
   },
   reach: {
     label: "Reach",
-    zones: ["Deep-cut territory", "A little buzz", "Crowd-tested only"],
+    zones: ["Fewer listeners", "Mid-sized audience", "More listeners"],
+    about: "About reach",
+    info: "Based on listener counts, not global popularity",
     between: (value: number, min: number, max: number) =>
       `${value}%, ${min}–${max} listeners`,
     atLeast: (value: number, listeners: number) =>
@@ -124,6 +126,8 @@ const en: Copy = {
     focusedName: (name: string) => `Focus on ${name} this time`,
     remove: "Remove",
     removeName: (name: string) => `Remove ${name}`,
+    clear: "Clear all",
+    clearName: (label: string) => `Clear all · ${label}`,
   },
   albums: {
     search: "Find an album",
@@ -145,9 +149,6 @@ const en: Copy = {
     queued: "In line",
     working: "Digging",
     soon: "Coming right up",
-    queuedFor: (clock: string) =>
-      `Starts on its own when it's your turn · ${clock}`,
-    waited: (clock: string) => `Waiting ${clock}`,
   },
   deck: {
     label: "Recommendations",
@@ -165,9 +166,7 @@ const en: Copy = {
     markHeard: "Mark as heard and we won't suggest it again",
     supplying: "Finding one more",
     next: "What's next",
-    unhappy: "Not feeling it?",
     rethink: "Try a different idea",
-    same: "Same request",
     more: "Hit me with more",
     rescreen: "Re-screen with the original request",
     prev: "Previous",

@@ -1,7 +1,11 @@
-import { describe, expect, test } from "vitest";
+import { beforeAll, describe, expect, test } from "vitest";
 import { message, note, stateMessage } from "../../src/api/messages.ts";
+import { i18n } from "../../src/i18n/index.ts";
 import { coverArt, hash, initials } from "../../src/lib/cover.ts";
 import { ready } from "../fixtures.ts";
+
+// The page opens in English; these checks read the reviewed Chinese copy.
+beforeAll(() => i18n.set("zh-CN", false));
 
 describe("presentation helpers", () => {
   test("unknown message keys never echo server text", () => {

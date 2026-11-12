@@ -573,6 +573,28 @@
   border-style: dashed;
 }
 
+/* Clear all: the last item of the row, quieter than any chip until pointed at. */
+.chips__clear button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 32px;
+  padding: 3px 12px 3px 10px;
+  border: 1px dashed transparent;
+  border-radius: 18px;
+  font-size: 12.5px;
+  color: var(--ink-40);
+  transition:
+    color 240ms ease,
+    border-color 240ms ease;
+}
+
+.chips__clear button:hover:not(:disabled),
+.chips__clear button:focus-visible {
+  border-color: var(--ink-20);
+  color: var(--page-ink);
+}
+
 .chip__lead {
   font-size: 11px;
   opacity: 0.7;
@@ -1308,10 +1330,70 @@
   justify-content: space-between;
 }
 
+.reach__title {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .reach__label {
   font-size: 13px;
   letter-spacing: 0.24em;
   color: var(--ink-60);
+}
+
+.reach__label:lang(en) {
+  letter-spacing: 0.06em;
+}
+
+.reach__info {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  color: var(--ink-40);
+  cursor: help;
+  transition: color 240ms ease;
+}
+
+.reach__info:hover,
+.reach__info:focus-visible {
+  color: var(--page-ink);
+}
+
+/* What the scale measures, in the empty space under the rail (where the bands fold out
+   while dragging), so it never covers anything. */
+.reach__tip {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  padding-top: 8px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--ink-60);
+  pointer-events: none;
+  animation: tip-in 320ms var(--ease-out-expo) both;
+}
+
+@keyframes tip-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+.reach__read {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.reach__zone {
+  font-size: 12px;
+  color: var(--ink-60);
+  animation: tip-in 420ms var(--ease-out-expo) both;
 }
 
 .reach__value {

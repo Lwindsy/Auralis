@@ -55,6 +55,8 @@ test("slow search cover does not delay results or selection", async ({
   });
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/");
+  // The page opens in English; these checks read the Chinese copy.
+  await page.getByRole("button", { name: "中文", exact: true }).click();
   await page.getByRole("button", { name: /^专辑/ }).click();
   await page.getByLabel("查找专辑").fill("Synthetic");
   await page.getByLabel("查找专辑").press("Enter");
@@ -104,6 +106,8 @@ test("slices and colour share one decoded cover; old response cannot repaint a n
   });
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/");
+  // The page opens in English; these checks read the Chinese copy.
+  await page.getByRole("button", { name: "中文", exact: true }).click();
   await expect(
     page.getByRole("article", { name: "样例专辑 1", exact: true }),
   ).toBeVisible();

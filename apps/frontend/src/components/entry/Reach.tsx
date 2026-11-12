@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useId, useRef, useState, type CSSProperties } from "react";
 import { useCopy } from "../../i18n/index.ts";
 import { reachToListeners } from "../../state/draft.ts";
+import { Icon } from "../Icon.tsx";
 
 /** Three bands of the scale; what each means is shown only while the slider is moved. */
 const ZONES = [
@@ -15,6 +16,8 @@ const zoneOf = (value: number) => (value <= 40 ? 0 : value <= 70 ? 1 : 2);
  * 传播度 maps the slider to an inclusive range of sample listeners. A thin rail with a
  * filled run and two marks at 40% and 70%. While the thumb is being moved the three bands
  * fold out underneath, the current one lit; they fold away shortly after letting go.
+ * The current band is named beside the value, and an info mark explains what the scale
+ * measures; its note takes the empty space under the rail, so it covers nothing.
  */
 export function Reach({
   value,
@@ -26,6 +29,8 @@ export function Reach({
   onChange: (value: number) => void;
 }) {
   const [active, setActive] = useState(false);
+  const [explain, setExplain] = useState(false);
+  const tipId = useId();
   const words = useCopy().reach;
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => () => clearTimeout(timer.current), []);
@@ -46,12 +51,32 @@ export function Reach({
       style={{ "--p": value } as CSSProperties}
     >
       <div className="reach__head">
-        <label className="reach__label" htmlFor="reach-input">
-          {words.label}
-        </label>
-        <span className="reach__value mono" aria-hidden="true">
-          {value}
-          <small>%</small>
+        <span className="reach__title">
+          <label className="reach__label" htmlFor="reach-input">
+            {words.label}
+          </label>
+          <button
+            type="button"
+            className="reach__info"
+            aria-label={words.about}
+            aria-describedby={explain ? tipId : undefined}
+            onPointerEnter={() => setExplain(true)}
+            onPointerLeave={() => setExplain(false)}
+            onFocus={() => setExplain(true)}
+            onBlur={() => setExplain(false)}
+            onClick={() => setExplain((shown) => !shown)}
+          >
+            <Icon name="info" size={14} />
+          </button>
+        </span>
+        <span className="reach__read" aria-hidden="true">
+          <span className="reach__zone" key={zone}>
+            {words.zones[zone]}
+          </span>
+          <span className="reach__value mono">
+            {value}
+            <small>%</small>
+          </span>
         </span>
       </div>
       <div className="reach__rail">
@@ -86,6 +111,11 @@ export function Reach({
           onBlur={() => hideSoon(0)}
         />
       </div>
+      {explain && !active ? (
+        <p className="reach__tip" id={tipId} role="tooltip">
+          {words.info}
+        </p>
+      ) : null}
       <ol className="reach__zones" aria-hidden="true">
         {ZONES.map((item, index) => (
           <li

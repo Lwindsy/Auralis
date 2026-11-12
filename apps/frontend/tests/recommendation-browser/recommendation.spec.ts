@@ -34,6 +34,8 @@ async function state(context: BrowserContext): Promise<ProductState> {
 
 async function submit(page: Page, text = "爵士新发现 🎷") {
   await page.goto("/");
+  // The page opens in English; these checks read the Chinese copy.
+  await page.getByRole("button", { name: "中文", exact: true }).click();
   await page.getByRole("button", { name: /^风格/ }).click();
   // A root genre without sub-genres sits in the display-only Unique group.
   const like = page.getByRole("button", { name: "喜欢爵士", exact: true });
@@ -44,7 +46,7 @@ async function submit(page: Page, text = "爵士新发现 🎷") {
   await page.getByRole("button", { name: "爵士特别喜欢", exact: true }).click();
   await page.getByRole("button", { name: "爵士本次重点", exact: true }).click();
   if (text) {
-    await page.getByRole("button", { name: /^说说想听什么/ }).click();
+    await page.getByRole("button", { name: /^你的任何想法都可以说/ }).click();
     await page.getByLabel("这次想听的音乐").fill(text);
   }
   await page.getByRole("button", { name: "开始发现", exact: true }).click();
@@ -69,7 +71,7 @@ async function toFinale(page: Page) {
 }
 
 async function textOnEntry(page: Page) {
-  await page.getByRole("button", { name: /^说说想听什么/ }).click();
+  await page.getByRole("button", { name: /^你的任何想法都可以说/ }).click();
   return page.getByLabel("这次想听的音乐");
 }
 
@@ -135,6 +137,8 @@ test("real Java recommendations keep input, record 听过了 and restore after r
   await page.close();
   const reopened = await context.newPage();
   await reopened.goto("/");
+  // The page opens in English; these checks read the Chinese copy.
+  await reopened.getByRole("button", { name: "中文", exact: true }).click();
   await expect(shown(reopened)).toHaveCount(1);
   expect((await state(context)).expires_at).toBe(saved.expires_at);
   await reopened.screenshot({

@@ -29,20 +29,23 @@ const zhCN = {
   },
   entry: {
     doors: {
-      text: { label: "说说想听什么", hint: "一句话，心情、场景或听感都行" },
+      text: {
+        label: "你的任何想法都可以说",
+        hint: "一句话，心情、场景或听感都行",
+      },
       genres: { label: "风格", hint: "挑喜欢的，或标出想避开的" },
       albums: { label: "专辑", hint: "找几张喜欢的作参照" },
     },
     spine: { text: "说说", genres: "风格", albums: "专辑" },
     examples: [
-      "下雨的周末下午，想听爵士钢琴",
+      "在写代码呢，来点安静的",
       "适合深夜开车的电子乐，别太吵",
       "像《In Rainbows》那样温暖、带点忧郁",
     ],
     hint: "不知道想听什么？在这里表达自己，得到属于你的配乐",
     resume: "回到刚才的推荐",
     textLabel: "这次想听的音乐",
-    textPlaceholder: "比如：下雨的周末下午，想听爵士钢琴",
+    textPlaceholder: "比如：我很喜欢 Trip hop，来点！",
     tooLong: (max: number, length: number) =>
       `最多 ${max} 个字符，当前 ${length}。`,
     examplesLabel: "试试这样说",
@@ -57,23 +60,25 @@ const zhCN = {
     group: "探索方式",
     familiar: {
       label: "熟悉",
-      hint: "贴近你已有的偏好",
-      line: "就在你给的方向里找，稳一点。",
+      hint: "只找和你的偏好很接近的",
+      line: "只推荐和你给的方向很接近的专辑。",
     },
     explore: {
       label: "拓展",
-      hint: "保留主线，探索相邻风格",
-      line: "主线不变，顺手带你去相邻的风格。",
+      hint: "以你的偏好为主，加一些相邻风格",
+      line: "以你的偏好为主，也会加入一些相邻的风格。",
     },
     surprise: {
       label: "惊喜",
-      hint: "允许更远的风格关联",
-      line: "允许走远一点，可能遇到意想不到的。",
+      hint: "允许离你的偏好更远",
+      line: "会推荐离你的偏好更远的风格，结果更难预料。",
     },
   },
   reach: {
     label: "传播度",
-    zones: ["除非你真的很小众", "来点小火的", "没人听的我也不听"],
+    zones: ["听众较少", "听众中等", "听众较多"],
+    about: "传播度说明",
+    info: "听众数的参考，不代表全球热度",
     between: (value: number, min: number, max: number) =>
       `${value}%，${min}–${max} 位听众`,
     atLeast: (value: number, listeners: number) =>
@@ -114,6 +119,8 @@ const zhCN = {
     focusedName: (name: string) => `${name}本次重点`,
     remove: "移除",
     removeName: (name: string) => `移除${name}`,
+    clear: "清空",
+    clearName: (label: string) => `清空${label}`,
   },
   albums: {
     search: "查找专辑",
@@ -135,8 +142,6 @@ const zhCN = {
     queued: "排队中",
     working: "正在挑选",
     soon: "马上就来",
-    queuedFor: (clock: string) => `轮到你时会自动开始 · ${clock}`,
-    waited: (clock: string) => `已等待 ${clock}`,
   },
   deck: {
     label: "推荐",
@@ -154,9 +159,7 @@ const zhCN = {
     markHeard: "记为听过，之后不再推荐",
     supplying: "正在再找一张",
     next: "接下来",
-    unhappy: "不满意？",
     rethink: "换一些想法吧",
-    same: "同样的需求",
     more: "再给我来一些",
     rescreen: "按原需求重新复筛",
     prev: "上一张",

@@ -169,3 +169,35 @@
   letter-spacing: 0.12em;
   color: var(--ink-60);
 }
+
+/* A catalogue genre and its one-line introduction, replaced every few seconds. The block
+   keeps its height so the drum above never jumps. */
+.waiting__fact {
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: 6px;
+  width: min(46ch, calc(100vw - 48px));
+  min-height: 6.4em;
+  text-align: center;
+  animation: fact-in 900ms var(--ease-out-expo) both;
+}
+
+.waiting__genre {
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  color: var(--page-ink);
+}
+
+.waiting__note {
+  font-size: 13.5px;
+  line-height: 1.65;
+  color: var(--ink-60);
+}
+
+@keyframes fact-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}

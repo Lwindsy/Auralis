@@ -1400,12 +1400,6 @@
   animation-duration: 900ms;
 }
 
-.choice__eyebrow {
-  font-size: 13px;
-  letter-spacing: 0.1em;
-  color: var(--ink-60);
-}
-
 .choice__title {
   font-size: 22px;
   font-weight: 300;

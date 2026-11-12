@@ -340,6 +340,12 @@ export function Entry({
             items={genreChips}
             handlers={chipHandlers}
             label={words.entry.pickedGenres}
+            onClear={() =>
+              update((next) => {
+                next.liked_genres = [];
+                next.disliked_genre_ids = [];
+              })
+            }
           />
           <GenrePanel api={api} handlers={genreHandlers} />
         </>
@@ -350,6 +356,11 @@ export function Entry({
           items={albumChips}
           handlers={chipHandlers}
           label={words.entry.pickedAlbums}
+          onClear={() =>
+            update((next) => {
+              next.liked_albums = [];
+            })
+          }
         />
         <AlbumShelf
           api={api}

@@ -40,6 +40,12 @@ function strings(value: unknown): string[] {
 }
 
 describe("interface language", () => {
+  test("the page opens in English", () => {
+    // Runs first: later tests switch the language and reset it to Chinese.
+    expect(i18n.locale).toBe("en");
+    expect(i18n.chosen).toBe(false);
+  });
+
   test("the English dictionary covers exactly the Chinese keys", () => {
     expect(shape(en)).toEqual(shape(zhCN));
   });

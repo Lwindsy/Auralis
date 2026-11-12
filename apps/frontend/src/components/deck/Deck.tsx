@@ -531,7 +531,6 @@ export function Deck({
         <div className="finale__choices">
           <button type="button" className="choice" onClick={onRethink}>
             <MiniWave bars={13} calm className="choice__wave" />
-            <span className="choice__eyebrow">{words.unhappy}</span>
             <span className="choice__title">{words.rethink}</span>
           </button>
           <button
@@ -541,7 +540,6 @@ export function Deck({
             onClick={onMore}
           >
             <MiniWave bars={13} live className="choice__wave" />
-            <span className="choice__eyebrow">{words.same}</span>
             <span className="choice__title">{words.more}</span>
           </button>
         </div>

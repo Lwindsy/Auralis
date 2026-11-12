@@ -58,7 +58,6 @@ export function App({ api, controller, review, fixture }: AppProps) {
   const words = useCopy();
   const state = controller.state;
   const [requested, setRequested] = useState<Stage | null>(null);
-  const [waitSince, setWaitSince] = useState(() => Date.now());
   const [waitMark, setWaitMark] = useState<WaitMark | null>(null);
   const [minDone, setMinDone] = useState(true);
   const [epoch, setEpoch] = useState(0);
@@ -119,7 +118,6 @@ export function App({ api, controller, review, fixture }: AppProps) {
 
   const startWait = (mark: WaitMark | null) => {
     setWaitMark(mark);
-    setWaitSince(Date.now());
     setMinDone(false);
     clearTimeout(minTimer.current);
     minTimer.current = setTimeout(() => setMinDone(true), MIN_WAIT_MS);
@@ -260,12 +258,7 @@ export function App({ api, controller, review, fixture }: AppProps) {
             onSubmit={(input) => void submit(input)}
           />
         ) : stage === "waiting" ? (
-          <Waiting
-            state={state}
-            since={waitSince}
-            settling={settling}
-            onSettled={settled}
-          />
+          <Waiting state={state} settling={settling} onSettled={settled} />
         ) : (
           <Deck
             key={`${session}:${epoch}`}
