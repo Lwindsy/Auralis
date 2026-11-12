@@ -24,85 +24,141 @@
 
 /* Edges --------------------------------------------------------------------- */
 
+/* The edges never anchor the page's scroll position (the browser's scroll anchoring would
+   otherwise pick the dial and nudge the page when the room below it changes). */
 .edge {
   position: relative;
   z-index: 2;
+  overflow-anchor: none;
   display: grid;
   place-items: center;
   align-content: center;
-  gap: 14px;
+  gap: 16px;
   color: var(--page-ink);
-  opacity: 0.5;
-  transition:
-    opacity 400ms ease,
-    color var(--room-change);
+  transition: color var(--room-change);
 }
 
+/* A soft pool of shade behind the dial on hover: round and fading out, so no box edge
+   shows against the room. */
 .edge::before {
   content: "";
   position: absolute;
-  inset: 0;
+  top: 50%;
+  left: 50%;
+  width: 220px;
+  height: 220px;
+  border-radius: 50%;
+  background: radial-gradient(
+    closest-side,
+    color-mix(in srgb, var(--page-ink) 7%, transparent),
+    transparent
+  );
   opacity: 0;
-  transition: opacity 600ms var(--ease-out-expo);
+  transform: translate(-50%, -50%) scale(0.7);
+  pointer-events: none;
+  transition:
+    opacity 500ms ease,
+    transform 700ms var(--ease-out-expo);
 }
 
-.edge--prev::before {
-  background: linear-gradient(90deg, var(--ink-12), transparent);
+/* The control itself: a quiet round dial with a chevron, in the room's own colours. */
+.edge__dial {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border: 1px solid color-mix(in srgb, var(--page-ink) 16%, transparent);
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--page-room) 55%, transparent);
+  color: color-mix(in srgb, var(--page-ink) 62%, var(--page-room));
+  box-shadow: 0 10px 26px -20px rgb(0 0 0 / 0.5);
+  transition:
+    transform 560ms var(--ease-spring),
+    border-color 400ms ease,
+    background-color 400ms ease,
+    color 400ms ease,
+    box-shadow 500ms ease;
 }
 
-.edge--next::before {
-  background: linear-gradient(270deg, var(--ink-12), transparent);
-}
-
-.edge svg {
-  width: 18px;
+.edge__dial svg {
+  width: 20px;
+  height: 20px;
   fill: none;
   stroke: currentColor;
-  stroke-width: 1.4;
+  stroke-width: 1.5;
   stroke-linecap: round;
   stroke-linejoin: round;
-  transition: transform 620ms var(--ease-out-expo);
+  transition: transform 560ms var(--ease-out-expo);
 }
 
-.edge span {
+.edge__label {
   writing-mode: vertical-rl;
   font-size: 12px;
   letter-spacing: 0.4em;
+  color: var(--ink-60);
   opacity: 0;
-  transform: translateY(8px);
+  transform: translateY(-6px);
   transition:
     opacity 400ms ease,
     transform 620ms var(--ease-out-expo);
 }
 
-.edge span:lang(en) {
+.edge__label:lang(en) {
   letter-spacing: 0.2em;
-}
-
-.edge:hover:not(:disabled) {
-  opacity: 1;
 }
 
 .edge:hover:not(:disabled)::before {
   opacity: 1;
+  transform: translate(-50%, -50%);
 }
 
-.edge:hover:not(:disabled) span {
-  opacity: 0.8;
+.edge:hover:not(:disabled) .edge__dial {
+  transform: scale(1.08);
+  border-color: color-mix(in srgb, var(--page-ink) 34%, transparent);
+  background-color: color-mix(
+    in srgb,
+    var(--page-room) 82%,
+    var(--page-ink) 4%
+  );
+  color: var(--page-ink);
+  box-shadow: 0 18px 34px -18px rgb(0 0 0 / 0.55);
+}
+
+.edge--prev:hover:not(:disabled) .edge__dial svg {
+  transform: translateX(-2px);
+}
+
+.edge--next:hover:not(:disabled) .edge__dial svg {
+  transform: translateX(2px);
+}
+
+.edge:hover:not(:disabled) .edge__label {
+  opacity: 0.85;
   transform: none;
 }
 
-.edge--prev:hover:not(:disabled) svg {
-  transform: translateX(-6px);
+.edge:active:not(:disabled) .edge__dial {
+  transform: scale(0.95);
+  transition-duration: 120ms;
 }
 
-.edge--next:hover:not(:disabled) svg {
-  transform: translateX(6px);
+.edge:focus-visible {
+  outline: none;
+}
+
+.edge:focus-visible .edge__dial {
+  outline: 2px solid var(--spark, var(--accent));
+  outline-offset: 4px;
 }
 
 .edge:disabled {
-  opacity: 0.1;
   cursor: default;
+}
+
+.edge:disabled .edge__dial {
+  opacity: 0.22;
+  box-shadow: none;
 }
 
 /* Scene --------------------------------------------------------------------- */
@@ -1639,7 +1695,8 @@
     margin-bottom: 12px;
     padding: 2px;
     border-radius: 999px;
-    background: color-mix(in srgb, var(--page-room) 86%, var(--page-ink) 5%);
+    border: 1px solid color-mix(in srgb, var(--page-ink) 9%, transparent);
+    background: color-mix(in srgb, var(--page-room) 95%, var(--page-ink) 4%);
     box-shadow: 0 10px 30px -18px rgb(0 0 0 / 0.5);
     transition: background-color var(--room-change);
   }
@@ -1677,7 +1734,7 @@
     --s: min(74vw, 320px);
     gap: 26px;
   }
-  .edge span {
+  .edge__label {
     display: none;
   }
 }
@@ -1717,10 +1774,96 @@
   }
 }
 
-/* Touch screens: the room takes sideways swipes (Deck.tsx turns the album) and leaves
-   vertical scrolling and pinch zoom to the page. */
+/* Touch screens: the whole room takes sideways swipes (Deck.tsx turns the album) and
+   leaves vertical scrolling and pinch zoom to the page. */
 @media (hover: none) and (pointer: coarse) {
-  .deck__stage {
+  .deck,
+  .liner,
+  .liner__scroll {
     touch-action: pan-y pinch-zoom;
+  }
+  /* While a swipe moves the room the closed long review sheet would show inside it
+     (fixed elements follow a transformed parent); it is not needed until it opens. */
+  .deck__stage[data-swiping] .liner {
+    visibility: hidden;
+  }
+}
+
+/* Touch screens: a lit genre's note takes a tap, which puts it away. */
+@media (hover: none) and (pointer: coarse) {
+  .wave[data-active] .wave__note {
+    pointer-events: auto;
+  }
+}
+
+/* Touch screens wider than a phone still show the side dials: a tap must not leave them
+   lifted. */
+@media (hover: none) {
+  .edge:hover:not(:disabled)::before {
+    opacity: 0;
+  }
+  .edge:hover:not(:disabled) .edge__dial {
+    transform: none;
+    border-color: color-mix(in srgb, var(--page-ink) 16%, transparent);
+    background-color: color-mix(in srgb, var(--page-room) 55%, transparent);
+    color: color-mix(in srgb, var(--page-ink) 62%, var(--page-room));
+    box-shadow: 0 10px 26px -20px rgb(0 0 0 / 0.5);
+  }
+  .edge:hover:not(:disabled) .edge__dial svg {
+    transform: none;
+  }
+  .edge:hover:not(:disabled) .edge__label {
+    opacity: 0;
+  }
+}
+
+/* Album name copy button: phones and tablets only. */
+.copy-title {
+  display: none;
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .copy-title {
+    position: relative;
+    display: inline-flex;
+    align-self: center;
+    align-items: center;
+    gap: 5px;
+    height: 26px;
+    padding: 0 10px 0 8px;
+    border: 1px solid var(--ink-20);
+    border-radius: 999px;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: none;
+    color: var(--ink-60);
+    transition:
+      color 300ms ease,
+      border-color 300ms ease;
+  }
+  /* A finger-sized target around the small pill. */
+  .copy-title::after {
+    content: "";
+    position: absolute;
+    inset: -9px -6px;
+  }
+  .copy-title svg {
+    width: 14px;
+    height: 14px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  .copy-title:active {
+    transform: scale(0.95);
+  }
+  .copy-title[data-done] {
+    border-color: var(--spark, var(--accent));
+    color: var(--page-ink);
+  }
+  .copy-title[data-done] svg {
+    animation: count-pop 360ms var(--ease-spring) both;
   }
 }

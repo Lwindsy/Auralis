@@ -1032,6 +1032,19 @@ test.describe("on a phone", () => {
     const box = (await card.boundingBox())!;
     expect(box.x).toBeGreaterThanOrEqual(0);
     expect(box.x + box.width).toBeLessThanOrEqual(390);
+    // It stays while it is read, and a tap on it puts it away without reaching the
+    // list underneath.
+    await page.waitForTimeout(4500);
+    await expect(card).toHaveCount(1);
+    const picked = await page.locator(".chip").count();
+    await page.touchscreen.tap(box.x + box.width / 2, box.y + box.height / 2);
+    await expect(card).toHaveCount(0);
+    expect(await page.locator(".chip").count()).toBe(picked);
+    // A tap anywhere else closes it too.
+    await page.getByRole("button", { name: "爵士", exact: true }).tap();
+    await expect(card).toHaveCount(1);
+    await page.touchscreen.tap(195, 30);
+    await expect(card).toHaveCount(0);
     await page
       .getByRole("button", { name: /^你的任何想法都可以说/ })
       .first()
@@ -1059,6 +1072,14 @@ test.describe("on a phone", () => {
     await expect(card.locator(".wave")).toHaveAttribute("data-active", "true");
     await expect(card.locator(".wave__note")).toContainText("即兴");
     await page.touchscreen.tap(box.x + box.width * 0.8, box.y + box.height / 2);
+    await expect(card.locator(".wave")).not.toHaveAttribute("data-active");
+    // A tap on the note itself puts it away as well.
+    await page.touchscreen.tap(box.x + box.width * 0.8, box.y + box.height / 2);
+    await expect(card.locator(".wave")).toHaveAttribute("data-active", "true");
+    const note = card.locator(".wave__note");
+    await note.scrollIntoViewIfNeeded();
+    const noteBox = (await note.boundingBox())!;
+    await page.touchscreen.tap(noteBox.x + 40, noteBox.y + noteBox.height / 2);
     await expect(card.locator(".wave")).not.toHaveAttribute("data-active");
     // At the end of the room the bar rests above the privacy line.
     await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
@@ -1108,12 +1129,63 @@ test.describe("on a phone", () => {
     };
     const current = () =>
       page.locator(".pips [aria-current]").getAttribute("aria-label");
+    // While the room follows a finger, the folded long review sheet (fixed, so it would
+    // follow the moving room into view) stays hidden.
+    await cdp.send("Input.dispatchTouchEvent", {
+      type: "touchStart",
+      touchPoints: [{ x: 300, y: 300 }],
+    });
+    for (let i = 1; i <= 6; i++) {
+      await cdp.send("Input.dispatchTouchEvent", {
+        type: "touchMove",
+        touchPoints: [{ x: 300 - i * 20, y: 300 }],
+      });
+    }
+    expect(
+      await page
+        .locator(".cut:not([data-leaving]) .liner")
+        .evaluate((element) => getComputedStyle(element).visibility),
+    ).toBe("hidden");
+    await cdp.send("Input.dispatchTouchEvent", {
+      type: "touchMove",
+      touchPoints: [{ x: 290, y: 300 }],
+    });
+    await cdp.send("Input.dispatchTouchEvent", {
+      type: "touchEnd",
+      touchPoints: [],
+    });
+    await page.waitForTimeout(500);
+    expect(await current()).toBe("第 1 张");
     // A right swipe on the first album goes nowhere; a left swipe turns to the next.
     await swipe(80, 260, 330, 260);
     await page.waitForTimeout(500);
     expect(await current()).toBe("第 1 张");
     await swipe(330, 260, 80, 262);
     await expect(album(page, "样例专辑 2")).toBeVisible();
+    // Swipes work from the reviews and from the bar too; a right swipe goes back.
+    const words = album(page, "样例专辑 2").locator(".track__text");
+    await words.scrollIntoViewIfNeeded();
+    const text = (await words.boundingBox())!;
+    await swipe(80, text.y + 8, 330, text.y + 10);
+    await expect(album(page, "样例专辑 1")).toBeVisible();
+    await page.waitForTimeout(600);
+    const bar = (await page.locator(".deck__nav").boundingBox())!;
+    const mid = bar.y + bar.height / 2;
+    await swipe(bar.x + bar.width - 16, mid, bar.x - 40, mid);
+    await expect(album(page, "样例专辑 2")).toBeVisible();
+    await page.waitForTimeout(600);
+    // One tap copies the album name.
+    await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+    const copyName = album(page, "样例专辑 2").getByRole("button", {
+      name: "复制专辑名",
+    });
+    await copyName.tap();
+    await expect(
+      album(page, "样例专辑 2").getByRole("button", { name: "已复制" }),
+    ).toBeVisible();
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
+      "样例专辑 2",
+    );
     // An upward drag that starts on the wave scrolls the page and lights nothing.
     const card = album(page, "样例专辑 2");
     const field = card.locator(".wave__field");
@@ -1141,6 +1213,15 @@ test.describe("on a phone", () => {
     await page.goBack();
     await expect(page.locator(".cut[data-reading]")).toHaveCount(0);
     await expect(album(page, "样例专辑 2")).toBeVisible();
+    // A sideways swipe over the open long review puts it away and turns the album.
+    await page.getByRole("button", { name: "读长评" }).first().tap();
+    await expect(
+      page.getByRole("button", { name: "收起长评" }).first(),
+    ).toBeVisible({ timeout: 10000 });
+    await page.waitForTimeout(800);
+    await swipe(330, 420, 80, 422);
+    await expect(album(page, "样例专辑 3")).toBeVisible();
+    await expect(page.locator(".cut[data-reading]")).toHaveCount(0);
     expect(
       await page.evaluate(() => [localStorage.length, sessionStorage.length]),
     ).toEqual([0, 0]);
