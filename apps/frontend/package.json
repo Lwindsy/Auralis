@@ -15,6 +15,7 @@
     "test:browser": "playwright test",
     "test:java": "playwright test --config playwright.java.config.ts",
     "test:recommendation": "playwright test --config playwright.recommendation.config.ts",
+    "bench:contours": "npm run build && node scripts/bench-contours.mjs",
     "check": "tsc -b && eslint . && prettier --check .",
     "format": "prettier --write ."
   },

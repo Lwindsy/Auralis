@@ -961,6 +961,42 @@ test("expired cookie opens an empty start page with an expiry notice", async ({
   await expect(page.getByRole("button", { name: "开始发现" })).toBeDisabled();
 });
 
+test("the GPU draws the map when WebGL2 is there; ?contours=2d keeps the 2D path", async ({
+  page,
+  context,
+}) => {
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await attach(context, new FixtureBackend());
+  await page.goto("/");
+  // Same test as the page: a hardware WebGL2 context, not a CPU emulation.
+  const webgl = await page.evaluate(() => {
+    const gl = document
+      .createElement("canvas")
+      .getContext("webgl2", { failIfMajorPerformanceCaveat: true });
+    const info = gl?.getExtension("WEBGL_debug_renderer_info");
+    const renderer = info
+      ? String(gl!.getParameter(info.UNMASKED_RENDERER_WEBGL))
+      : "";
+    return (
+      !!gl &&
+      !/swiftshader|llvmpipe|softpipe|software|basic render driver/i.test(
+        renderer,
+      )
+    );
+  });
+  await expect(page.locator(".contours")).toHaveAttribute(
+    "data-renderer",
+    webgl ? "webgl" : "2d",
+  );
+  await page.goto("/?contours=2d");
+  await expect(page.locator(".contours")).toHaveAttribute(
+    "data-renderer",
+    "2d",
+  );
+  expect(errors).toEqual([]);
+});
+
 test("visual baselines for start page, room and mobile", async ({
   page,
   context,

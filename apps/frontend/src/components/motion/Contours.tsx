@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { createGlRenderer, type GlRenderer } from "./contoursGl.ts";
 
 /**
  * A topographic map of sound, drawn on one canvas every frame, in three layers:
@@ -26,6 +27,10 @@ import { useEffect, useRef } from "react";
  *
  * The terrain is never the same twice: hills are seeded at random on each load, their
  * pace wanders, and now and then a stray gust drops a faint ripple somewhere.
+ *
+ * Drawing: the GPU paints the map when WebGL2 is available (contoursGl.ts); the terrain,
+ * membrane, grains and exposure below stay the same either way. Without WebGL2 the 2D
+ * canvas path draws it. `?contours=2d` / `?contours=webgl` pin one path for comparing.
  */
 
 interface Ripple {
@@ -156,9 +161,16 @@ export function Contours() {
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
     const canvas = ref.current;
-    const context = canvas?.getContext("2d");
-    if (!canvas || !context) return;
-    const ctx = context;
+    if (!canvas) return;
+    // ?contours=2d or ?contours=webgl pins one path, for comparing the two.
+    const pinned = new URLSearchParams(window.location.search).get("contours");
+    const glr: GlRenderer | null =
+      pinned === "2d" ? null : createGlRenderer(canvas, pinned === "webgl");
+    const context = glr ? null : canvas.getContext("2d");
+    if (!glr && !context) return;
+    canvas.dataset.renderer = glr ? "webgl" : "2d";
+    // Only touched on the 2D path.
+    const ctx = context as CanvasRenderingContext2D;
     const shadeCanvas = document.createElement("canvas");
     const shadeContext = shadeCanvas.getContext("2d");
     let width = 0;
@@ -184,6 +196,8 @@ export function Contours() {
     // a full-screen layer that changes every frame costs the compositor a pass per frame.
     let centreFade: CanvasGradient | null = null;
     let fadeSquash = 1;
+    // Grain capsules handed to the GPU: x0, y0, x1, y1, half width, alpha.
+    let segments = new Float32Array(0);
     const resize = () => {
       width = window.innerWidth;
       height = window.innerHeight;
@@ -210,6 +224,8 @@ export function Contours() {
         Math.max(110, Math.min(300, (width * height) / 5200)),
       );
       grains = Array.from({ length: count }, () => spawn(true));
+      segments = new Float32Array(count * 12);
+      if (glr) return;
       // Same shape as the old mask: an ellipse 120% × 90% of the screen, 45% strength at
       // the centre rising to full at three quarters of the way out.
       const rx = width * 1.2;
@@ -657,6 +673,7 @@ export function Contours() {
             data[p + 3] = Math.min(1, -light * 2.2) * gloom;
           }
         }
+      if (glr) return;
       shadeContext.putImageData(shadeImage, 0, 0);
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = "high";
@@ -753,7 +770,35 @@ export function Contours() {
       }
     };
 
+    /** The same trails and heads as drawGrains, as capsules for the GPU. */
+    const grainSegments = () => {
+      let n = 0;
+      const put = (
+        g: Grain,
+        back: number,
+        halfWidth: number,
+        alpha: number,
+      ) => {
+        const o = n++ * 6;
+        segments[o] = g.x;
+        segments[o + 1] = g.y;
+        segments[o + 2] = g.x - g.vx * back;
+        segments[o + 3] = g.y - g.vy * back;
+        segments[o + 4] = halfWidth;
+        segments[o + 5] = alpha;
+      };
+      for (const g of grains) {
+        const fade = Math.min(g.age / 1.2, (g.life - g.age) / 1.6, 1);
+        if (fade <= 0) continue;
+        const band = BANDS[fade < 0.4 ? 0 : fade < 0.75 ? 1 : 2];
+        put(g, 0.55, 0.4, 0.16 * band);
+        put(g, 0.04, 0.85, 0.5 * band);
+      }
+      return n;
+    };
+
     let ink = "";
+    let inkRgb: [number, number, number] = [1, 1, 1];
     let inkAge = 0;
     let darkRoom = true;
     const draw = (dt: number, motion: boolean) => {
@@ -766,6 +811,27 @@ export function Contours() {
         const unit = Math.max(...channels, 0) <= 1 ? 255 : 1;
         const [r = 1, g = 1, b = 1] = channels.map((c) => c * unit);
         darkRoom = 0.2126 * r + 0.7152 * g + 0.0722 * b > 128;
+        inkRgb = [r / 255, g / 255, b / 255];
+      }
+      if (glr) {
+        shade(dt);
+        glr.draw({
+          width,
+          height,
+          ratio,
+          nodesX: cols + 1,
+          nodesY: rows + 1,
+          cell: CELL,
+          values,
+          shade: shadeImage?.data ?? new Uint8ClampedArray(0),
+          lo: exposure.lo,
+          span: exposure.hi - exposure.lo,
+          levels: LEVELS,
+          ink: inkRgb,
+          segments,
+          segmentCount: motion ? grainSegments() : 0,
+        });
+        return;
       }
       ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
       ctx.clearRect(0, 0, width, height);
@@ -808,7 +874,10 @@ export function Contours() {
       };
       still();
       window.addEventListener("resize", still);
-      return () => window.removeEventListener("resize", still);
+      return () => {
+        window.removeEventListener("resize", still);
+        glr?.dispose();
+      };
     }
     let frame = 0;
     let last = performance.now();
@@ -895,6 +964,7 @@ export function Contours() {
       window.removeEventListener("resize", resize);
       window.removeEventListener("pointermove", onMove);
       document.documentElement.removeEventListener("pointerleave", onLeave);
+      glr?.dispose();
     };
   }, []);
 
