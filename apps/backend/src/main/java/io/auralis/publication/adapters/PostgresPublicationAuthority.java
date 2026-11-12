@@ -996,6 +996,26 @@ public class PostgresPublicationAuthority implements PublicationAuthority {
     }
 
     @Override
+    public void prioritizeLong(Scope s, String r, String candidate, String command) {
+        tx.write(
+                () -> {
+                    discovery.lockRuntime();
+                    sessions.lockActive(s);
+                    jdbc
+                            .queryForList(
+                                    "SELECT generation_run FROM discovery.long_review WHERE session_id=? AND round_id=? AND candidate_id=? AND state IN ('GENERATING','NEEDS_MORE_RESEARCH')",
+                                    String.class,
+                                    s.sessionId(),
+                                    r,
+                                    candidate)
+                            .stream()
+                            .findFirst()
+                            .ifPresent(run -> queue.prioritize(s, run, candidate, command));
+                    return null;
+                });
+    }
+
+    @Override
     public String regenerate(Scope s, String r, String candidate, Supply supply) {
         return tx.write(
                 () -> {

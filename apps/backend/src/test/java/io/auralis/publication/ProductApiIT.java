@@ -152,6 +152,80 @@ class ProductApiIT extends ProductApiFixture {
     }
 
     @Test
+    void rapidLongReviewOpensFollowTheirGeneratingRunDuringBatchSupply() throws Exception {
+        bootProduct(Map.of("auralis.dispatch-execution-seconds", 180));
+        peer.holdLongs = true;
+        try {
+            var b = browser();
+            b.submit(userInput(""), "rapid-open-initial");
+            var initial =
+                    b.awaitState(
+                            s ->
+                                    s.path("slots").size() >= 2
+                                            && s.path("slots")
+                                                    .get(1)
+                                                    .path("card")
+                                                    .path("long_review_state")
+                                                    .asText()
+                                                    .equals("GENERATING"));
+            String generatingRun = initial.path("run_id").asText();
+            var first = initial.path("slots").get(0).path("card").path("candidate_id").asText();
+            var second = initial.path("slots").get(1).path("card").path("candidate_id").asText();
+            var window =
+                    jdbc.queryForObject(
+                            "SELECT extract(epoch FROM technical_deadline-accepted_at)::int FROM discovery.discovery_intent WHERE id=?",
+                            Integer.class,
+                            generatingRun);
+            assertEquals(180, window);
+
+            peer.hold = true;
+            var batch = b.action("next-batch", null, "rapid-open-supply");
+            assertEquals(202, batch.status(), batch.body().toString());
+            b.awaitState(
+                    s ->
+                            jdbc.queryForObject(
+                                            "SELECT count(*) FROM discovery.execution WHERE session_id=? AND physical_released_at IS NULL",
+                                            Integer.class,
+                                            b.session())
+                                    == 2);
+
+            var stale =
+                    JSON.createObjectNode()
+                            .put("expected_revision", initial.path("revision").asLong());
+            String reviews = "/v1/discovery-sessions/" + b.session() + "/long-reviews/";
+            var opened = b.request("POST", reviews + first + "/open", stale, "rapid-open-first");
+            assertEquals(
+                    "GENERATING", opened.body().path("status").asText(), opened.body().toString());
+            opened = b.request("POST", reviews + second + "/open", stale, "rapid-open-second");
+            assertEquals(
+                    "GENERATING", opened.body().path("status").asText(), opened.body().toString());
+            assertEquals(
+                    List.of(generatingRun, generatingRun),
+                    jdbc.queryForList(
+                            "SELECT e.run_id FROM discovery.execution_command c JOIN discovery.execution e ON e.id=c.execution_id WHERE e.session_id=? AND c.payload->>'kind'='PRIORITIZE_LONG_REVIEW'",
+                            String.class,
+                            b.session()));
+
+            peer.holdLongs = false;
+            var initialJob =
+                    peer.jobs.values().stream()
+                            .filter(j -> j.start.path("run_id").asText().equals(generatingRun))
+                            .findFirst()
+                            .orElseThrow();
+            initialJob.done.get(10, java.util.concurrent.TimeUnit.SECONDS);
+            for (String candidate : List.of(first, second)) {
+                var ready = b.request("GET", reviews + candidate, null, null);
+                assertEquals(
+                        "READY", ready.body().path("status").asText(), ready.body().toString());
+            }
+        } finally {
+            peer.hold = false;
+            peer.holdLongs = false;
+            bootProduct();
+        }
+    }
+
+    @Test
     void existingSessionRegenerationUsesUpdatedTokenLimitsAfterRestart() throws Exception {
         peer.failLongNext.set(true);
         var b = browser();

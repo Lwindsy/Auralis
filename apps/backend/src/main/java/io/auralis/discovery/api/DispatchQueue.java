@@ -23,7 +23,7 @@ public interface DispatchQueue {
                     || queueSeconds < 1
                     || queueSeconds > 30
                     || executionSeconds < 1
-                    || executionSeconds > 120
+                    || executionSeconds > 180
                     || queueSeconds > executionSeconds)
                 throw new IllegalArgumentException("INVALID_DISPATCH_LIMITS");
         }
@@ -131,7 +131,7 @@ public interface DispatchQueue {
 
     record Command(String id, String execution, String payload) {}
 
-    void prioritize(Scope scope, String candidate, String command);
+    void prioritize(Scope scope, String run, String candidate, String command);
 
     List<Command> commands();
 

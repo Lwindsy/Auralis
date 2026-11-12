@@ -27,11 +27,14 @@ GitHub变量：PRODUCT_URL（无末尾斜杠）。SSH主机密钥须独立核验
 
 部署由 apps/runtime/deploy.sh <40位提交SHA> 执行：
 1. 在/opt/auralis/releases/<SHA>构建三个带SHA标签的镜像。
-2. 排他锁防止重叠部署；先停止网页接纳请求，再进入维护，最多等待150秒排空执行槽与等待队列。
+2. 排他锁防止重叠部署。先停止网页接纳请求，再进入维护，最多等待210秒排空执行槽与等待队列。
 3. 停止网页和双端；pg_dump备份至/opt/auralis/backups。
 4. 使用独立迁移身份执行Flyway并更新在线账号授权。
 5. 启动Python/Java，确认readiness后启动网页；CI再验证公网HTTPS及bootstrap。
 数据库卷、工件、配置和身份签名密钥不会随镜像更新被替换。
+Compose 的 Java 执行窗口默认 180 秒，自请求接收时起算，包含并行生成的长评。
+发布时可用 AURALIS_DISPATCH_EXECUTION_SECONDS 收紧。回退到只支持 120 秒的镜像时，
+使用旧版 Compose 并将该值设为至多 120 秒，账本由现有数据库承接。
 首次运行与后续版本均须实测，不把镜像构建成功视为推荐链路验收。
 
 失败与回退：

@@ -30,6 +30,8 @@ services:
     network_mode: host
     restart: unless-stopped
     env_file: /etc/auralis/java.env
+    environment:
+      AURALIS_DISPATCH_EXECUTION_SECONDS: ${AURALIS_DISPATCH_EXECUTION_SECONDS:-180}
     volumes: ["/opt/auralis/data:/data:ro", "/etc/auralis/config:/config:ro"]
     mem_limit: 2g
     stop_grace_period: 60s
