@@ -1269,13 +1269,16 @@ test("a long album name stays in its slot and never moves the cover or the words
   }
   const clamped = album(page, long[2]!).locator(".album-title");
   await expect(clamped).toHaveAttribute("title", long[2]!);
-  expect(
-    await page.evaluate(
-      () =>
-        document.documentElement.scrollHeight -
-        document.documentElement.clientHeight,
-    ),
-  ).toBeLessThanOrEqual(0);
+  await expect(page.locator(".cut[data-leaving]")).toHaveCount(0);
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          document.documentElement.scrollHeight -
+          document.documentElement.clientHeight,
+      ),
+    )
+    .toBeLessThanOrEqual(0);
 });
 
 test("visual baselines for start page, room and mobile", async ({
