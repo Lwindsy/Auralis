@@ -40,6 +40,7 @@ export interface DeckProps {
   controller: DiscoveryController;
   review: LongReviewController;
   state: ProductState;
+  rootParentGenres: ReadonlySet<string>;
   feelings: ReadonlyMap<string, Feeling>;
   onFeel: (candidateId: string, feeling: Feeling | null) => void;
   onPaint: (room: string, ink: string) => void;
@@ -78,6 +79,7 @@ export function Deck({
   controller,
   review,
   state,
+  rootParentGenres,
   feelings,
   onFeel,
   onPaint,
@@ -445,7 +447,11 @@ export function Deck({
           </div>
         </div>
         <div className="cut__words">
-          <GenreWave card={entry.card} still={!!leaving} />
+          <GenreWave
+            card={entry.card}
+            rootParentGenres={rootParentGenres}
+            still={!!leaving}
+          />
           {state.analysis_mode === "BASIC" ? (
             <p className="basic-note">{words.basic}</p>
           ) : null}

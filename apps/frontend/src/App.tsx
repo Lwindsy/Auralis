@@ -2,7 +2,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { Api } from "./api/client.ts";
 import { ApiError } from "./api/client.ts";
 import { message } from "./api/messages.ts";
-import type { DiscoveryInput, ProductState } from "./api/types.ts";
+import type {
+  DiscoveryInput,
+  GenreSearchResult,
+  ProductState,
+} from "./api/types.ts";
 import { Deck, type Feeling } from "./components/deck/Deck.tsx";
 import { Entry } from "./components/entry/Entry.tsx";
 import { Icon } from "./components/Icon.tsx";
@@ -57,6 +61,36 @@ export function App({ api, controller, review, fixture }: AppProps) {
   useStore(controller);
   const words = useCopy();
   const state = controller.state;
+  const [rootParentGenres, setRootParentGenres] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
+  const catalogAvailable = state !== null;
+  useEffect(() => {
+    if (!catalogAvailable) return;
+    const request = new AbortController();
+    const load = async () => {
+      const roots = new Set<string>();
+      let offset: number | null = 0;
+      while (offset !== null) {
+        const page: GenreSearchResult = await api.request<GenreSearchResult>(
+          "GET",
+          "/v1/catalog/genres",
+          {
+            query: { limit: "50", offset: String(offset) },
+            signal: request.signal,
+          },
+        );
+        for (const genre of page.items)
+          if (!genre.parent_ids.length && genre.has_children)
+            roots.add(genre.genre_id);
+        offset = page.next_offset;
+      }
+      if (!request.signal.aborted) setRootParentGenres(roots);
+    };
+    // Keep the original directory order if the hierarchy is unavailable.
+    void load().catch(() => {});
+    return () => request.abort();
+  }, [api, catalogAvailable]);
   const [requested, setRequested] = useState<Stage | null>(null);
   const [waitMark, setWaitMark] = useState<WaitMark | null>(null);
   const [minDone, setMinDone] = useState(true);
@@ -265,6 +299,7 @@ export function App({ api, controller, review, fixture }: AppProps) {
             controller={controller}
             review={review}
             state={state!}
+            rootParentGenres={rootParentGenres}
             feelings={feelings}
             onFeel={(candidate, feeling) =>
               setFeelings((current) => {

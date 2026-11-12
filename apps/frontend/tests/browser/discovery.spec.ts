@@ -362,6 +362,76 @@ test("an album at rest keeps no strips; the leaving copy is static and keeps its
   await expect(page.locator(".slice")).toHaveCount(0, { timeout: 4000 });
 });
 
+test("album tags favor four specific genres and fill spare places with roots", async ({
+  page,
+  context,
+}) => {
+  const rock = { genre_id: "root-rock", name: "Rock" };
+  const dance = { genre_id: "root-dance", name: "Dance" };
+  const specific = [
+    "Post-Rock",
+    "Math Rock",
+    "Art Rock",
+    "Space Rock",
+    "Indie Rock",
+  ].map((name) => ({
+    genre_id: name.toLowerCase().replaceAll(" ", "-"),
+    name,
+  }));
+  const state = ready();
+  state.editable_input!.request_text = "";
+  state.editable_input!.liked_genres = [
+    { genre_id: rock.genre_id, strength: "normal", focused: false },
+  ];
+  state.slots[0]!.card!.identity.primary_genres = [
+    rock,
+    ...specific.slice(0, 2),
+    dance,
+    ...specific.slice(2),
+  ];
+  state.slots[1]!.card!.identity.primary_genres = [
+    dance,
+    ...specific.slice(0, 3),
+    rock,
+  ];
+  state.slots[2]!.card!.identity.primary_genres = [rock];
+  const backend = new FixtureBackend(state);
+  await attach(context, backend, async (route) => {
+    const url = new URL(route.request().url());
+    if (
+      url.pathname !== "/v1/catalog/genres" ||
+      url.searchParams.has("parent_id")
+    )
+      return false;
+    const first = url.searchParams.get("offset") === "0";
+    await route.fulfill({
+      json: {
+        items: [
+          { ...(first ? rock : dance), parent_ids: [], has_children: true },
+        ],
+        reference_revision: "fixture",
+        offset: first ? 0 : 1,
+        limit: 50,
+        next_offset: first ? 1 : null,
+      },
+    });
+    return true;
+  });
+  await page.goto("/");
+  await expect(album(page, "样例专辑 1").locator(".wave__tag")).toHaveText(
+    specific.slice(0, 4).map((tag) => tag.name),
+  );
+  await page.getByRole("button", NEXT).click();
+  await expect(album(page, "样例专辑 2").locator(".wave__tag")).toHaveText([
+    ...specific.slice(0, 3).map((tag) => tag.name),
+    "Dance",
+  ]);
+  await page.getByRole("button", NEXT).click();
+  await expect(album(page, "样例专辑 3").locator(".wave__tag")).toHaveText([
+    "Rock",
+  ]);
+});
+
 test("a genre note opens above the wave and nothing below it moves", async ({
   page,
   context,

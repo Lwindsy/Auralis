@@ -31,13 +31,25 @@ function lens(x: number, focus: number, power: number) {
  */
 export function GenreWave({
   card,
+  rootParentGenres,
   still = false,
 }: {
   card: ProductCard;
+  rootParentGenres: ReadonlySet<string>;
   /** Laid out once and never animated: the leaving copy of an album. */
   still?: boolean;
 }) {
-  const tags = card.identity.primary_genres.slice(0, 4);
+  const genres = card.identity.primary_genres;
+  const specific = genres.filter((tag) => !rootParentGenres.has(tag.genre_id));
+  const tags = (
+    specific.length >= 4
+      ? specific
+      : [
+          ...specific,
+          ...genres.filter((tag) => rootParentGenres.has(tag.genre_id)),
+        ]
+  ).slice(0, 4);
+  const tagIds = tags.map((tag) => tag.genre_id).join(" ");
   const words = useCopy();
   const svg = useRef<SVGSVGElement>(null);
   const names = useRef<HTMLDivElement>(null);
@@ -157,7 +169,7 @@ export function GenreWave({
       cancelAnimationFrame(frame);
       observer.disconnect();
     };
-  }, [seed, tags.length, still]);
+  }, [seed, tags.length, tagIds, still]);
 
   if (!tags.length) return null;
   const segmentOf = (u: number) =>
