@@ -26,7 +26,9 @@ import { ripple } from "../motion/Contours.tsx";
 import { Reviews } from "./LongReview.tsx";
 import { Reaction } from "./Reaction.tsx";
 import { GenreWave } from "./GenreWave.tsx";
+import { FinaleGlyph } from "./FinaleGlyph.tsx";
 import { MiniWave } from "./MiniWave.tsx";
+import { AlbumTitle } from "./AlbumTitle.tsx";
 import { SlicedCover, type CoverExit } from "./SlicedCover.tsx";
 import { FLIGHT_MS, GroupStack } from "./GroupStack.tsx";
 import { reducedMotion } from "../../lib/motion.ts";
@@ -437,7 +439,7 @@ export function Deck({
             leaving={leaving ? (exit ?? "slices") : false}
           />
           <div className="cut__caption">
-            <h2 className="album-title">{title}</h2>
+            <AlbumTitle title={title} />
             <p className="album-artist">
               {artist_credit}
               {first_release_year ? (
@@ -536,7 +538,7 @@ export function Deck({
         </p>
         <div className="finale__choices">
           <button type="button" className="choice" onClick={onRethink}>
-            <MiniWave bars={13} calm className="choice__wave" />
+            <FinaleGlyph kind="doors" />
             <span className="choice__title">{words.rethink}</span>
           </button>
           <button
@@ -545,7 +547,7 @@ export function Deck({
             disabled={controller.locked}
             onClick={onMore}
           >
-            <MiniWave bars={13} live className="choice__wave" />
+            <FinaleGlyph kind="fan" />
             <span className="choice__title">{words.more}</span>
           </button>
         </div>

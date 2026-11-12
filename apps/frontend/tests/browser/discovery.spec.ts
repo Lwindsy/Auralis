@@ -686,6 +686,24 @@ test("after the last album: more of the same, or rethink with the old input", as
   }
   await expect(page.getByText("这一组听完了")).toBeVisible();
   await expect(page.getByRole("button", NEXT)).toBeDisabled();
+  // The choices' pictures run no animation (colour transitions with the room are fine);
+  // moving bars made people expect sound.
+  await expect(page.locator(".finale__choices .choice__glyph")).toHaveCount(2);
+  await expect(page.locator(".finale__choices .mini-wave")).toHaveCount(0);
+  expect(
+    await page.evaluate(() =>
+      [
+        ...document.querySelectorAll(
+          ".finale__choices .choice__glyph, .finale__choices .choice__glyph *",
+        ),
+      ].flatMap((element) =>
+        element
+          .getAnimations()
+          .filter((animation) => animation instanceof CSSAnimation)
+          .map((animation) => (animation as CSSAnimation).animationName),
+      ),
+    ),
+  ).toEqual([]);
   await expect(
     page.getByRole("button", { name: "换一些想法吧", exact: true }),
   ).toBeVisible();
@@ -1043,6 +1061,56 @@ test("the go button works with a door open; start page and room fit the screen",
     .getByRole("contentinfo", { name: "隐私说明" })
     .boundingBox())!;
   expect(pips.y + pips.height).toBeLessThanOrEqual(privacy.y);
+});
+
+test("a long album name stays in its slot and never moves the cover or the words", async ({
+  page,
+  context,
+}) => {
+  const state = ready();
+  const long = [
+    "Let Yourself Be Huge",
+    "For Those of You Who Have Never (And Also Those Who Have)",
+    "The Inevitable Rise and Liberation of a Title So Long That Even the Smallest Size Cannot Hold It in Three Lines of the Slot",
+  ];
+  state.slots.forEach((slot, i) => {
+    slot.card!.identity.title = long[i]!;
+  });
+  await attach(context, new FixtureBackend(state));
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await visit(page);
+  const place = async (title: string) => {
+    const card = album(page, title);
+    await expect(card).toBeVisible();
+    await page.waitForTimeout(400);
+    const cover = (await card.locator(".sliced").boundingBox())!;
+    const words = (await card.locator(".cut__words").boundingBox())!;
+    const name = card.locator(".album-title");
+    const size = parseFloat(
+      await name.evaluate((element) => getComputedStyle(element).fontSize),
+    );
+    const height = (await name.boundingBox())!.height;
+    return { cover, words, size, height };
+  };
+  const first = await place(long[0]!);
+  for (const title of long.slice(1)) {
+    await page.getByRole("button", NEXT).click();
+    const next = await place(title);
+    expect(next.cover).toEqual(first.cover);
+    expect(next.words.x).toBe(first.words.x);
+    expect(next.words.y).toBe(first.words.y);
+    // Two lines of the full size is the whole slot.
+    expect(next.height).toBeLessThanOrEqual(2 * 1.04 * first.size + 1);
+  }
+  const clamped = album(page, long[2]!).locator(".album-title");
+  await expect(clamped).toHaveAttribute("title", long[2]!);
+  expect(
+    await page.evaluate(
+      () =>
+        document.documentElement.scrollHeight -
+        document.documentElement.clientHeight,
+    ),
+  ).toBeLessThanOrEqual(0);
 });
 
 test("visual baselines for start page, room and mobile", async ({

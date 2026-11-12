@@ -109,7 +109,17 @@
 
 /* Top-aligned, so the words stay put while the review area grows or shrinks. */
 .cut {
-  --s: min(56vh, 32vw, 480px);
+  --title-size: clamp(32px, 3.6vw, 58px);
+  /* The caption's fixed slot: two title lines, the gap and the artist line. */
+  --caption-h: calc(2 * 1.04 * var(--title-size) + 32px);
+  /* The sleeve and its caption always fit between the stage's paddings (84px + 56px),
+     the 24px gap under the cover and the privacy line. */
+  --s: min(
+    56vh,
+    100dvh - var(--privacy-h, 44px) - 164px - var(--caption-h),
+    32vw,
+    480px
+  );
   grid-area: 1 / 1;
   display: grid;
   grid-template-columns: auto minmax(280px, 420px);
@@ -119,6 +129,7 @@
 
 .cut__sleeve {
   display: grid;
+  grid-template-rows: auto var(--caption-h);
   gap: 24px;
 }
 
@@ -237,33 +248,45 @@
   }
 }
 
+/* Only a drop shadow, no outline, and only once the whole cover is in: while the strips
+   bounce there is no box to see. */
 .sliced::after {
   content: "";
   position: absolute;
   inset: 0;
   pointer-events: none;
-  box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--page-ink) 14%, transparent),
-    0 60px 80px -42px rgb(0 0 0 / 0.75);
+  box-shadow: 0 60px 80px -42px rgb(0 0 0 / 0.75);
   opacity: 0;
-  animation: fade 700ms ease 1300ms forwards;
+  animation: fade 500ms ease 1720ms forwards;
+}
+
+.cut[data-dir] .sliced::after {
+  animation-delay: 1980ms;
 }
 
 /* Caption ------------------------------------------------------------------ */
 
 .cut__caption {
   display: grid;
+  align-content: start;
   gap: 8px;
-  max-width: calc(var(--s) * 1.3);
+  max-width: var(--s);
 }
 
+/* AlbumTitle shrinks a long name to stay within two lines of this size. */
 .album-title {
-  font-size: clamp(32px, 3.6vw, 58px);
+  font-size: var(--title-size);
   font-weight: 200;
   line-height: 1.04;
   letter-spacing: -0.03em;
   overflow-wrap: anywhere;
   animation: caption-in 1100ms var(--ease-out-expo) 500ms both;
+}
+
+.album-title[data-clamped] {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
 }
 
 .album-artist {
@@ -1379,26 +1402,92 @@
   }
 }
 
-.choice__wave {
-  width: clamp(150px, 14vw, 200px);
-  margin-bottom: 22px;
+/* The choices' pictures are still: moving bars read as sound playing. Only a hover or
+   focus moves them — the middle door opens up, the fan of sleeves spreads. */
+.choice__glyph {
+  width: clamp(104px, 9vw, 128px);
+  margin-bottom: 18px;
+  overflow: visible;
   color: var(--ink-60);
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: color 400ms ease;
+}
+
+.choice__glyph > *,
+.choice__glyph rect {
+  transform-box: view-box;
   transition:
-    transform 800ms var(--ease-out-expo),
-    color 400ms ease;
+    transform 640ms var(--ease-spring),
+    fill-opacity 400ms ease;
 }
 
-.choice--more .choice__wave {
-  color: var(--accent);
-}
-
-.choice:hover:not(:disabled) .choice__wave {
-  transform: scaleY(1.25);
+.choice:is(:hover, :focus-visible):not(:disabled)
+  .choice__glyph[data-kind="doors"] {
   color: var(--page-ink);
 }
 
-.choice:hover:not(:disabled) .choice__wave[data-calm] line {
-  animation-duration: 900ms;
+.glyph__side {
+  transform-origin: 26px 29px;
+  opacity: 0.7;
+}
+
+.glyph__side[data-right] {
+  transform-origin: 94px 29px;
+}
+
+.glyph__door {
+  transform-origin: 60px 28px;
+}
+
+.choice:is(:hover, :focus-visible):not(:disabled) .glyph__side {
+  transform: translateX(-5px);
+}
+
+.choice:is(:hover, :focus-visible):not(:disabled) .glyph__side[data-right] {
+  transform: translateX(5px);
+}
+
+.choice:is(:hover, :focus-visible):not(:disabled) .glyph__door {
+  transform: scale(1.14, 1.04);
+}
+
+.choice__glyph[data-kind="fan"] {
+  color: var(--accent);
+}
+
+.glyph__sleeve {
+  transform-origin: 60px 66px;
+}
+
+.glyph__sleeve[data-back] {
+  fill: var(--ink-20);
+  stroke: none;
+  transform: rotate(-22deg);
+}
+
+.glyph__sleeve[data-front] {
+  fill: currentColor;
+  stroke: none;
+}
+
+.glyph__sleeve[data-slot] {
+  stroke-dasharray: 3.5 3.5;
+  fill: currentColor;
+  fill-opacity: 0;
+  transform: rotate(22deg);
+}
+
+.choice:is(:hover, :focus-visible):not(:disabled) .glyph__sleeve[data-back] {
+  transform: rotate(-30deg);
+}
+
+.choice:is(:hover, :focus-visible):not(:disabled) .glyph__sleeve[data-slot] {
+  transform: rotate(30deg);
+  fill-opacity: 0.18;
 }
 
 .choice__title {
@@ -1415,7 +1504,7 @@
   letter-spacing: 0.02em;
 }
 
-.choice:hover:not(:disabled) .choice__title {
+.choice:is(:hover, :focus-visible):not(:disabled) .choice__title {
   background-size: 100% 1px;
 }
 
