@@ -2,96 +2,37 @@
 
 [English](README.md)
 
-Auralis帮助你通过风格偏好、喜欢的专辑或自然语言描述发现专辑。三类输入至少提供一种，即可查看推荐与短评，并按需打开详细乐评。页面左上角的“中文／EN”可切换中英文界面；乐评按服务返回的原文显示。
+Auralis 帮你找到下一张想听的专辑。可以从一张喜欢的唱片、几个常听的风格出发，也可以直接说今天想听什么。比如：“深夜想听点安静的，带一点爵士就好。”
 
-## 当前状态
+**[打开 Auralis](https://auralis-94-250-202-196.sslip.io/)** · 无需注册
 
-首次部署可通过临时地址[Auralis](https://auralis-94-250-202-196.sslip.io/)访问。前端、Java、Python与PostgreSQL同机运行；已在该VPS验证HTTPS、浏览器搜索及一次三卡三长评的真实推荐。广泛推荐质量和这台VPS上的多人容量仍需分别验证，不由本次部署冒烟测试推导。
+## 找一张专辑
 
-Java在线底座使用`mvn -f apps/backend/pom.xml verify`构建，再运行`java -jar apps/backend/target/auralis-core-database-0.1.0-SNAPSHOT-online.jar`；环境变量须显式提供数据库地址与运行凭据、产品同源地址、Python loopback地址、服务凭据及当前内部协议修订。使用已由离线CLI迁移的PostgreSQL 18及无DDL权限的运行账号，默认监听127.0.0.1:8080。健康探针、匿名会话与推荐API已实现。推荐还需显式提供`AURALIS_RECOMMENDATION_CONFIG`并设置`AURALIS_DISPATCH_ENABLED=true`，批准工件、模型绑定与硬预算配置须一致。
+1. 添加喜欢的专辑，选几个喜欢或想避开的风格，或者写一句你想听什么。任选一种就能开始。
+2. 选**熟悉**，从接近你口味的音乐找起；选**拓展**，听听相邻风格；想走得更远一点，就选**惊喜**。
+3. 专辑会陆续出现。先看几句短评，感兴趣就打开长评，读读这张专辑听起来怎样。已经听过的专辑可以点**听过了**，系统会尝试补一张。
 
-启动 Java 前，使用当前发布版本的离线迁移器应用完整迁移链（当前 V1～V17）。迁移步骤见[Linux 部署说明](apps/runtime/deployment.txt)和[Windows 运行说明](apps/runtime/usage.txt)。Java 与 Python 使用匹配的构建和 0.32 协议配置。
+页面左上角可以切换中英文。关掉页面后，用同一个浏览器回来还能继续看。Auralis 会把提交的偏好和推荐记录保留到最后一次主动操作后 30 天。页面底部的隐私详情说明了保存哪些信息，以及何时可能由 OpenAI 处理相关输入。
 
-## Linux部署
+## 在本地试用界面
 
-[容器部署说明](apps/runtime/deployment.txt)介绍单机Compose服务及需要独立准备的数据和密钥。[CI/CD工作流](.github/workflows/ci.yml)检查PR，并在main更新通过检查后经SSH部署，包含数据库备份、迁移和就绪检查。音乐数据和凭据不打入镜像。
+使用 Node.js 22.12 或更新版本，在仓库根目录运行以下命令。
 
-## 前端开发
-
-使用 Node.js 22.12 或更新版本，在仓库根执行：
-
-```powershell
+```sh
 npm --prefix apps/frontend ci
-npm --prefix apps/frontend run build
-npm --prefix apps/frontend test
-npm --prefix apps/frontend run check
-npm --prefix apps/frontend run test:browser
 npm --prefix apps/frontend run dev:fixture
 ```
 
-打开 `http://127.0.0.1:4173`。显式样例模式展示合成数据提示，不调用模型。接 Java 时使用 `npm --prefix apps/frontend run dev`，将 `AURALIS_JAVA_ORIGIN` 指向 Java 回环地址，并把 Java 的 `AURALIS_PRODUCT_ORIGIN` 设为前端地址；本地 HTTP 另需显式设置 `AURALIS_ALLOW_INSECURE_COOKIE=true`。Vite提供开发模块或构建预览，并转发 `/v1/`；生产环境需自行配置同源API路由。搜索依赖 Java 已核验的完整目录索引。显式配置推荐策略、调度器和批准数据后，推荐命令可用。
+打开 [http://127.0.0.1:4173](http://127.0.0.1:4173)，用样例专辑体验页面。样例模式无需数据库或 API 密钥，也不会调用模型。
 
-路由与校验器随产品提交，普通构建只需产品仓库。`npm --prefix apps/frontend run generate` 还需接入同版私有 OpenAPI 工作区，从共享 Schema 再生成，禁止手改生成物。浏览器测试使用已安装 Chrome 及独立端口4187。真实 Java 目录浏览器测试需设置 `AURALIS_JAVA_ORIGIN` 后执行 `npm --prefix apps/frontend run test:java`；Java须允许前端 Origin `http://127.0.0.1:4188`。
+## 参与开发
 
-## 匿名会话
+- [前端](apps/frontend/package.json)使用 React 和 TypeScript，负责专辑搜索、浏览和乐评界面。运行 `npm --prefix apps/frontend test` 可执行前端单元测试。
+- [后端](apps/backend/pom.xml)使用 Java 21 和 Spring Boot，提供目录查询，管理会话和推荐。
+- [推荐服务](apps/intelligence/pyproject.toml)使用 Python 查找候选专辑、核对资料并生成乐评。
 
-通过`AURALIS_SUBJECT_SECRET`提供独立的安全随机签名密钥，至少43位URL-safe字符；普通重启保持一致，与数据库备份分开保存。HTTPS使用Secure／HttpOnly／SameSite=Lax Cookie；本地loopback HTTP必须显式设置`AURALIS_ALLOW_INSECURE_COOKIE=true`。内部协议配置须匹配打包的Schema（当前0.32）。
+运行完整服务需要目录索引、配套音乐数据、PostgreSQL 和模型凭据。公开仓库提供应用代码和可独立运行的样例界面。所需文件、配置和数据库迁移步骤见 [Linux 部署说明](apps/runtime/deployment.txt)或 [Windows 运行说明](apps/runtime/usage.txt)。
 
-`POST /v1/bootstrap`只接受配置同源的空JSON对象，返回CSRF令牌和可恢复状态。`GET /v1/current-state`及`GET /v1/discovery-sessions/{session_id}`核验凭证归属，读取不续期。成功的主动操作将当前过程保留固定30天；过期凭证通过bootstrap自动得到新的空白身份。应用生命周期端口支持修改需求、已听过与删除，推荐命令已用合成供应商与Python生产流程联调。
+## 许可证
 
-V8增加撤销收据及publication拥有的恢复投影。删除先提交屏障，再有界分批清理；仍占槽的执行等待调度器确认物理释放。恢复旧数据库前先隔离服务，并重放备份之后的撤销记录，再开放访问。若无法补齐备份之后的删除记录，保持隔离并轮换独立签名密钥，使所有旧凭证失效、用户从空白开始，旧凭证代次进入分批清理。普通重启仍保持原密钥；完整备份恢复仍是独立部署职责。
-
-## 持久化开发
-
-后端包含V7在线状态迁移，以及会话、执行、预算、证据、发布、偏好和听众计数各模块拥有的存储端口。先用离线迁移身份应用迁移，再启动在线应用；运行身份只校验结构并使用显式授予的表权限。产品API与短有界调度已在此底座上实现，启动前须核验完整当前迁移链。不要修改已应用迁移，也不要通过删表把V7数据库回退到旧版本。
-
-`mvn -f apps/backend/pom.xml verify`执行格式、单元／契约和数据库集成测试。数据库测试须显式提供`AURALIS_TEST_POSTGRES_URL=jdbc:postgresql://127.0.0.1:<端口>/auralis_core_verify`及`AURALIS_TEST_POSTGRES_ADMIN_PASSWORD`，并使用**新建的一次性PostgreSQL 18实例**。测试会创建合成数据库与角色、验证迁移校验和拒绝；每轮结束销毁该实例。缺少变量时数据库测试会跳过。独立worktree可用`AURALIS_RECALL_PYTHON`指定已有Python智能服务环境。测试不调用付费模型。
-
-## Agent 开发
-
-在 Python 3.10+ 环境安装应用清单中的依赖后，从仓库根运行。演示使用合成模型与网页、真实本地 A-V2 代码，不产生付费请求。
-
-```powershell
-python -m pip install -e apps/intelligence
-python -m auralis_intelligence.agents demo --scenario mixed
-python -m auralis_intelligence.agents demo --scenario mixed --background --r 3 --k 2 --n 1
-python -m auralis_intelligence.agents demo --scenario genre --r 5 --k 4 --n 2 --include-calls
-```
-
-增加 `--background` 可运行后台补充并输出关闭报告。服务支持长评提优先级、抢占、显式重新生成与续接。
-
-输出包括首批构成、发布数量、分段计时，以及可选的不含正文或密钥的调用记录。合成计时和零价替身不能证明真实质量、速度或费用。其他输入场景为 `album`、`text`、`no-positive`，最后一种交回 Java 固定名单分支。
-
-启动 loopback HTTP 服务时，按[配置样例](apps/intelligence/agent-service.example.json)显式填写获准资料路径、凭据环境变量名和已核实的[模型绑定](apps/intelligence/autonomous-bindings.example.json)，再运行 `python -m auralis_intelligence.agents serve --config <config.json>`；它需要同版 Java 控制服务。配置样例默认关闭真实调用。在线模式逐张处理候选，短长评并行调度，首张通过核验即可展示。浏览到当前末尾且原池仍有候选时，页面可在同一轮继续推荐。
-
-## 召回开发
-
-A-V2 是产品召回基线。Python 调用方可装载快照并复用召回对象，后端可用本地 JSON 入口联调。下面以 PowerShell 运行合成样例，权重参数仅为示例。
-
-```powershell
-$env:PYTHONPATH = 'apps/intelligence/src'
-python -m auralis_intelligence.recall --snapshot apps/intelligence/tests/fixtures/synthetic-snapshot.json --request apps/intelligence/tests/fixtures/request.json --special-weight 2 --focus-weight 2
-```
-
-请使用 Python 3.10+ 和应用清单中的依赖。调用方显式指定已获准的本地快照，入口返回候选作品 ID 与快照标识。Python执行服务已接通此阶段，Java产品链路已接通，完整页面体验仍待验收。
-
-本分支另提供 C-V0 对照。可调用同一端口的 `load_c_v0`，或在本地命令增加
-`--c-v0-model <model.npz>` 并传入匹配快照。训练权重由调用方本地提供，默认仍使用 A-V2。
-
-## 当前页面流程
-
-- 通过三个可展开入口填写文字、风格偏好或喜欢的专辑，选择熟悉／拓展／惊喜模式。传播度滑杆对应1～500位样本独立听众，初始值为50。
-- 提交后显示真实排队／等待状态，再逐张浏览专辑；长评在原位展开，可像播放轨道一样拖动阅读进度，不播放音频。
-- “我喜欢／一般般”只保留在本页面，不写入后端偏好。“听过了”写入服务端，但专辑继续留在当前页面；最近一次单卡操作可以撤销。
-- 组末可以继续要推荐或回到预填首页。回首页本身不提交新请求；未提交草稿只保存在页面内存，不写浏览器存储。
-- 页面背景是响应鼠标的等高线地形，房间色由封套配色推导。真实封面通过同源接口异步加载，加载期间或无图时保留占位封套。
-
-## 完整目录搜索
-
-Java目录接口通过本地只读Lucene索引搜索完整MusicBrainz作品组快照，支持专辑、艺人署名和别名；公开搜索结果排除Single，过滤后补齐分页，并利用已准入听众统计优先展示常见专辑，统计缺失不排除作品；不会把召回核心子集当成完整目录。启动时用`AURALIS_CATALOG_SEARCH_INDEX`和`AURALIS_CATALOG_SEARCH_MANIFEST_SHA256`提供离线核验索引及对应候选manifest摘要。未配置时目录返回503；错误索引拒绝启动。
-
-匿名bootstrap后可读取`/v1/catalog/albums?query=...`、`/v1/catalog/albums/{mb_release_group_id}`和`/v1/catalog/genres`；GET不续期，未知作品与无匹配分别处理。库外作品可选择，只有已核验可用信息进入召回。索引由离线`io.auralis.catalog.adapters.CatalogIndexBuild`从完整候选导入，输入目录、全新输出目录和manifest摘要必须显式提供。更新在维护窗口换路径及摘要后重启，失败恢复旧完整索引；没有在线下载或远端回退。目录与推荐API已实现，广泛推荐质量和完整网站验收仍待完成。
-
-### 本地固定策展推荐
-
-无正向信号时使用固定10张有序候选池，短评和长评独立保存。Java显式配置 `AURALIS_CURATED_CONTENT_DIRECTORY`，Windows运行包则设置 `curated_content_directory`。该分支跳过召回、在线乐评生成，并在用户未明确填写听众门槛时免默认门槛，保留目录身份、本轮限制与去重。内容只在本地保存，不随Git分发。将准备好的 `auralis-curated-v1.json` 用后端运行classpath中的 `io.auralis.discovery.adapters.CuratedContentFiles <输入JSON> <新目录>` 导入。
+[MIT](LICENSE)

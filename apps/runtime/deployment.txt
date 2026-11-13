@@ -18,8 +18,9 @@ Caddy仅公开前端和/v1/，内部及管理端点返回404。
   修改域名后重建java、web容器；购买正式域名不要求重建数据卷。
 
 CI/CD：.github/workflows/ci.yml
-PR只检查；main push或main手动执行通过检查后自动部署。检查包含Python Ruff、
-Pytest、Java Spotless及构建、前端类型/格式检查、单元测试及构建。
+只改根目录的README.md、README_ZH.md时，main推送和目标为main的PR跳过工作流。
+含其他文件的PR运行检查；main推送或在main手动执行通过检查后自动部署。
+检查包含Python Ruff、Pytest、Java Spotless及构建、前端类型/格式检查、单元测试及构建。
 独立PostgreSQL另运行执行状态轮询的锁竞争回归，防止短暂行锁导致推荐中断。
 GitHub Secrets：DEPLOY_HOST、DEPLOY_KEY、DEPLOY_KNOWN_HOSTS。
 GitHub变量：PRODUCT_URL（无末尾斜杠）。SSH主机密钥须独立核验，不临时自动信任。
