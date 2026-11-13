@@ -70,6 +70,18 @@ jobs:
           npm --prefix apps/frontend run check
           npm --prefix apps/frontend test
           npm --prefix apps/frontend run build
+      - name: 检查 Cloudflare 发布配置
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && (vars.PRODUCT_URL == 'https://auralisy.online' || vars.CLOUDFLARE_ACCOUNT_ID != '')
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          if [ -z "$CLOUDFLARE_ACCOUNT_ID" ] || [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            echo 'The Cloudflare release requires CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN.' >&2
+            exit 1
+          fi
+          npx --yes wrangler@4.161.0 deploy --dry-run --config apps/frontend/wrangler.toml
+          npx --yes wrangler@4.161.0 versions list --config apps/frontend/wrangler.toml
       - name: 配置部署 SSH
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         env:
@@ -90,6 +102,12 @@ jobs:
           ssh -o BatchMode=yes -o StrictHostKeyChecking=yes "root@$DEPLOY_HOST" "mkdir -p /opt/auralis/releases/$GITHUB_SHA"
           scp -o BatchMode=yes -o StrictHostKeyChecking=yes release.tar "root@$DEPLOY_HOST:/opt/auralis/releases/$GITHUB_SHA/release.tar"
           ssh -o BatchMode=yes -o StrictHostKeyChecking=yes "root@$DEPLOY_HOST" "cd /opt/auralis/releases/$GITHUB_SHA && tar -xf release.tar && bash apps/runtime/deploy.sh $GITHUB_SHA"
+      - name: 发布同版 Cloudflare 静态前端
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && vars.CLOUDFLARE_ACCOUNT_ID != ''
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: npx --yes wrangler@4.161.0 deploy --config apps/frontend/wrangler.toml
       - name: 验证公网 HTTPS
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         env:

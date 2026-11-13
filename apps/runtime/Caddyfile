@@ -1,16 +1,31 @@
-{$AURALIS_HOSTNAME} {
-    handle /v1/* {
-        reverse_proxy 127.0.0.1:18080
-    }
-    handle /internal/* {
-        respond 404
-    }
-    handle /actuator/* {
-        respond 404
-    }
-    handle {
-        root * /srv
-        try_files {path} /index.html
-        file_server
-    }
+(product) {
+	handle /v1/* {
+		reverse_proxy 127.0.0.1:18080
+	}
+	handle /internal/* {
+		respond 404
+	}
+	handle /actuator/* {
+		respond 404
+	}
+	handle {
+		root * /srv
+		try_files {path} /index.html
+		file_server
+	}
 }
+
+(public-web) {
+	{$AURALIS_HOSTNAME} {
+		import product
+	}
+}
+
+(tunnel-web) {
+	http://:18081 {
+		bind 127.0.0.1
+		import product
+	}
+}
+
+import {$AURALIS_WEB_MODE:public-web}

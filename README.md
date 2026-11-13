@@ -4,7 +4,7 @@
 
 Auralis helps you find your next album. Start with a record you love, pick a few genres, or describe what you feel like hearing. Try “something quiet for a late night, with a little jazz.”
 
-**[Try Auralis](https://auralis-94-250-202-196.sslip.io/)** · No account needed
+**[Try Auralis](https://auralisy.online/)** · No account needed
 
 ## Find an album
 
