@@ -10,7 +10,7 @@ Auralis帮助你通过风格偏好、喜欢的专辑或自然语言描述发现�
 
 Java在线底座使用`mvn -f apps/backend/pom.xml verify`构建，再运行`java -jar apps/backend/target/auralis-core-database-0.1.0-SNAPSHOT-online.jar`；环境变量须显式提供数据库地址与运行凭据、产品同源地址、Python loopback地址、服务凭据及当前内部协议修订。使用已由离线CLI迁移的PostgreSQL 18及无DDL权限的运行账号，默认监听127.0.0.1:8080。健康探针、匿名会话与推荐API已实现。推荐还需显式提供`AURALIS_RECOMMENDATION_CONFIG`并设置`AURALIS_DISPATCH_ENABLED=true`，批准工件、模型绑定与硬预算配置须一致。
 
-启动前须由离线迁移器应用V1～V15；Java与Python使用同版0.32协议配置。
+启动 Java 前，使用当前发布版本的离线迁移器应用完整迁移链（当前 V1～V17）。迁移步骤见[Linux 部署说明](apps/runtime/deployment.txt)和[Windows 运行说明](apps/runtime/usage.txt)。Java 与 Python 使用匹配的构建和 0.32 协议配置。
 
 ## Linux部署
 
@@ -62,7 +62,7 @@ python -m auralis_intelligence.agents demo --scenario genre --r 5 --k 4 --n 2 --
 
 输出包括首批构成、发布数量、分段计时，以及可选的不含正文或密钥的调用记录。合成计时和零价替身不能证明真实质量、速度或费用。其他输入场景为 `album`、`text`、`no-positive`，最后一种交回 Java 固定名单分支。
 
-启动 loopback HTTP 服务时，按[配置样例](apps/intelligence/agent-service.example.json)显式填写获准资料路径、凭据环境变量名和已核实的[模型绑定](apps/intelligence/autonomous-bindings.example.json)，再运行 `python -m auralis_intelligence.agents serve --config <config.json>`；它需要同版 Java 控制服务。配置样例默认关闭真实调用。短长评独立并行，首批等待全部实际短评结论，长评可随后交付；不会以8秒截断来缩小首批。
+启动 loopback HTTP 服务时，按[配置样例](apps/intelligence/agent-service.example.json)显式填写获准资料路径、凭据环境变量名和已核实的[模型绑定](apps/intelligence/autonomous-bindings.example.json)，再运行 `python -m auralis_intelligence.agents serve --config <config.json>`；它需要同版 Java 控制服务。配置样例默认关闭真实调用。在线模式逐张处理候选，短长评并行调度，首张通过核验即可展示。浏览到当前末尾且原池仍有候选时，页面可在同一轮继续推荐。
 
 ## 召回开发
 
@@ -84,13 +84,13 @@ python -m auralis_intelligence.recall --snapshot apps/intelligence/tests/fixture
 - 提交后显示真实排队／等待状态，再逐张浏览专辑；长评在原位展开，可像播放轨道一样拖动阅读进度，不播放音频。
 - “我喜欢／一般般”只保留在本页面，不写入后端偏好。“听过了”写入服务端，但专辑继续留在当前页面；最近一次单卡操作可以撤销。
 - 组末可以继续要推荐或回到预填首页。回首页本身不提交新请求；未提交草稿只保存在页面内存，不写浏览器存储。
-- 页面背景是响应鼠标的等高线地形，房间色由封套配色推导。真实封面查询尚未接通，当前仍使用占位封套。
+- 页面背景是响应鼠标的等高线地形，房间色由封套配色推导。真实封面通过同源接口异步加载，加载期间或无图时保留占位封套。
 
 ## 完整目录搜索
 
 Java目录接口通过本地只读Lucene索引搜索完整MusicBrainz作品组快照，支持专辑、艺人署名和别名；公开搜索结果排除Single，过滤后补齐分页，并利用已准入听众统计优先展示常见专辑，统计缺失不排除作品；不会把召回核心子集当成完整目录。启动时用`AURALIS_CATALOG_SEARCH_INDEX`和`AURALIS_CATALOG_SEARCH_MANIFEST_SHA256`提供离线核验索引及对应候选manifest摘要。未配置时目录返回503；错误索引拒绝启动。
 
-匿名bootstrap后可读取`/v1/catalog/albums?query=...`、`/v1/catalog/albums/{mb_release_group_id}`和`/v1/catalog/genres`；GET不续期，未知作品与无匹配分别处理。库外作品可选择，只有已核验可用信息进入召回；封面暂用占位。索引由离线`io.auralis.catalog.adapters.CatalogIndexBuild`从完整候选导入，输入目录、全新输出目录和manifest摘要必须显式提供。更新在维护窗口换路径及摘要后重启，失败恢复旧完整索引；没有在线下载或远端回退。目录与推荐API已实现，广泛推荐质量和完整网站验收仍待完成。
+匿名bootstrap后可读取`/v1/catalog/albums?query=...`、`/v1/catalog/albums/{mb_release_group_id}`和`/v1/catalog/genres`；GET不续期，未知作品与无匹配分别处理。库外作品可选择，只有已核验可用信息进入召回。索引由离线`io.auralis.catalog.adapters.CatalogIndexBuild`从完整候选导入，输入目录、全新输出目录和manifest摘要必须显式提供。更新在维护窗口换路径及摘要后重启，失败恢复旧完整索引；没有在线下载或远端回退。目录与推荐API已实现，广泛推荐质量和完整网站验收仍待完成。
 
 ### 本地固定策展推荐
 

@@ -10,7 +10,7 @@ An initial deployment is available at [Auralis](https://auralis-94-250-202-196.s
 
 The Java online bootstrap can be built with `mvn -f apps/backend/pom.xml verify` and started with `java -jar apps/backend/target/auralis-core-database-0.1.0-SNAPSHOT-online.jar`. It requires explicit `AURALIS_JDBC_URL`, `AURALIS_DATABASE_USER`, `AURALIS_DATABASE_PASSWORD`, `AURALIS_PRODUCT_ORIGIN`, `AURALIS_PYTHON_URL`, `AURALIS_SERVICE_TOKEN`, `AURALIS_CONTRACT_REVISION` and `AURALIS_SUBJECT_SECRET` environment variables. Use PostgreSQL 18 with the existing migrations applied by the offline CLI and a non-DDL runtime role. The service exposes health probes, anonymous sessions and recommendation APIs. Recommendations additionally require explicit `AURALIS_RECOMMENDATION_CONFIG` and `AURALIS_DISPATCH_ENABLED=true`, with matching approved artifacts, model bindings and budget configuration.
 
-Apply the full checked-in migration chain before startup (currently V1–V15); use protocol revision 0.32 with matching Java and Python builds.
+Before starting Java, use the release’s offline migrator to apply the full migration chain (currently V1–V17). The [Linux deployment guide](apps/runtime/deployment.txt) and [Windows runtime guide](apps/runtime/usage.txt) describe the migration step. Use protocol revision 0.32 with matching Java and Python builds.
 
 ## Linux deployment
 
@@ -66,7 +66,7 @@ The optional `--background` mode also runs replenishment and closes with a round
 
 The output reports first-batch composition, publication counts, stage timing and optional safe call records. Synthetic timing and zero-price fixtures do not measure real model quality, speed or cost. The other input scenarios are `album`, `text` and `no-positive`; the last hands control back to Java's curated-list branch.
 
-For the loopback HTTP service, provide explicit local paths and credential environment-variable names using [agent-service.example.json](apps/intelligence/agent-service.example.json) and reviewed [model bindings](apps/intelligence/autonomous-bindings.example.json), then run `python -m auralis_intelligence.agents serve --config <config.json>`. A matching Java control service is required. The sample bindings keep live calls disabled.
+For the loopback HTTP service, provide explicit local paths and credential environment-variable names using [agent-service.example.json](apps/intelligence/agent-service.example.json) and reviewed [model bindings](apps/intelligence/autonomous-bindings.example.json), then run `python -m auralis_intelligence.agents serve --config <config.json>`. A matching Java control service is required. The sample bindings keep live calls disabled. In live mode, candidates are processed individually and short and long reviews are scheduled in parallel. The first verified card can appear immediately, and reaching the current last card can continue from the same candidate pool.
 
 ## Recall development
 
@@ -95,13 +95,13 @@ matching snapshot. The trained artifact is supplied locally. A-V2 remains the de
 - Submit, see the actual queue/wait state, then browse one album at a time. Open the long review in place; its reading progress can be scrubbed like a track, without playing audio.
 - “Like” and “Meh” are local page reactions; they do not write a backend preference. “Heard” writes the server state while retaining the album in the current page; the latest single-card action can be undone.
 - At the end of a group, request more or return to prefilled input. Returning home alone does not submit a new request. Unsubmitted drafts stay in page memory, not browser storage.
-- The page uses a pointer-responsive contour landscape and cover-derived room colours. Real cover lookup is not connected yet; placeholder covers remain in use.
+- The page uses a pointer-responsive contour landscape and cover-derived room colours. Album covers load asynchronously through the same-origin API, with placeholders while loading or when artwork is unavailable.
 
 ## Full catalog search
 
 Java catalog endpoints search an explicitly versioned, complete MusicBrainz release-group snapshot using a local read-only Lucene index, including album names, artist credits and aliases. Public search results exclude Single releases, refill pages after filtering and use admitted audience counts to promote commonly heard albums without excluding unknown counts. The retrieval subset is not used as the full directory. Configure `AURALIS_CATALOG_SEARCH_INDEX` and `AURALIS_CATALOG_SEARCH_MANIFEST_SHA256` with a verified offline index and its candidate-manifest digest. Missing configuration returns 503 for catalog requests; an invalid index prevents startup.
 
-After anonymous bootstrap, read `/v1/catalog/albums?query=...`, `/v1/catalog/albums/{mb_release_group_id}` and `/v1/catalog/genres`. GET requests never renew retention; unknown IDs and empty search results are distinct. External albums remain selectable, while only verified supported information enters retrieval; covers remain placeholders. The offline `io.auralis.catalog.adapters.CatalogIndexBuild` importer requires a complete candidate directory, a new output directory and the expected manifest digest. Update paths and digests during maintenance and restart; restore the previous complete index if validation fails. There is no online download or remote fallback. Catalog and recommendation APIs are implemented; broader recommendation-quality validation and complete website acceptance remain pending.
+After anonymous bootstrap, read `/v1/catalog/albums?query=...`, `/v1/catalog/albums/{mb_release_group_id}` and `/v1/catalog/genres`. GET requests never renew retention; unknown IDs and empty search results are distinct. External albums remain selectable, while only verified supported information enters retrieval. The offline `io.auralis.catalog.adapters.CatalogIndexBuild` importer requires a complete candidate directory, a new output directory and the expected manifest digest. Update paths and digests during maintenance and restart; restore the previous complete index if validation fails. There is no online download or remote fallback. Catalog and recommendation APIs are implemented; broader recommendation-quality validation and complete website acceptance remain pending.
 
 ### Prepared curated recommendations
 
