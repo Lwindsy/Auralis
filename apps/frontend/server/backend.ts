@@ -14,7 +14,7 @@ interface Fixture {
   ): { status: number; body: unknown };
 }
 
-const FIXTURE_META = '<meta name="auralis-fixture" content="true" />';
+const FIXTURE_META = '<meta name="auralisy-fixture" content="true" />';
 const MAX_BODY = 128000;
 
 /**
@@ -22,7 +22,7 @@ const MAX_BODY = 128000;
  * contract data; otherwise requests are forwarded to AURALIS_JAVA_ORIGIN without rewriting
  * Origin, Cookie or CSRF. This is a development tool, not a production deployment.
  */
-export function auralisBackend({ fixture }: { fixture: boolean }): Plugin {
+export function auralisyBackend({ fixture }: { fixture: boolean }): Plugin {
   const java = process.env.AURALIS_JAVA_ORIGIN
     ? new URL(process.env.AURALIS_JAVA_ORIGIN)
     : null;
@@ -116,7 +116,7 @@ export function auralisBackend({ fixture }: { fixture: boolean }): Plugin {
   }
 
   return {
-    name: "auralis-backend",
+    name: "auralisy-backend",
     configureServer(server) {
       server.middlewares.use(middleware(server.config.server.port ?? 4173));
     },

@@ -14,12 +14,12 @@ import traceback
 from pathlib import Path
 
 from aiohttp import web
-from auralis_intelligence.agents import CallResult, Usage
-from auralis_intelligence.agents import __main__ as service
-from auralis_intelligence.agents.ports import ControlUnavailable
-from auralis_intelligence.providers import ToolGateway
-from auralis_intelligence.providers.types import SearchHit
-from auralis_intelligence.providers.web import FetchResponse
+from auralisy_intelligence.agents import CallResult, Usage
+from auralisy_intelligence.agents import __main__ as service
+from auralisy_intelligence.agents.ports import ControlUnavailable
+from auralisy_intelligence.providers import ToolGateway
+from auralisy_intelligence.providers.types import SearchHit
+from auralisy_intelligence.providers.web import FetchResponse
 
 
 class Fixtures:

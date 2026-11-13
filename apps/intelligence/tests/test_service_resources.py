@@ -4,8 +4,8 @@ import asyncio
 import threading
 
 import pytest
-from auralis_intelligence.agents.ports import CallDenied, CallResult, Usage
-from auralis_intelligence.agents.resources import ServiceResources
+from auralisy_intelligence.agents.ports import CallDenied, CallResult, Usage
+from auralisy_intelligence.agents.resources import ServiceResources
 
 
 def test_global_limit_and_independent_close():
@@ -252,7 +252,7 @@ def test_rate_reservation_does_not_expire_while_grant_or_send_is_running():
 
 
 def test_resource_wait_cancellation_never_requests_budget_or_sends():
-    from auralis_intelligence.agents.runtime import Execution
+    from auralisy_intelligence.agents.runtime import Execution
     from test_agent_runtime import start
 
     async def scenario():
@@ -332,7 +332,7 @@ def test_example_quota_mapping_covers_all_configured_bindings():
     import json
     from pathlib import Path
 
-    from auralis_intelligence.providers.config import load_bindings
+    from auralisy_intelligence.providers.config import load_bindings
 
     root = Path(__file__).resolve().parents[1]
     config = json.loads((root / "agent-service.example.json").read_text())

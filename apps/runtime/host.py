@@ -284,7 +284,7 @@ class Host:
             [
                 self.file("python"),
                 "-c",
-                "import sys; assert sys.version_info[:3] == (3, 10, 8); import auralis_intelligence, aiohttp",
+                "import sys; assert sys.version_info[:3] == (3, 10, 8); import auralisy_intelligence, aiohttp",
             ],
             env=self.agent_environment(),
         )
@@ -407,7 +407,7 @@ class Host:
                 [
                     self.file("python"),
                     "-m",
-                    "auralis_intelligence.agents",
+                    "auralisy_intelligence.agents",
                     "serve",
                     "--config",
                     self.file("agent_config"),

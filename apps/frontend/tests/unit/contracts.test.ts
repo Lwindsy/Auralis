@@ -37,7 +37,7 @@ describe("contract consumer", () => {
   test("generated validation is bound to the actual shared schema", async () => {
     const text = await readFile(
       new URL(
-        "../../../intelligence/src/auralis_intelligence/contracts/agent-v1.schema.json",
+        "../../../intelligence/src/auralisy_intelligence/contracts/agent-v1.schema.json",
         import.meta.url,
       ),
     );

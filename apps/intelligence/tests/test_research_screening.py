@@ -4,15 +4,15 @@ import asyncio
 from copy import deepcopy
 
 import pytest
-from auralis_intelligence.agents import CallResult, Execution, Usage
-from auralis_intelligence.album_reviews import ResearchStage
-from auralis_intelligence.album_reviews.individual import IndividualResearchStage
-from auralis_intelligence.album_reviews.research import SCREEN_SCHEMA
-from auralis_intelligence.album_reviews.seed_context import SeedContext
-from auralis_intelligence.contracts import ContractError, content_digest
-from auralis_intelligence.providers import ModelBinding, ModelGateway, ToolGateway
-from auralis_intelligence.providers.testing import ScriptedModelAdapter, StaticSearchAdapter
-from auralis_intelligence.providers.web import FetchResponse
+from auralisy_intelligence.agents import CallResult, Execution, Usage
+from auralisy_intelligence.album_reviews import ResearchStage
+from auralisy_intelligence.album_reviews.individual import IndividualResearchStage
+from auralisy_intelligence.album_reviews.research import SCREEN_SCHEMA
+from auralisy_intelligence.album_reviews.seed_context import SeedContext
+from auralisy_intelligence.contracts import ContractError, content_digest
+from auralisy_intelligence.providers import ModelBinding, ModelGateway, ToolGateway
+from auralisy_intelligence.providers.testing import ScriptedModelAdapter, StaticSearchAdapter
+from auralisy_intelligence.providers.web import FetchResponse
 from jsonschema import Draft202012Validator
 from test_agent_runtime import bind, setup, start
 

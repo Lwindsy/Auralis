@@ -1,6 +1,6 @@
 """The transport proof and later seed projection must use the identical bounded text."""
 
-from auralis_intelligence.providers.excerpts import excerpt
+from auralisy_intelligence.providers.excerpts import excerpt
 
 
 def test_excerpt_is_byte_bounded_and_idempotent_at_whitespace_boundaries():

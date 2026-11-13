@@ -6,12 +6,12 @@ from types import SimpleNamespace
 from uuid import UUID
 
 import numpy as np
-from auralis_intelligence.agents.recall_stage import recall_request
-from auralis_intelligence.contracts import content_digest
-from auralis_intelligence.recall import Preference, RecallRequest, WeightConfig
-from auralis_intelligence.recall.common import recall
-from auralis_intelligence.recall.io import load_request
-from auralis_intelligence.recall.types import RecallDataset
+from auralisy_intelligence.agents.recall_stage import recall_request
+from auralisy_intelligence.contracts import content_digest
+from auralisy_intelligence.recall import Preference, RecallRequest, WeightConfig
+from auralisy_intelligence.recall.common import recall
+from auralisy_intelligence.recall.io import load_request
+from auralisy_intelligence.recall.types import RecallDataset
 from scipy import sparse
 from test_recall_stage import preferences
 

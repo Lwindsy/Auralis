@@ -384,8 +384,8 @@ export function Entry({
       aria-labelledby="entry-title"
     >
       <header className="entry__head">
-        <h1 id="entry-title" className="entry__title" aria-label="Auralis">
-          {[..."Auralis"].map((char, index) => (
+        <h1 id="entry-title" className="entry__title" aria-label="Auralisy">
+          {[..."Auralisy"].map((char, index) => (
             <span
               key={index}
               aria-hidden="true"

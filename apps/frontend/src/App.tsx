@@ -248,7 +248,7 @@ export function App({ api, controller, review, fixture }: AppProps) {
           }}
         >
           <span className="brand__mark" aria-hidden="true" />
-          <span className="brand__name">Auralis</span>
+          <span className="brand__name">Auralisy</span>
         </a>
         <LangSwitch />
       </div>

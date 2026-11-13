@@ -1,18 +1,18 @@
-# Auralis
+# Auralisy
 
 [中文](README_ZH.md)
 
-Auralis helps you find your next album. Start with a record you love, pick a few genres, or describe what you feel like hearing. Try “something quiet for a late night, with a little jazz.”
+Auralisy helps you find your next album. Start with a record you love, pick a few genres, or describe what you feel like hearing. Try “something quiet for a late night, with a little jazz.”
 
-**[Try Auralis](https://auralisy.online/)** · No account needed
+**[Try Auralisy](https://auralisy.online/)** · No account needed
 
 ## Find an album
 
 1. Add a favorite album, choose genres you like or want to avoid, or type an idea. Any one is enough to start.
 2. Choose **Familiar** to stay close to your tastes, **Explore** to branch out, or **Surprise** to go further afield.
-3. Browse albums as they arrive. Each card has a short review, and you can open a longer one to read more about the sound. If you already know an album, choose **Heard it** and Auralis will look for another suggestion.
+3. Browse albums as they arrive. Each card has a short review, and you can open a longer one to read more about the sound. If you already know an album, choose **Heard it** and Auralisy will look for another suggestion.
 
-Switch between English and Chinese in the top-left corner. You can close the tab and come back to your recommendations in the same browser. Auralis keeps submitted preferences and recommendations for 30 days after your last active use. The privacy details at the bottom of the site explain what gets stored and when OpenAI may process your input.
+Switch between English and Chinese in the top-left corner. You can close the tab and come back to your recommendations in the same browser. Auralisy keeps submitted preferences and recommendations for 30 days after your last active use. The privacy details at the bottom of the site explain what gets stored and when OpenAI may process your input.
 
 ## Run the interface locally
 

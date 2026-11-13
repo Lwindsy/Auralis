@@ -4,4 +4,4 @@ WORKDIR /app
 COPY apps/intelligence/pyproject.toml /app/pyproject.toml
 COPY apps/intelligence/src /app/src
 RUN pip install --no-cache-dir .
-ENTRYPOINT ["python", "-m", "auralis_intelligence.agents", "serve"]
+ENTRYPOINT ["python", "-m", "auralisy_intelligence.agents", "serve"]

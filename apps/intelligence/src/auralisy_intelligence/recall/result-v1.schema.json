@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Auralisy local recall result v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["format_version", "algorithm", "dataset_id", "window", "requested_count", "returned_count", "reason", "candidate_ids"],
+  "properties": {
+    "format_version": {"const": 1},
+    "algorithm": {"enum": ["A-V2", "C-V0"]},
+    "dataset_id": {"type": "string", "pattern": "\\S"},
+    "window": {"type": "string", "pattern": "\\S"},
+    "requested_count": {"type": "integer", "minimum": 1},
+    "returned_count": {"type": "integer", "minimum": 0},
+    "reason": {"enum": ["complete", "insufficient_candidates", "unsupported_positive_input"]},
+    "candidate_ids": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"type": "string", "pattern": "\\S"}
+    }
+  }
+}

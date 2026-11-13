@@ -1,7 +1,7 @@
 import json
 
 import pytest
-from auralis_intelligence.genre_taxonomy import check_artifacts, load_taxonomy, taxonomy_hash
+from auralisy_intelligence.genre_taxonomy import check_artifacts, load_taxonomy, taxonomy_hash
 
 
 def test_rejects_missing_parents_cycles_and_mixed_artifacts(tmp_path):

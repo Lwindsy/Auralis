@@ -5,9 +5,9 @@ import sys
 
 import numpy as np
 import pytest
-from auralis_intelligence.recall import WeightConfig, load_c_v0
-from auralis_intelligence.recall.common import dataset_fingerprint
-from auralis_intelligence.recall.io import load_dataset
+from auralisy_intelligence.recall import WeightConfig, load_c_v0
+from auralisy_intelligence.recall.common import dataset_fingerprint
+from auralisy_intelligence.recall.io import load_dataset
 from test_recall import APP, FIXTURES, SNAPSHOT
 
 
@@ -55,7 +55,7 @@ def test_c_v0_real_cli_boundary(artifact):
         [
             sys.executable,
             "-m",
-            "auralis_intelligence.recall",
+            "auralisy_intelligence.recall",
             "--snapshot",
             str(SNAPSHOT),
             "--request",

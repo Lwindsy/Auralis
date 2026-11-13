@@ -2,9 +2,9 @@
 
 import asyncio
 
-from auralis_intelligence.agents.demo import DemoHarness, _reply
-from auralis_intelligence.agents.resources import ServiceResources
-from auralis_intelligence.contracts import content_digest, validate_definition
+from auralisy_intelligence.agents.demo import DemoHarness, _reply
+from auralisy_intelligence.agents.resources import ServiceResources
+from auralisy_intelligence.contracts import content_digest, validate_definition
 
 
 def test_all_fifty_enter_before_any_finishes_and_no_long_review_is_sent(tmp_path):

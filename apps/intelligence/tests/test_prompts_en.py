@@ -7,20 +7,20 @@ from dataclasses import replace
 from importlib.resources import files
 
 import pytest
-from auralis_intelligence.agents.demo import DemoHarness, _reply
-from auralis_intelligence.album_reviews import prompts_en, research, seed_context, writing
-from auralis_intelligence.contracts import content_digest
-from auralis_intelligence.preferences import prompts as prompts_zh
-from auralis_intelligence.preferences import prompts_en as preferences_en
-from auralis_intelligence.ranking import prompts_en as ranking_en
-from auralis_intelligence.ranking import selection
+from auralisy_intelligence.agents.demo import DemoHarness, _reply
+from auralisy_intelligence.album_reviews import prompts_en, research, seed_context, writing
+from auralisy_intelligence.contracts import content_digest
+from auralisy_intelligence.preferences import prompts as prompts_zh
+from auralisy_intelligence.preferences import prompts_en as preferences_en
+from auralisy_intelligence.ranking import prompts_en as ranking_en
+from auralisy_intelligence.ranking import selection
 
 HAN = re.compile(r"[一-鿿]")
 PAIRS = [
-    ("auralis_intelligence.album_reviews", "batch.v7"),
-    ("auralis_intelligence.album_reviews", "research.v2"),
-    ("auralis_intelligence.album_reviews", "writing.v1.4"),
-    ("auralis_intelligence.ranking", "select.v1"),
+    ("auralisy_intelligence.album_reviews", "batch.v7"),
+    ("auralisy_intelligence.album_reviews", "research.v2"),
+    ("auralisy_intelligence.album_reviews", "writing.v1.4"),
+    ("auralisy_intelligence.ranking", "select.v1"),
 ]
 
 
@@ -97,7 +97,7 @@ def test_recommendation_uses_one_language_for_every_model_stage(tmp_path, englis
 
 
 def test_english_prompts_name_english_output_and_word_lengths():
-    album = "auralis_intelligence.album_reviews"
+    album = "auralisy_intelligence.album_reviews"
     assert "English cards" in text(album, "batch.v7.en.txt")
     assert "about 40 words" in text(album, "batch.v7.en.txt")
     assert "original English reviews" in text(album, "writing.v1.4.en.txt")
@@ -118,7 +118,7 @@ REVIEW_PROMPTS = [
 
 @pytest.mark.parametrize(("chinese_name", "english_name"), REVIEW_PROMPTS)
 def test_review_prompts_forbid_defensive_writing(chinese_name, english_name):
-    album = "auralis_intelligence.album_reviews"
+    album = "auralisy_intelligence.album_reviews"
     chinese, english = text(album, chinese_name), text(album, english_name)
     # The rule is stated outright, with the phrasings the user rejected named as banned.
     assert "严禁防御性写作" in chinese and "No defensive writing, ever." in english

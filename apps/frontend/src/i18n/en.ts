@@ -5,16 +5,16 @@ import type { Copy } from "./zh-CN.ts";
 
 const en: Copy = {
   meta: {
-    title: "Auralis · Find your next album",
+    title: "Auralisy · Find your next album",
     description:
       "Start from what you love and find albums worth hearing front to back.",
   },
   app: {
     fixture: "Contract fixture mode · synthetic data, not the real service",
-    home: "Auralis home",
+    home: "Auralisy home",
     language: "Language",
     restoring: "Picking up where you left off…",
-    offline: "Can't reach Auralis right now.",
+    offline: "Can't reach Auralisy right now.",
     reconnect: "Reconnect",
     refresh: "Refresh",
     retry: "Try that again",
@@ -27,7 +27,7 @@ const en: Copy = {
         "May be processed by OpenAI",
       ],
       more: "Details",
-      full: "No account needed. The cookie holds only an anonymous session credential. Auralis keeps your submitted preferences, text, and recommendation results for 30 days after your last active interaction. OpenAI may process relevant input to generate personalized recommendations and reviews.",
+      full: "No account needed. The cookie holds only an anonymous session credential. Auralisy keeps your submitted preferences, text, and recommendation results for 30 days after your last active interaction. OpenAI may process relevant input to generate personalized recommendations and reviews.",
     },
   },
   entry: {

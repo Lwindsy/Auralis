@@ -1,7 +1,7 @@
 """Complete MusicBrainz directory titles remain lossless across the shared wire boundary."""
 
 import pytest
-from auralis_intelligence.contracts import ContractError, validate_definition
+from auralisy_intelligence.contracts import ContractError, validate_definition
 
 
 def test_full_musicbrainz_title_limit_counts_unicode_codepoints():

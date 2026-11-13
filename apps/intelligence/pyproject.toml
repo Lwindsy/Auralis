@@ -3,9 +3,9 @@ requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "auralis-intelligence"
+name = "auralisy-intelligence"
 version = "0.1.0"
-description = "Auralis album recall baseline"
+description = "Auralisy album recall baseline"
 requires-python = ">=3.10"
 dependencies = ["numpy==2.2.6", "scipy==1.15.3", "jsonschema==4.23.0", "rfc8785==0.1.4", "httpx==0.28.1", "aiohttp==3.12.15", "beautifulsoup4==4.13.5", "tldextract==5.3.0"]
 
@@ -13,17 +13,17 @@ dependencies = ["numpy==2.2.6", "scipy==1.15.3", "jsonschema==4.23.0", "rfc8785=
 test = ["pytest>=8,<9", "openapi-spec-validator==0.7.2", "ruff==0.17.4"]
 
 [project.scripts]
-auralis-recall = "auralis_intelligence.recall.__main__:main"
-auralis-agent = "auralis_intelligence.agents.__main__:main"
+auralisy-recall = "auralisy_intelligence.recall.__main__:main"
+auralisy-agent = "auralisy_intelligence.agents.__main__:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.setuptools.package-data]
-"auralis_intelligence.recall" = ["*.schema.json"]
-"auralis_intelligence.contracts" = ["*.json"]
-"auralis_intelligence.album_reviews" = ["*.txt", "*.schema.json"]
-"auralis_intelligence.ranking" = ["*.txt", "*.schema.json"]
+"auralisy_intelligence.recall" = ["*.schema.json"]
+"auralisy_intelligence.contracts" = ["*.json"]
+"auralisy_intelligence.album_reviews" = ["*.txt", "*.schema.json"]
+"auralisy_intelligence.ranking" = ["*.txt", "*.schema.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

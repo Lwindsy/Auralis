@@ -8,10 +8,10 @@ from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
-from auralis_intelligence.agents import CallResult, Execution, RoundSupervisor, Usage
-from auralis_intelligence.agents.background import RoundPipeline
-from auralis_intelligence.agents.demo import DemoHarness, _reply
-from auralis_intelligence.contracts import (
+from auralisy_intelligence.agents import CallResult, Execution, RoundSupervisor, Usage
+from auralisy_intelligence.agents.background import RoundPipeline
+from auralisy_intelligence.agents.demo import DemoHarness, _reply
+from auralisy_intelligence.contracts import (
     ContractError,
     content_digest,
     digest,
@@ -30,7 +30,7 @@ from auralis_intelligence.contracts import (
 )
 def test_regeneration_distinguishes_technical_failure_from_material(code, screen, status, reason):
     async def run():
-        from auralis_intelligence.album_reviews import AlbumDossier, ResearchResult
+        from auralisy_intelligence.album_reviews import AlbumDossier, ResearchResult
 
         pipeline = RoundPipeline(None, None, None, None, None)
 
@@ -948,12 +948,12 @@ def test_unknown_usage_can_confirm_model_completion_without_releasing_reservatio
 
 def test_actual_http_background_command_and_erasure(tmp_path):
     import httpx
-    from auralis_intelligence.agents.http import (
+    from auralisy_intelligence.agents.http import (
         ControlHTTPClient,
         create_control_double_app,
         create_execution_app,
     )
-    from auralis_intelligence.contracts import envelope
+    from auralisy_intelligence.contracts import envelope
     from test_first_batch import running
 
     async def run():

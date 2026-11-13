@@ -4,7 +4,7 @@ import json
 import sys
 from pathlib import Path
 
-from auralis_intelligence.preferences import ReferenceCatalog, merge_preferences
+from auralisy_intelligence.preferences import ReferenceCatalog, merge_preferences
 
 
 def run(path: Path) -> list[dict]:

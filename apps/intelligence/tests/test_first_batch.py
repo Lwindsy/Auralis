@@ -10,15 +10,15 @@ from pathlib import Path
 import httpx
 import pytest
 from aiohttp import web
-from auralis_intelligence.agents import CallResult, Execution, Usage
-from auralis_intelligence.agents.demo import DemoHarness, _reply
-from auralis_intelligence.agents.http import (
+from auralisy_intelligence.agents import CallResult, Execution, Usage
+from auralisy_intelligence.agents.demo import DemoHarness, _reply
+from auralisy_intelligence.agents.http import (
     ControlHTTPClient,
     create_control_double_app,
     create_execution_app,
 )
-from auralis_intelligence.contracts import content_digest, digest, envelope, validate_message
-from auralis_intelligence.providers.web import FetchResponse
+from auralisy_intelligence.contracts import content_digest, digest, envelope, validate_message
+from auralisy_intelligence.providers.web import FetchResponse
 
 
 @pytest.mark.parametrize("scenario", ["album", "genre", "text", "mixed"])
@@ -299,7 +299,7 @@ def test_cli_demo_is_a_real_separate_process(tmp_path):
         [
             sys.executable,
             "-m",
-            "auralis_intelligence.agents",
+            "auralisy_intelligence.agents",
             "demo",
             "--scenario",
             "genre",
