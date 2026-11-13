@@ -8,10 +8,10 @@ from hashlib import sha256
 from types import SimpleNamespace
 from uuid import uuid4
 
-from auralis_intelligence.agents.http import ControlHTTPClient
-from auralis_intelligence.album_reviews.seed_context import SeedContext
-from auralis_intelligence.contracts import digest
-from auralis_intelligence.providers.excerpts import excerpt
+from auralisy_intelligence.agents.http import ControlHTTPClient
+from auralisy_intelligence.album_reviews.seed_context import SeedContext
+from auralisy_intelligence.contracts import digest
+from auralisy_intelligence.providers.excerpts import excerpt
 
 
 async def run():

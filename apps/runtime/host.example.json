@@ -7,7 +7,7 @@
   "java_heap_mb": 1536,
   "java": "SET_ABSOLUTE_JAVA_21_EXECUTABLE",
   "python": "SET_ABSOLUTE_PYTHON_3_10_8_VENV_EXECUTABLE",
-  "jar": "../../apps/backend/target/auralis-core-database-0.1.0-SNAPSHOT-online.jar",
+  "jar": "../../apps/backend/target/auralisy-core-database-0.1.0-SNAPSHOT-online.jar",
   "agent_config": "agent-service.json",
   "recommendation_config": "recommendation.json",
   "search_index": "SET_EXPLICIT_APPROVED_SEARCH_INDEX_DIRECTORY",

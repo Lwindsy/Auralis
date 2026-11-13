@@ -12,7 +12,7 @@ def test_managed_eof_runs_aiohttp_cleanup(tmp_path):
 import sys
 from pathlib import Path
 from aiohttp import web
-from auralis_intelligence.agents.managed import manage_stdin
+from auralisy_intelligence.agents.managed import manage_stdin
 app = web.Application()
 async def ready(app):
     print('READY', flush=True)
@@ -50,7 +50,7 @@ def test_startup_diagnostics_distinguish_failures_without_exposing_details(tmp_p
         [
             sys.executable,
             "-m",
-            "auralis_intelligence.agents",
+            "auralisy_intelligence.agents",
             "serve",
             "--config",
             str(tmp_path / "private-config.json"),
@@ -64,11 +64,11 @@ def test_startup_diagnostics_distinguish_failures_without_exposing_details(tmp_p
     assert missing.stderr.strip() == "AURALIS_AGENT_STARTUP_FAILED FileNotFoundError"
     script = """
 import logging, sys
-from auralis_intelligence.agents import __main__ as cli
+from auralisy_intelligence.agents import __main__ as cli
 sys.argv = ['auralis-agent', 'serve', '--config', 'unused']
 def fail(args):
     logging.getLogger('httpx').error('private-provider-body')
-    logging.getLogger('auralis_intelligence.agents').warning('SERVICE_CONFIGURATION_FAILED')
+    logging.getLogger('auralisy_intelligence.agents').warning('SERVICE_CONFIGURATION_FAILED')
     raise ValueError(sys.argv_saved)
 cli.serve = fail
 sys.argv_saved = sys.argv_original

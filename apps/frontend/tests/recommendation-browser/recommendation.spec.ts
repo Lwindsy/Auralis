@@ -106,7 +106,7 @@ test("real Java recommendations keep input, record 听过了 and restore after r
     focused: true,
   });
   // Back to the start page and return without submitting anything.
-  await page.getByRole("link", { name: "Auralis 首页" }).click();
+  await page.getByRole("link", { name: "Auralisy 首页" }).click();
   await expect(await textOnEntry(page)).toHaveValue("原文与重点保留 🎷");
   await page.getByLabel("这次想听的音乐").fill("不提交的修改");
   await page.getByRole("button", { name: /回到刚才的推荐/ }).click();

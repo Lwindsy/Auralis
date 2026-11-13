@@ -5,15 +5,15 @@ import json
 from types import SimpleNamespace
 
 import pytest
-from auralis_intelligence.agents.demo import DemoHarness, _reply
-from auralis_intelligence.agents.pipeline import FirstBatchPipeline
-from auralis_intelligence.album_reviews.batch import (
+from auralisy_intelligence.agents.demo import DemoHarness, _reply
+from auralisy_intelligence.agents.pipeline import FirstBatchPipeline
+from auralisy_intelligence.album_reviews.batch import (
     BatchResearchStage,
     BatchSelectStage,
     BatchWriteStage,
 )
-from auralis_intelligence.contracts import content_digest
-from auralis_intelligence.preferences.fast import GENERIC
+from auralisy_intelligence.contracts import content_digest
+from auralisy_intelligence.preferences.fast import GENERIC
 
 
 def test_generic_route_never_swallows_specific_constraints():
@@ -118,7 +118,7 @@ def test_batch_one_call_and_audience_verified_at_publication(
             writer = BatchWriteStage(harness.model, harness.tools, batch=batch)
             selector = BatchSelectStage(harness.model, batch=batch)
             base = harness.pipeline(harness.request)
-            from auralis_intelligence.agents.background import RoundPipeline
+            from auralisy_intelligence.agents.background import RoundPipeline
 
             implementation = RoundPipeline if background else FirstBatchPipeline
             pipeline = implementation(
@@ -130,7 +130,7 @@ def test_batch_one_call_and_audience_verified_at_publication(
                 seen.append(request.schema_name)
                 if request.schema_name != ("batch_v7_en" if english else "batch_v7"):
                     return _reply(binding, request)
-                from auralis_intelligence.agents import CallResult, Usage
+                from auralisy_intelligence.agents import CallResult, Usage
 
                 text = "这张专辑在合成测试资料中呈现克制的编配，钢琴与轻缓鼓点之间留有清晰空间，旋律以渐进的方式展开而不过度依赖厚重音墙[R1]。另一份资料强调人声与吉他的亲近感；如果这次想在深夜安静地听，可以留意这种舒缓而细致的安排，这里只验证程序流程而不代表真实试听评价[R2]。"
                 if english:
@@ -263,7 +263,7 @@ def test_batch_one_call_and_audience_verified_at_publication(
 
 
 def test_audience_counts_distinct_listeners_not_plays(tmp_path):
-    from auralis_intelligence.recall import WeightConfig, load_a_v2
+    from auralisy_intelligence.recall import WeightConfig, load_a_v2
 
     fixture = tmp_path / "data.json"
     fixture.write_text(
@@ -288,7 +288,7 @@ def test_audience_counts_distinct_listeners_not_plays(tmp_path):
 
 def test_vectorized_reciprocal_ranking_preserves_id_ties():
     import numpy as np
-    from auralis_intelligence.recall.neighborhood import NeighborhoodModel
+    from auralisy_intelligence.recall.neighborhood import NeighborhoodModel
 
     model = NeighborhoodModel()
     model.data = SimpleNamespace(album_ids=("z", "b", "a", "c", "d", "e"))
@@ -305,7 +305,7 @@ def test_prepared_evidence_digest_age_and_original_observation(tmp_path):
     from datetime import datetime, timedelta, timezone
     from hashlib import sha256
 
-    from auralis_intelligence.album_reviews.prepared import PreparedEvidence
+    from auralisy_intelligence.album_reviews.prepared import PreparedEvidence
 
     source = {
         "url": "https://one.example/review",

@@ -4,17 +4,17 @@ import asyncio
 from copy import deepcopy
 
 import pytest
-from auralis_intelligence.agents import CallResult, Usage
-from auralis_intelligence.album_reviews import WriteStage
-from auralis_intelligence.album_reviews.validation import (
+from auralisy_intelligence.agents import CallResult, Usage
+from auralisy_intelligence.album_reviews import WriteStage
+from auralisy_intelligence.album_reviews.validation import (
     SECTIONS,
     validate_long,
     validate_short,
 )
-from auralis_intelligence.contracts import ContractError, content_digest, validate_definition
-from auralis_intelligence.providers import SearchHit
-from auralis_intelligence.providers.testing import ScriptedModelAdapter, StaticSearchAdapter
-from auralis_intelligence.ranking import SelectStage
+from auralisy_intelligence.contracts import ContractError, content_digest, validate_definition
+from auralisy_intelligence.providers import SearchHit
+from auralisy_intelligence.providers.testing import ScriptedModelAdapter, StaticSearchAdapter
+from auralisy_intelligence.ranking import SelectStage
 from test_research_screening import ONE, TWO, URLS, environment
 
 

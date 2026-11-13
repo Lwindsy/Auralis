@@ -3,7 +3,7 @@
 import asyncio
 
 import pytest
-from auralis_intelligence.preferences.fast import GENERIC, FastPreferencesStage
+from auralisy_intelligence.preferences.fast import GENERIC, FastPreferencesStage
 from test_preferences import FIXTURE, execution_for, numbered_fixture_replies, raw
 
 

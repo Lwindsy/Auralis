@@ -4,9 +4,9 @@ from copy import deepcopy
 from types import SimpleNamespace
 
 import pytest
-from auralis_intelligence.album_reviews.batch import BatchResearchStage
-from auralis_intelligence.album_reviews.evidence_quality import page_rejection
-from auralis_intelligence.contracts import ContractError
+from auralisy_intelligence.album_reviews.batch import BatchResearchStage
+from auralisy_intelligence.album_reviews.evidence_quality import page_rejection
+from auralisy_intelligence.contracts import ContractError
 
 
 @pytest.mark.parametrize(

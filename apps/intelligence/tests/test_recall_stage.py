@@ -8,16 +8,16 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-from auralis_intelligence.agents import Execution
-from auralis_intelligence.agents.control_double import JavaControlDouble
-from auralis_intelligence.agents.recall_stage import RecallStage, recall_request
-from auralis_intelligence.contracts import (
+from auralisy_intelligence.agents import Execution
+from auralisy_intelligence.agents.control_double import JavaControlDouble
+from auralisy_intelligence.agents.recall_stage import RecallStage, recall_request
+from auralisy_intelligence.contracts import (
     ContractError,
     content_digest,
     digest,
     validate_definition,
 )
-from auralis_intelligence.recall import Preference, RecallRequest, WeightConfig, load_a_v2
+from auralisy_intelligence.recall import Preference, RecallRequest, WeightConfig, load_a_v2
 from test_agent_runtime import start
 
 SNAPSHOT = Path(__file__).parent / "fixtures/synthetic-snapshot.json"
@@ -337,7 +337,7 @@ if __name__ == "__main__":
 
 
 def test_tag_only_pool_covers_directions_without_changing_scorer_or_hard_constraints():
-    from auralis_intelligence.recall import Candidate, RecallResult
+    from auralisy_intelligence.recall import Candidate, RecallResult
 
     class Engine:
         def __init__(self):

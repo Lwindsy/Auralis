@@ -11,7 +11,7 @@ import { compile } from "json-schema-to-typescript";
 const root = new URL("../../", import.meta.url);
 const schemaText = await readFile(
   new URL(
-    "intelligence/src/auralis_intelligence/contracts/agent-v1.schema.json",
+    "intelligence/src/auralisy_intelligence/contracts/agent-v1.schema.json",
     root,
   ),
   "utf8",

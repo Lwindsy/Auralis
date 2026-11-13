@@ -5,7 +5,7 @@ from copy import deepcopy
 from pathlib import Path
 
 import pytest
-from auralis_intelligence.contracts import (
+from auralisy_intelligence.contracts import (
     ContractError,
     IdempotencyLedger,
     content_digest,

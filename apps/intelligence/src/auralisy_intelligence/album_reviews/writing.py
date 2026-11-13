@@ -1,0 +1,442 @@
+"""Independent short/long requests and a bounded, explicit long-review tool loop."""
+
+import asyncio
+import json
+from dataclasses import dataclass
+from html import escape
+from importlib.resources import files
+from typing import Any, Mapping
+
+from auralisy_intelligence.agents import CallDenied, ControlUnavailable, Execution
+from auralisy_intelligence.contracts import ContractError
+from auralisy_intelligence.providers import ModelGateway, ToolGateway
+from jsonschema import Draft202012Validator
+
+from . import prompts_en
+from .context import preference_context
+from .evidence_quality import identity_rejection
+from .research import excerpt
+from .types import AlbumDossier, ReadRecord
+from .validation import han_count, validate_long, validate_short, word_count
+
+SHORT_SCHEMA = json.loads(
+    files(__package__).joinpath("short_review.v1.schema.json").read_text(encoding="utf-8")
+)
+LONG_SCHEMA = json.loads(
+    files(__package__).joinpath("long_review.v1.schema.json").read_text(encoding="utf-8")
+)
+WRITING_PROMPT = files(__package__).joinpath("writing.v1.4.txt").read_text(encoding="utf-8")
+WRITING_PROMPT_EN = files(__package__).joinpath("writing.v1.4.en.txt").read_text(encoding="utf-8")
+LONG_RESEARCH_INSTRUCTION = (
+    "\nRespect research_budget. If searches_remaining is zero, choose relevant "
+    "available_sources to read when a tool turn remains. If turns_remaining is zero, "
+    "focus the review on what the sources already read support and leave optional "
+    "sections empty. If even that review lacks sufficient evidence, report the gap "
+    "without requesting tools."
+)
+
+
+@dataclass(frozen=True)
+class ShortWriteResult:
+    status: str
+    review: dict[str, Any] | None = None
+    reason_code: str | None = None
+
+
+@dataclass(frozen=True)
+class WritingJobs:
+    short: asyncio.Task
+    long: asyncio.Task | None
+
+
+def _status(error: Exception) -> str:
+    if isinstance(error, (asyncio.TimeoutError, TimeoutError)):
+        return "TIMED_OUT"
+    if isinstance(error, CallDenied) and any(
+        token in str(error) for token in ("BUDGET", "LANE_EXHAUSTED", "CALL_LIMIT")
+    ):
+        return "BUDGET_EXHAUSTED"
+    if isinstance(error, CallDenied) and str(error) in {"EXECUTION_CLOSING", "EXECUTION_CLOSED"}:
+        return "CANCELLED"
+    return "FAILED"
+
+
+class WriteStage:
+    def __init__(
+        self,
+        model: ModelGateway,
+        tools: ToolGateway,
+        *,
+        genre_names: Mapping[str, str] | None = None,
+        album_names: Mapping[str, str] | None = None,
+    ) -> None:
+        self.model, self.tools = model, tools
+        self.genre_names, self.album_names = genre_names, album_names
+
+    @staticmethod
+    def _version(execution: Execution, form: str) -> str:
+        version = "1.6" if form == "long" else "1.4"
+        return f"{form}_review.v{version}" + (".en" if execution.english else "")
+
+    def start(
+        self,
+        execution: Execution,
+        dossier: AlbumDossier,
+        preferences: dict[str, Any],
+        *,
+        lane: str = "FOREGROUND",
+    ) -> WritingJobs:
+        if (
+            dossier.screening is None
+            or dossier.screening["screen"]["status"] != "OK"
+            or not dossier.qualified
+        ):
+            raise ContractError("ADMISSION_UNVERIFIED")
+        if any(not record.excerpt for record in dossier.qualified):
+            raise ContractError("DOSSIER_TEXT_UNAVAILABLE")
+        # Both tasks exist before either response is available. They share data,
+        # never one another's generated output.
+        return WritingJobs(
+            execution.spawn(lambda: self.short(execution, dossier, preferences, lane=lane)),
+            execution.spawn(lambda: self.long(execution, dossier, preferences, priority=3)),
+        )
+
+    def _input(self, execution, dossier, preferences, records, form):
+        context, _ = preference_context(
+            execution, preferences, genre_names=self.genre_names, album_names=self.album_names
+        )
+        return {
+            **context,
+            "album": dossier.identity,
+            "sources": [
+                {
+                    "ref": record.ref,
+                    "publisher": record.result.receipt["publisher_key"],
+                    "text": f'<source ref="{record.ref}" untrusted>{escape(record.excerpt)}</source>',
+                }
+                for record in records
+            ],
+            "form": form,
+        }
+
+    async def _response(
+        self,
+        execution,
+        dossier,
+        preferences,
+        records,
+        form,
+        lane,
+        purpose,
+        invocation_ids,
+        *,
+        available_sources=(),
+        research_budget=None,
+        priority=0,
+    ):
+        schema = SHORT_SCHEMA if form == "short" else LONG_SCHEMA
+        policy = execution.start["agent_policy"]["writing"]
+        payload = self._input(execution, dossier, preferences, records, form)
+        system = WRITING_PROMPT_EN if execution.english else WRITING_PROMPT
+        if form == "long":
+            payload["available_sources"] = list(available_sources)
+            payload["research_budget"] = research_budget
+            system += LONG_RESEARCH_INSTRUCTION
+        for attempt in range(2):
+            reply = await self.model.generate(
+                execution,
+                role="long_write"
+                if form == "long" and "long_write" in execution.start["model_bindings"]
+                else "write",
+                purpose=purpose if attempt == 0 else "STRUCTURE_REPAIR",
+                system=system,
+                input=payload,
+                output_schema=schema,
+                prompt_version=self._version(execution, form),
+                candidate_id=dossier.candidate_id,
+                read_ids=tuple(record.result.receipt["read_id"] for record in records),
+                lane=lane,
+                priority=priority,
+                timeout_ms=execution.start["agent_policy"]["timing"][
+                    "short_review_tech_timeout_ms" if form == "short" else "long_review_timeout_ms"
+                ],
+            )
+            if reply.invocation_id:
+                invocation_ids.append(reply.invocation_id)
+            if reply.finish == "COMPLETE" and Draft202012Validator(schema).is_valid(reply.output):
+                try:
+                    refs = {record.ref for record in records}
+                    if form == "short":
+                        validate_short(reply.output, refs, policy, english=execution.english)
+                    else:
+                        validate_long(reply.output, refs, policy)
+                    return reply
+                except ContractError:
+                    pass
+            if reply.outcome != "COMPLETED" or reply.finish == "REFUSED":
+                raise ContractError("WRITE_MODEL_FAILED")
+            length_note = ""
+            if form == "long" and isinstance(reply.output, dict):
+                sections = reply.output.get("sections", {})
+                if isinstance(sections, dict):
+                    count = word_count if execution.english else han_count
+                    measured = sum(
+                        count(text) for text in sections.values() if isinstance(text, str)
+                    )
+                    length_note = (
+                        prompts_en.LONG_LENGTH_NOTE.format(measured=measured)
+                        if execution.english
+                        else f"上一条长评正文约{measured}个汉字。请用已有资料将正文写在400至800个汉字内，不凑字数。"
+                    )
+            repair = (
+                prompts_en.WRITE_REPAIR
+                if execution.english
+                else "上一条未通过完整性、字数、引用或结构检查。只用已有资料重写完整输出；不要猜测新事实。"
+            )
+            payload = {
+                **payload,
+                "repair_instruction": length_note
+                + (" " if execution.english and length_note else "")
+                + repair,
+            }
+        raise ContractError("WRITE_INVALID_OUTPUT")
+
+    async def short(
+        self,
+        execution: Execution,
+        dossier: AlbumDossier,
+        preferences: dict[str, Any],
+        *,
+        lane: str = "FOREGROUND",
+    ) -> ShortWriteResult:
+        try:
+            reply = await self._response(
+                execution,
+                dossier,
+                preferences,
+                list(dossier.qualified),
+                "short",
+                lane,
+                "WRITE_SHORT",
+                [],
+            )
+            lookup = {record.ref: record.result.receipt["read_id"] for record in dossier.qualified}
+            return ShortWriteResult(
+                "READY",
+                {
+                    "text": reply.output["text"],
+                    "citations": [
+                        {"marker": ref, "read_id": lookup[ref]} for ref in reply.output["refs"]
+                    ],
+                    "invocation_id": reply.invocation_id,
+                    "prompt_version": self.model.version(self._version(execution, "short"))
+                    if hasattr(self.model, "version")
+                    else self._version(execution, "short"),
+                },
+            )
+        except asyncio.CancelledError:
+            return ShortWriteResult(
+                "CANCELLED",
+                reason_code="SOURCE_REVOKED"
+                if dossier.candidate_id in execution.revoked_candidates
+                else "WRITE_CANCELLED",
+            )
+        except (
+            CallDenied,
+            ContractError,
+            ControlUnavailable,
+            asyncio.TimeoutError,
+            TimeoutError,
+        ) as error:
+            return ShortWriteResult(
+                _status(error),
+                reason_code=str(error)
+                if isinstance(error, (CallDenied, ContractError))
+                else "WRITE_UNAVAILABLE",
+            )
+
+    async def long(
+        self,
+        execution: Execution,
+        dossier: AlbumDossier,
+        preferences: dict[str, Any],
+        *,
+        priority: int = 2,
+    ) -> dict[str, Any]:
+        invocation_ids: list[str] = []
+        extra_ids: list[str] = []
+        result = {
+            "candidate_id": dossier.candidate_id,
+            "status": "FAILED",
+            "sections": None,
+            "citations": [],
+            "han_char_count": 0,
+            "extra_read_ids": extra_ids,
+            "missing_sections": [],
+            "invocation_ids": invocation_ids,
+            "prompt_version": self.model.version(self._version(execution, "long"))
+            if hasattr(self.model, "version")
+            else self._version(execution, "long"),
+            "reason_code": None,
+        }
+        try:
+            return await asyncio.wait_for(
+                self._long_work(execution, dossier, preferences, result, priority),
+                execution.start["agent_policy"]["timing"]["long_review_timeout_ms"] / 1000,
+            )
+        except asyncio.CancelledError:
+            result.update(
+                status="CANCELLED",
+                reason_code="SOURCE_REVOKED"
+                if dossier.candidate_id in execution.revoked_candidates
+                else "LONG_REVIEW_CANCELLED",
+            )
+        except (
+            CallDenied,
+            ContractError,
+            ControlUnavailable,
+            asyncio.TimeoutError,
+            TimeoutError,
+        ) as error:
+            result.update(
+                status=_status(error),
+                reason_code=str(error)
+                if isinstance(error, (CallDenied, ContractError))
+                else "LONG_REVIEW_UNAVAILABLE",
+            )
+        return result
+
+    async def additional_records(self, execution, dossier):
+        return []
+
+    async def _long_work(self, execution, dossier, preferences, result, priority):
+        records = list(dossier.qualified)
+        extra = await self.additional_records(execution, dossier)
+        records.extend(extra)
+        result["extra_read_ids"].extend(r.result.receipt["read_id"] for r in extra)
+        available: dict[str, str] = {}
+        policy = execution.start["agent_policy"]["writing"]
+        turns = min(policy["long_tool_turns"], 2)
+        searches = reads = 0
+        fallback_reason = None
+        for turn in range(turns + 1):
+            reply = await self._response(
+                execution,
+                dossier,
+                preferences,
+                records,
+                "long",
+                "BACKGROUND",
+                "WRITE_LONG" if turn == 0 else "LONG_TOOL_TURN",
+                result["invocation_ids"],
+                available_sources=[
+                    {"url": url, "title": title} for url, title in available.items()
+                ],
+                research_budget={
+                    "turns_remaining": 0 if fallback_reason else turns - turn,
+                    "searches_remaining": 0
+                    if fallback_reason
+                    else policy["long_extra_max_searches"] - searches,
+                    "reads_remaining": 0
+                    if fallback_reason
+                    else policy["long_extra_max_reads"] - reads,
+                },
+                priority=priority,
+            )
+            output = reply.output
+            if output["status"] == "ok":
+                lookup = {record.ref: record.result.receipt["read_id"] for record in records}
+                result.update(
+                    status="READY",
+                    sections=output["sections"],
+                    citations=[{"marker": ref, "read_id": lookup[ref]} for ref in output["refs"]],
+                    han_char_count=sum(han_count(text) for text in output["sections"].values()),
+                    missing_sections=[],
+                    reason_code=None,
+                )
+                return result
+            result.update(
+                status="NEEDS_MORE_RESEARCH",
+                missing_sections=output["missing"],
+                reason_code="REVIEW_MATERIAL_INSUFFICIENT",
+            )
+            requests = output["tool_requests"]
+            if fallback_reason is not None:
+                if fallback_reason == "LONG_RESEARCH_FAILED":
+                    result.update(status="FAILED", reason_code=fallback_reason)
+                return result
+            if turn == turns and (turn or requests):
+                result.update(status="FAILED", reason_code="LONG_RESEARCH_LIMIT_REACHED")
+                return result
+            if not requests:
+                return result
+            progressed = attempted = read_failed = read_succeeded = False
+            for request in requests:
+                if request["tool"] == "web_search":
+                    if request["url"] is not None:
+                        raise ContractError("LONG_TOOL_ARGUMENT_INVALID")
+                    if searches >= policy["long_extra_max_searches"]:
+                        continue
+                    searches += 1
+                    attempted = True
+                    query = f"{dossier.identity['artist_credit']} {dossier.identity['title']} {request['section']} album review"
+                    hits = await self.tools.search(
+                        execution, candidate_id=dossier.candidate_id, query=query, lane="BACKGROUND"
+                    )
+                    for hit in hits:
+                        if hit.url not in available:
+                            available[hit.url] = hit.title
+                            progressed = True
+                else:
+                    url = request["url"]
+                    if url not in available:
+                        raise ContractError("LONG_TOOL_URL_NOT_IN_RESULTS")
+                    if reads >= policy["long_extra_max_reads"]:
+                        continue
+                    reads += 1
+                    attempted = True
+                    read = await self.tools.read(
+                        execution,
+                        candidate_id=dossier.candidate_id,
+                        url=url,
+                        title=dossier.identity["title"],
+                        artist=dossier.identity["artist_credit"],
+                        purpose="LONG_REVIEW_RESEARCH",
+                        priority=priority,
+                    )
+                    if read.receipt["status"] != "READ_OK":
+                        read.clear()
+                        read_failed = True
+                        continue
+                    read_succeeded = True
+                    if (
+                        identity_rejection(read.text, dossier.identity) is not None
+                        or read.receipt["text_chars"]
+                        < execution.start["agent_policy"]["screening"]["min_review_chars"]
+                    ):
+                        read.clear()
+                        continue
+                    record = ReadRecord(
+                        f"R{len(dossier.reads) + 1}",
+                        read,
+                        excerpt(
+                            read.text,
+                            execution.start["agent_policy"]["screening"]["excerpt_token_cap"],
+                        ),
+                        True,
+                    )
+                    read.clear()
+                    dossier.reads.append(record)
+                    records.append(record)
+                    result["extra_read_ids"].append(read.receipt["read_id"])
+                    progressed = True
+            if not progressed:
+                if not attempted:
+                    result.update(status="FAILED", reason_code="LONG_RESEARCH_LIMIT_REACHED")
+                    return result
+                fallback_reason = (
+                    "LONG_RESEARCH_FAILED"
+                    if read_failed and not read_succeeded
+                    else "REVIEW_MATERIAL_INSUFFICIENT"
+                )
+        return result

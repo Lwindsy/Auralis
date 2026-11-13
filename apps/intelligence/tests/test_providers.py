@@ -8,16 +8,16 @@ from pathlib import Path
 
 import httpx
 import pytest
-from auralis_intelligence.agents import CallDenied, Execution
-from auralis_intelligence.contracts import content_digest, validate_definition
-from auralis_intelligence.providers import (
+from auralisy_intelligence.agents import CallDenied, Execution
+from auralisy_intelligence.contracts import content_digest, validate_definition
+from auralisy_intelligence.providers import (
     ModelBinding,
     ModelGateway,
     ModelRequest,
     OpenAIResponsesAdapter,
     ToolGateway,
 )
-from auralis_intelligence.providers.web import (
+from auralisy_intelligence.providers.web import (
     FetchFailure,
     FetchResponse,
     PublicResolver,
@@ -469,8 +469,8 @@ def test_actual_read_extracts_text_and_registers_receipt_after_redirect():
             result.receipt["status"] == "READ_OK"
             and result.receipt["publisher_key"] == "two.example"
         )
-        from auralis_intelligence.contracts import digest
-        from auralis_intelligence.providers.excerpts import excerpt
+        from auralisy_intelligence.contracts import digest
+        from auralisy_intelligence.providers.excerpts import excerpt
 
         assert result.receipt["excerpt_digest"] == digest(excerpt(result.text, 3500))
         assert result.receipt["read_id"] in control.reads
@@ -645,7 +645,7 @@ def test_declared_maximum_execution_id_survives_call_and_receipt_suffixes():
         request = start("e" * 160)
         _, control = setup(request)
         execution = Execution(request, control)
-        from auralis_intelligence.agents import CallResult, Usage
+        from auralisy_intelligence.agents import CallResult, Usage
 
         async def send():
             return CallResult({"score": 4}, usage=Usage(1, 1, 0))
@@ -684,7 +684,7 @@ def test_model_timeout_on_supported_python_310_is_uncertain_and_closed():
 
 
 def test_search_does_not_require_source_license_lookup():
-    from auralis_intelligence.providers.testing import ScriptedModelAdapter, StaticSearchAdapter
+    from auralisy_intelligence.providers.testing import ScriptedModelAdapter, StaticSearchAdapter
 
     async def run():
         execution, control = web_execution()

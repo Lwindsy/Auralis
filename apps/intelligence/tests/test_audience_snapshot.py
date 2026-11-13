@@ -6,12 +6,17 @@ from uuid import UUID
 
 import numpy as np
 import pytest
-from auralis_intelligence.contracts import content_digest, digest
-from auralis_intelligence.recall import WeightConfig, load_a_v2
-from auralis_intelligence.recall.audience import build_snapshot, check_engine, main, verify_snapshot
-from auralis_intelligence.recall.common import dataset_fingerprint
-from auralis_intelligence.recall.io import save_dataset, write_json
-from auralis_intelligence.recall.types import RecallDataset
+from auralisy_intelligence.contracts import content_digest, digest
+from auralisy_intelligence.recall import WeightConfig, load_a_v2
+from auralisy_intelligence.recall.audience import (
+    build_snapshot,
+    check_engine,
+    main,
+    verify_snapshot,
+)
+from auralisy_intelligence.recall.common import dataset_fingerprint
+from auralisy_intelligence.recall.io import save_dataset, write_json
+from auralisy_intelligence.recall.types import RecallDataset
 from scipy import sparse
 
 

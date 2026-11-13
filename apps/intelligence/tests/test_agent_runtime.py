@@ -6,7 +6,7 @@ from copy import deepcopy
 from pathlib import Path
 
 import pytest
-from auralis_intelligence.agents import (
+from auralisy_intelligence.agents import (
     AgentClock,
     CallDenied,
     CallResult,
@@ -14,10 +14,10 @@ from auralis_intelligence.agents import (
     RoundSupervisor,
     Usage,
 )
-from auralis_intelligence.agents.control_double import JavaControlDouble
-from auralis_intelligence.agents.ports import DeliveryPending
-from auralis_intelligence.agents.resources import ServiceResources
-from auralis_intelligence.contracts import (
+from auralisy_intelligence.agents.control_double import JavaControlDouble
+from auralisy_intelligence.agents.ports import DeliveryPending
+from auralisy_intelligence.agents.resources import ServiceResources
+from auralisy_intelligence.contracts import (
     ContractError,
     content_digest,
     digest,

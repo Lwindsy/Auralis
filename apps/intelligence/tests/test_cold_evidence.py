@@ -3,8 +3,8 @@
 import asyncio
 from types import SimpleNamespace
 
-from auralis_intelligence.album_reviews.cold import ColdEvidence
-from auralis_intelligence.providers.types import ReadResult, SearchHit
+from auralisy_intelligence.album_reviews.cold import ColdEvidence
+from auralisy_intelligence.providers.types import ReadResult, SearchHit
 
 
 def test_access_page_does_not_win_race_or_trigger_another_search():
@@ -134,7 +134,7 @@ def test_race_cancels_slow_page_after_usable_body_and_clears_no_hidden_cache():
 def test_audience_filter_is_applied_before_top_count(tmp_path):
     import json
 
-    from auralis_intelligence.recall import Preference, RecallRequest, WeightConfig, load_a_v2
+    from auralisy_intelligence.recall import Preference, RecallRequest, WeightConfig, load_a_v2
 
     path = tmp_path / "snapshot.json"
     path.write_text(

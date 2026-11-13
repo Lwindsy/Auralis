@@ -3,10 +3,10 @@
 import hashlib
 import json
 
-from auralis_intelligence.agents.demo import DemoHarness
-from auralis_intelligence.contracts import validate_definition
-from auralis_intelligence.evaluation.genre_preferences import _case_start, build_plan
-from auralis_intelligence.providers import ModelBinding
+from auralisy_intelligence.agents.demo import DemoHarness
+from auralisy_intelligence.contracts import validate_definition
+from auralisy_intelligence.evaluation.genre_preferences import _case_start, build_plan
+from auralisy_intelligence.providers import ModelBinding
 
 
 def test_preflight_hashes_inputs_and_prices_without_enabling_live_calls(tmp_path):

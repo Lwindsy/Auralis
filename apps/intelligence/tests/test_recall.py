@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 
 import pytest
-from auralis_intelligence.recall import Preference, RecallRequest, WeightConfig, load_a_v2
+from auralisy_intelligence.recall import Preference, RecallRequest, WeightConfig, load_a_v2
 
 APP = Path(__file__).resolve().parents[1]
 FIXTURES = APP / "tests" / "fixtures"
@@ -49,7 +49,7 @@ def invoke(request):
         [
             sys.executable,
             "-m",
-            "auralis_intelligence.recall",
+            "auralisy_intelligence.recall",
             "--snapshot",
             str(SNAPSHOT),
             "--request",

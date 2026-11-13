@@ -7,18 +7,18 @@ from functools import partial
 from pathlib import Path
 
 import pytest
-from auralis_intelligence.agents import CallResult, Execution, Usage
-from auralis_intelligence.agents.control_double import JavaControlDouble
-from auralis_intelligence.contracts import content_digest, validate_definition
-from auralis_intelligence.preferences import (
+from auralisy_intelligence.agents import CallResult, Execution, Usage
+from auralisy_intelligence.agents.control_double import JavaControlDouble
+from auralisy_intelligence.contracts import content_digest, validate_definition
+from auralisy_intelligence.preferences import (
     PreferenceError,
     PreferencesStage,
     ReferenceCatalog,
     merge_preferences,
 )
-from auralis_intelligence.preferences.reference import locate
-from auralis_intelligence.providers import ModelBinding, ModelGateway
-from auralis_intelligence.providers.testing import ScriptedModelAdapter
+from auralisy_intelligence.preferences.reference import locate
+from auralisy_intelligence.providers import ModelBinding, ModelGateway
+from auralisy_intelligence.providers.testing import ScriptedModelAdapter
 from test_agent_runtime import start
 
 FIXTURE = json.loads(

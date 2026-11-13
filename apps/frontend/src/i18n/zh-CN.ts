@@ -3,15 +3,15 @@
 
 const zhCN = {
   meta: {
-    title: "Auralis · 发现下一张专辑",
+    title: "Auralisy · 发现下一张专辑",
     description: "从你的喜欢出发，发现值得完整听一遍的专辑。",
   },
   app: {
     fixture: "契约样例模式 · 合成数据，不是真实推荐服务",
-    home: "Auralis 首页",
+    home: "Auralisy 首页",
     language: "界面语言",
     restoring: "正在恢复你的发现…",
-    offline: "暂时无法连接到 Auralis。",
+    offline: "暂时无法连接到 Auralisy。",
     reconnect: "重新连接",
     refresh: "刷新状态",
     retry: "重试原操作",
@@ -24,7 +24,7 @@ const zhCN = {
         "可能经 OpenAI 处理",
       ],
       more: "详情",
-      full: "无需登录。Cookie 只保存匿名会话凭证。你提交的偏好、文字和推荐记录由 Auralis 保存至最后一次主动操作后 30 天。生成个性化推荐和乐评时，相关输入可能由 OpenAI 处理。",
+      full: "无需登录。Cookie 只保存匿名会话凭证。你提交的偏好、文字和推荐记录由 Auralisy 保存至最后一次主动操作后 30 天。生成个性化推荐和乐评时，相关输入可能由 OpenAI 处理。",
     },
   },
   entry: {

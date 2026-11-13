@@ -1,10 +1,10 @@
 import asyncio
 from types import SimpleNamespace
 
-from auralis_intelligence.album_reviews.batch import BatchWriteStage
-from auralis_intelligence.album_reviews.cold import ColdEvidence
-from auralis_intelligence.album_reviews.types import AlbumDossier, ReadRecord
-from auralis_intelligence.providers.types import ReadResult, SearchHit
+from auralisy_intelligence.album_reviews.batch import BatchWriteStage
+from auralisy_intelligence.album_reviews.cold import ColdEvidence
+from auralisy_intelligence.album_reviews.types import AlbumDossier, ReadRecord
+from auralisy_intelligence.providers.types import ReadResult, SearchHit
 
 
 def test_first_read_returns_while_slow_page_continues_and_long_collects_both():
@@ -127,8 +127,8 @@ def test_discard_unselected_cancels_and_drains_pending_reads():
 
 
 def test_long_generation_receives_first_and_additional_records():
-    from auralis_intelligence.agents import CallResult
-    from auralis_intelligence.album_reviews.writing import WriteStage
+    from auralisy_intelligence.agents import CallResult
+    from auralisy_intelligence.album_reviews.writing import WriteStage
 
     async def run():
         first = ReadRecord("R1", ReadResult({"read_id": "first"}, ""), "first actual excerpt", True)

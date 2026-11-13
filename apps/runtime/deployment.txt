@@ -1,4 +1,7 @@
-Auralis Linux 容器部署
+Auralisy Linux 容器部署
+
+产品显示名为 Auralisy。现有部署继续使用 auralis Compose 项目名、
+原数据库和数据卷、/opt/auralis 与 /etc/auralis 路径及 AURALIS_* 配置。
 
 入口：compose.yml；在仓库根构建 java.Dockerfile、python.Dockerfile、web.Dockerfile。
 前端先运行 npm --prefix apps/frontend ci 和 npm --prefix apps/frontend run build。

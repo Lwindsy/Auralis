@@ -5,16 +5,16 @@ import re
 from copy import deepcopy
 
 import pytest
-from auralis_intelligence.agents import CallResult, Execution, Usage
-from auralis_intelligence.agents.demo import DemoHarness, DemoPages
-from auralis_intelligence.agents.http import ControlHTTPClient, create_control_double_app
-from auralis_intelligence.album_reviews import prompts_en
-from auralis_intelligence.album_reviews.seed_context import SeedContext, SeededPipeline
-from auralis_intelligence.contracts import ContractError, content_digest
-from auralis_intelligence.preferences import PreferencesStage
-from auralis_intelligence.providers import ToolGateway
-from auralis_intelligence.providers.testing import StaticSearchAdapter
-from auralis_intelligence.providers.types import SearchHit
+from auralisy_intelligence.agents import CallResult, Execution, Usage
+from auralisy_intelligence.agents.demo import DemoHarness, DemoPages
+from auralisy_intelligence.agents.http import ControlHTTPClient, create_control_double_app
+from auralisy_intelligence.album_reviews import prompts_en
+from auralisy_intelligence.album_reviews.seed_context import SeedContext, SeededPipeline
+from auralisy_intelligence.contracts import ContractError, content_digest
+from auralisy_intelligence.preferences import PreferencesStage
+from auralisy_intelligence.providers import ToolGateway
+from auralisy_intelligence.providers.testing import StaticSearchAdapter
+from auralisy_intelligence.providers.types import SearchHit
 from test_first_batch import running
 
 
@@ -248,8 +248,8 @@ def test_seed_pipeline_starts_in_parallel_and_drains_on_cancel():
 def test_real_round_continuation_reuses_seed_and_writes_with_same_evidence(tmp_path):
     from dataclasses import replace
 
-    from auralis_intelligence.agents import RoundSupervisor
-    from auralis_intelligence.agents.demo import _reply
+    from auralisy_intelligence.agents import RoundSupervisor
+    from auralisy_intelligence.agents.demo import _reply
 
     async def run():
         h = DemoHarness(scenario="album", root=tmp_path, r=5, k=3, n=1)
@@ -331,13 +331,13 @@ def test_missing_seed_page_is_remembered_and_no_seed_input_never_searches(tmp_pa
 
 
 def test_seeded_batch_and_long_review_use_same_registered_seed(tmp_path):
-    from auralis_intelligence.agents.pipeline import FirstBatchPipeline
-    from auralis_intelligence.album_reviews.batch import (
+    from auralisy_intelligence.agents.pipeline import FirstBatchPipeline
+    from auralisy_intelligence.album_reviews.batch import (
         BatchResearchStage,
         BatchSelectStage,
         BatchWriteStage,
     )
-    from auralis_intelligence.album_reviews.cold import ColdEvidence
+    from auralisy_intelligence.album_reviews.cold import ColdEvidence
 
     async def run():
         h = DemoHarness(scenario="album", root=tmp_path, r=5, k=3, n=3)

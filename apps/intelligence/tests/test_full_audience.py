@@ -4,9 +4,9 @@ import json
 from uuid import UUID
 
 import pytest
-from auralis_intelligence.contracts import content_digest
-from auralis_intelligence.recall import Preference, RecallRequest, WeightConfig, load_a_v2
-from auralis_intelligence.recall.full_audience import FullAudience, matches_policy
+from auralisy_intelligence.contracts import content_digest
+from auralisy_intelligence.recall import Preference, RecallRequest, WeightConfig, load_a_v2
+from auralisy_intelligence.recall.full_audience import FullAudience, matches_policy
 
 
 @pytest.mark.parametrize("minimum", [10, 50, 500])
@@ -98,8 +98,8 @@ def test_java_redirect_proof_preserves_original_rank():
     import asyncio
     from types import SimpleNamespace
 
-    from auralis_intelligence.agents.runtime import Execution
-    from auralis_intelligence.contracts import digest
+    from auralisy_intelligence.agents.runtime import Execution
+    from auralisy_intelligence.contracts import digest
     from test_agent_runtime import start
 
     async def run():

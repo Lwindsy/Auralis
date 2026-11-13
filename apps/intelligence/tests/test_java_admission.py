@@ -7,9 +7,9 @@ from pathlib import Path
 
 import httpx
 import pytest
-from auralis_intelligence.agents.http import create_execution_app
-from auralis_intelligence.contracts import content_digest, envelope, validate_message
-from auralis_intelligence.preferences import merge_preferences
+from auralisy_intelligence.agents.http import create_execution_app
+from auralisy_intelligence.contracts import content_digest, envelope, validate_message
+from auralisy_intelligence.preferences import merge_preferences
 from test_agent_runtime import setup, start
 from test_first_batch import running
 from test_preferences import REFERENCE, proposal, raw

@@ -22,7 +22,7 @@ const review = new LongReviewController(
   () => controller.state,
   () => controller.refresh(),
 );
-const fixture = !!document.querySelector('meta[name="auralis-fixture"]');
+const fixture = !!document.querySelector('meta[name="auralisy-fixture"]');
 
 // A restored discovery reopens in the language it was asked for (until one is picked).
 controller.subscribe(() =>

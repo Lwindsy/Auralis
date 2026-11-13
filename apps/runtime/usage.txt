@@ -1,4 +1,4 @@
-Auralis Windows single-host runtime / Windows 单机运行
+Auralisy Windows single-host runtime / Windows 单机运行
 
 Scope / 范围
 Java and Python run on literal loopback addresses. PostgreSQL runs in a separate,

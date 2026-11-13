@@ -5,10 +5,15 @@ from datetime import datetime, timedelta, timezone
 
 import httpx
 import pytest
-from auralis_intelligence.agents import CallDenied, RoundSupervisor
-from auralis_intelligence.agents.demo import DemoHarness
-from auralis_intelligence.agents.http import create_execution_app
-from auralis_intelligence.contracts import ContractError, content_digest, envelope, validate_message
+from auralisy_intelligence.agents import CallDenied, RoundSupervisor
+from auralisy_intelligence.agents.demo import DemoHarness
+from auralisy_intelligence.agents.http import create_execution_app
+from auralisy_intelligence.contracts import (
+    ContractError,
+    content_digest,
+    envelope,
+    validate_message,
+)
 from test_agent_runtime import setup, start
 from test_first_batch import running
 

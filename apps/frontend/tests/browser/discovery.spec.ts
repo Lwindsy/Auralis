@@ -90,7 +90,7 @@ test("actual fixture HTTP restores via HttpOnly cookie without storing input in 
   const reopened = await context.newPage();
   await visit(reopened);
   await expect(album(reopened, "样例专辑 1")).toBeVisible();
-  await reopened.getByRole("link", { name: "Auralis 首页" }).click();
+  await reopened.getByRole("link", { name: "Auralisy 首页" }).click();
   await expect(reopened.getByLabel("传播度", { exact: true })).toHaveValue(
     "100",
   );
@@ -173,7 +173,7 @@ test("doors widen one at a time; genres group families, show notes and keep mark
   // A press anywhere outside the open door folds it as well.
   await genres.click();
   await expect(genres).toHaveAttribute("aria-expanded", "true");
-  await page.getByRole("heading", { name: "Auralis" }).click();
+  await page.getByRole("heading", { name: "Auralisy" }).click();
   await expect(genres).toHaveAttribute("aria-expanded", "false");
   await expect(genres).toHaveAccessibleName("风格，已选 2");
   await type(page, "温暖的爵士 🎷");
@@ -202,7 +202,7 @@ test("中文／EN switches the whole page in place and sends the language with a
   await page.goto("/");
   // The page opens in English.
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
-  await expect(page).toHaveTitle("Auralis · Find your next album");
+  await expect(page).toHaveTitle("Auralisy · Find your next album");
   await page
     .getByRole("group", { name: "Language" })
     .getByRole("button", { name: "中文" })
@@ -225,7 +225,7 @@ test("中文／EN switches the whole page in place and sends the language with a
   await switcher.getByRole("button", { name: "English" }).click();
   // Same page, same state: only its words change.
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
-  await expect(page).toHaveTitle("Auralis · Find your next album");
+  await expect(page).toHaveTitle("Auralisy · Find your next album");
   const privacyEn = page.getByRole("contentinfo", { name: "Privacy" });
   await expect(privacyEn).toContainText("May be processed by OpenAI");
   await privacyEn.getByRole("button", { name: "Details" }).click();
@@ -321,7 +321,7 @@ test("English layout fits on a phone", async ({ page, context }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "English" }).click();
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
-  await page.getByRole("link", { name: "Auralis home" }).click();
+  await page.getByRole("link", { name: "Auralisy home" }).click();
   await expect(
     page.getByRole("button", { name: "Start discovering" }),
   ).toBeVisible();
@@ -1373,7 +1373,7 @@ test("visual baselines for start page, room and mobile", async ({
   await expect(album(page, "样例专辑 1")).toBeVisible();
   await page.waitForTimeout(1200);
   await page.screenshot({ path: "test-results/room.png" });
-  await page.getByRole("link", { name: "Auralis 首页" }).click();
+  await page.getByRole("link", { name: "Auralisy 首页" }).click();
   await page.waitForTimeout(1600);
   await page.screenshot({ path: "test-results/entry.png" });
   await page.setViewportSize({ width: 390, height: 844 });
